@@ -6,6 +6,9 @@ import dotenv from 'dotenv';
 import { prisma } from './lib/prisma';
 import { errorHandler } from './middlewares/error.middleware'
 
+import authRouter from './routers/auth.router';
+import casesRouter from './routers/cases.router'
+
 dotenv.config();
 
 const app = express();
@@ -38,16 +41,8 @@ app.get('/health', (req, res) => {
   });
 });
 
-// example api to get users from database
-app.get('/api/v2/users', async (req: any, res: any) => {
-  try {
-    const users = await prisma.user.findMany();
-    return res.status(200).json(users);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Internal server error.' });
-  }
-});
+// app.use('/auth', authRouter);
+app.use('/cases', casesRouter);
 
 // handle all known error and avoid 500 error
 app.use(errorHandler);
