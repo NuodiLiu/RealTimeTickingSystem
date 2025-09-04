@@ -13,3 +13,76 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// prisma/schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum CaseStatus {
+  QUEUED
+  IN_PROGRESS
+  RESOLVED
+}
+
+model Staff {
+  id       String  @id @default(cuid())
+  name     String
+  email    String  @unique
+  password String  // for MVP; replace with SSO later
+  cases    StudentCase[]
+  feedback Feedback[]
+}
+
+model StudentCase {
+  id           String     @id @default(cuid())
+  studentName  String
+  category     String
+  status       CaseStatus @default(QUEUED)
+  staffId      String?    // nullable until taken
+  staff        Staff?     @relation(fields: [staffId], references: [id])
+  createdAt    DateTime   @default(now())
+  resolvedAt   DateTime?
+
+  feedback     Feedback[]
+  tokens       FeedbackToken[]
+
+  @@index([status])
+  @@index([staffId])
+  @@index([createdAt])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  caseId    String
+  staffId   String
+  rating    Int      // 1..5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  case      StudentCase @relation(fields: [caseId], references: [id])
+  staff     Staff       @relation(fields: [staffId], references: [id])
+
+  @@index([caseId])
+  @@index([staffId])
+}
+
+model FeedbackToken {
+  token     String   @id  // cryptographically random, URL-safe
+  // Optional but practical: allow short numeric code for manual entry
+  shortCode String?  @unique
+  caseId    String
+  staffId   String
+  expireAt  DateTime
+  used      Boolean  @default(false)
+
+  case      StudentCase @relation(fields: [caseId], references: [id])
+  staff     Staff       @relation(fields: [staffId], references: [id])
+
+  @@index([expireAt, used])
+}
+
