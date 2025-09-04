@@ -22,12 +22,48 @@ enum CaseStatus {
 
 model Staff {
   id       String          @id @default(cuid())
+  employeeNo  String   @unique 
   name     String
   email    String          @unique
   password String // for MVP; replace with SSO later
   cases    StudentCase[]
   feedback Feedback[]
   tokens   FeedbackToken[]
+  idp         IdpAccount?
+}
+
+enum StaffRole { STAFF ADMIN }
+
+model Invite {
+  id           String   @id @default(cuid())
+  tokenHash    String                                
+  createdById  String
+  createdBy    Staff    @relation("StaffCreatedInvites", fields: [createdById], references: [id])
+  expiresAt    DateTime
+  usedAt       DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  staffId      String
+  staff        Staff    @relation(fields: [staffId], references: [id])
+  refreshHash  String                                
+  ua           String?
+  ip           String?
+  createdAt    DateTime @default(now())
+  lastUsedAt   DateTime @default(now())
+  expiresAt    DateTime                              
+  revokedAt    DateTime?
+}
+
+model IdpAccount {
+  id         String @id @default(cuid())
+  staffId    String @unique
+  staff      Staff  @relation(fields: [staffId], references: [id])
+  provider   String // "azuread" | "saml" | ...
+  subject    String // idp sub
 }
 
 model StudentCase {
