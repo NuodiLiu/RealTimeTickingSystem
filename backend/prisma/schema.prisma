@@ -30,6 +30,7 @@ model Staff {
   feedback Feedback[]
   tokens   FeedbackToken[]
   idp         IdpAccount?
+  role       StaffRole    @default(STAFF)   
 }
 
 enum StaffRole { STAFF ADMIN }
