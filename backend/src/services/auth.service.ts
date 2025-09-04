@@ -56,8 +56,9 @@ export class AuthService {
         });
 
         // create access token
+        const staff = await prisma.staff.findUnique({ where: { id: staffId } });
         const accessToken = jwt.sign(
-            { sub: staffId, role: "STAFF" },
+            { sub: staffId, role: staff?.role ?? "STAFF" },
             process.env.JWT_SECRET!,
             { expiresIn: "15m" }
         );
