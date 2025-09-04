@@ -1,0 +1,40 @@
+import { CasesService } from '../services/cases.service'
+
+export class CasesController {
+    static async getQueuedCases(req: any, res: any, next: any) {
+        try {
+            const cases = await CasesService.getQueuedCases(req.query.status);
+            res.status(200).json(cases);
+          } catch (err) {
+            next(err);
+          }
+    }
+
+    static async postCase(req: any, res: any, next: any) {
+        try {
+            const created = await CasesService.postCase(req.body);
+            res.status(201).json(created);
+        } catch (err) {
+            next(err);
+        }
+    }
+
+    static async takeCase(req: any, res: any, next: any) {
+        try {
+          const taken = await CasesService.takeCase(req.params.id, req.user.id);
+          res.status(200).json(taken);
+        } catch (err) {
+          next(err);
+        }
+      }
+    
+      static async resolveCase(req: any, res: any, next: any) {
+        try {
+          const updated = await CasesService.resolveCase(req.params.id);
+          res.status(200).json(updated);
+        } catch (err) {
+          next(err);
+        }
+      }
+
+}

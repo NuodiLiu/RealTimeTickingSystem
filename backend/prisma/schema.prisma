@@ -76,3 +76,44 @@ model FeedbackToken {
 
   @@index([expireAt, used])
 }
+
+model KioskDevice {
+  id            String     @id @default(cuid())
+  name          String     // e.g. "Front Desk iPad 1"
+  secretHash    String     // Device pairing secret (store hash after one-time pairing/QR)
+  status        String     @default("IDLE") // IDLE | BUSY | OFFLINE
+  lastSeenAt    DateTime   @default(now())
+
+  // Current lock (nullable; set when BUSY)
+  currentLockId String?
+  currentLock   KioskLock? @relation(fields: [currentLockId], references: [id])
+
+  @@index([status])
+  @@index([lastSeenAt])
+}
+
+model KioskLock {
+  id            String       @id @default(cuid())
+  deviceId      String
+  device        KioskDevice  @relation(fields: [deviceId], references: [id])
+
+  // Who initiated the lock
+  staffId       String
+  staff         Staff        @relation(fields: [staffId], references: [id])
+
+  // Business context bound to this lock
+  caseId        String
+  case          StudentCase  @relation(fields: [caseId], references: [id])
+
+  // Exactly one active lock per device at a time
+  active        Boolean      @default(true)
+
+  // Lock lease (heartbeat + expiry)
+  leaseExpireAt DateTime
+
+  createdAt     DateTime     @default(now())
+  releasedAt    DateTime?
+
+  @@index([deviceId, active])
+  @@index([leaseExpireAt])
+}
