@@ -4,7 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { prisma } from './lib/prisma';
-import { errorHandler } from './middlewares/error.middleware';
+import { errorHandler } from './middlewares/error.middleware'
 
 dotenv.config();
 
@@ -27,7 +27,7 @@ app.use(
   cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3001',
     credentials: true,
-  }),
+  })
 );
 
 // health check api
