@@ -3,20 +3,13 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import despatchRouter from './routes/despatch.router';
 import { prisma } from './lib/prisma';
-import { authenticateToken } from './middlewares/auth.middleware';
-import authRouter from './routes/auth.router';
 import { errorHandler } from './middlewares/error.middleware';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const YAML = require('yamljs');
-const path = require('path');
-const swaggerUi = require('swagger-ui-express');
-
 
 // Make Express trust proxies
 app.set('trust proxy', 1);
@@ -55,12 +48,6 @@ app.get('/api/v2/users', async (req: any, res: any) => {
     return res.status(500).json({ error: 'Internal server error.' });
   }
 });
-
-app.use('/api/v2/despatch', authenticateToken, despatchRouter);
-app.use('/api/v2/auth', authRouter);
-
-const swaggerDocument = YAML.load(path.join(__dirname, '../openapi-4.yaml'));
-app.use('/', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // handle all known error and avoid 500 error
 app.use(errorHandler);
