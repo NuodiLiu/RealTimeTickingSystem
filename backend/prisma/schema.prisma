@@ -80,9 +80,8 @@ model StudentCase {
   feedback Feedback[]
   tokens   FeedbackToken[]
 
-  @@index([status])
+  @@index([status, createdAt])
   @@index([staffId])
-  @@index([createdAt])
 }
 
 model Feedback {

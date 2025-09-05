@@ -56,3 +56,13 @@ export class MissingFieldError extends BadRequestError {
     this.name = 'MissingFieldError';
   }
 }
+
+export class ConflictError extends Error {
+  statusCode: number;
+
+  constructor(message = "Conflict") {
+    super(message);
+    this.name = "ConflictError";
+    this.statusCode = 409;
+  }
+}
