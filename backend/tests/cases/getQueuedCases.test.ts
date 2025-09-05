@@ -1,9 +1,9 @@
 // tests for getQueuedCases.ts
 
-import { CasesController } from "../src/controllers/cases.controller";
-import { CasesService } from "../src/services/cases.service";
+import { CasesController } from "../../src/controllers/cases.controller";
+import { CasesService } from "../../src/services/cases.service";
 
-jest.mock('../src/services/cases.service');
+jest.mock('../../src/services/cases.service');
 
 const mockCaseService = CasesService as jest.Mocked<typeof CasesService>;
 
@@ -119,12 +119,13 @@ describe('CasesController.getQueuedCases', () => {
     it('should call next with error when serivce throws', async () => {
 
         const error = new Error('Database connection failed');
+        mockCaseService.getQueuedCases.mockRejectedValue(error);
         await CasesController.getQueuedCases(mockReq, mockRes, mockNext);
 
         // expect(mockCaseService.getQueuedCases).toHaveBeenCalledWith('in_progress');
         expect(mockNext).toHaveBeenCalledWith(error);
         expect(mockRes.status).not.toHaveBeenCalled();
-        expect(mockRes.json).toHaveBeenCalled();
+        expect(mockRes.json).not.toHaveBeenCalled();
     });
 
     it('should handle invalid status query parameter', async () => {
