@@ -16,12 +16,12 @@ module.exports = {
   ],
   coverageReporters: ['json', 'lcov', 'text', 'clover'],
   testTimeout: 30000,
-  roots: ['<rootDir>/src'],
+  roots: ['<rootDir>/src', '<rootDir>/tests'],
   transform: {
     '^.+\\.tsx?$': 'ts-jest',
   },
   testMatch: [
-    '**/tests/*.test.ts',
+    '**/*.test.ts',
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   verbose: true,
