@@ -52,12 +52,10 @@ export function requireAdminOrOwner(getOwnerId: (req: Request) => Promise<string
 }
 
 export function requireRole(role: "ADMIN" | "STAFF") {
-  return (req: Request, _res: Response, next: NextFunction) => {
-    if (!req.user) throw new AuthError("Unauthorized", 401);
-
-    const current = req.user.role;
-    if (current !== role) throw new AuthError("Forbidden", 403);
-
+  return function (req: any , res: any, next: any) {
+    if (!req.user || req.user.role !== role) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     next();
   };
 }
