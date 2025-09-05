@@ -1,7 +1,7 @@
 // error.middleware.ts
 import type { ErrorRequestHandler } from 'express';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { AuthError, BadRequestError, DatabaseError, InvalidObjectIdError, MissingFieldError, NotFoundError } from '../error';
+import { AuthError, BadRequestError, ConflictError, DatabaseError, InvalidObjectIdError, MissingFieldError, NotFoundError } from '../error';
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next): void => {
   console.error(err);
@@ -39,7 +39,10 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next): void =
     res.status(err.statusCode || 401).json({ error: err.message });
     return;
   }
-
+  if (err instanceof ConflictError) {
+    res.status(409).json({ error: err.message });
+    return;
+  }
 
   // For any unknown or unhandled errors
   res.status(400).json({ error: 'An unknown error occurred' });

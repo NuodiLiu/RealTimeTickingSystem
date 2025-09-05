@@ -62,10 +62,5 @@ export function requireRole(role: "ADMIN" | "STAFF") {
   };
 }
 
-export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
-  if (!req.user) throw new AuthError("Unauthorized", 401);
-  if (req.user.role !== "ADMIN") {
-    throw new AuthError("Admin only", 403);
-  }
-  next();
-}
+export const requireStaff = requireRole("STAFF");
+export const requireAdmin = requireRole("ADMIN");

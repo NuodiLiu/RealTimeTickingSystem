@@ -30,10 +30,17 @@ model Staff {
   feedback Feedback[]
   tokens   FeedbackToken[]
   idp         IdpAccount?
-  role       StaffRole    @default(STAFF)   
+  role       StaffRole    @default(STAFF)
+
+  createdInvites Invite[]     @relation("StaffCreatedInvites")
+  sessions       Session[]
+  kioskLocks     KioskLock[]
 }
 
-enum StaffRole { STAFF ADMIN }
+enum StaffRole { 
+  STAFF 
+  ADMIN 
+}
 
 model Invite {
   id           String   @id @default(cuid())
@@ -80,9 +87,10 @@ model StudentCase {
   feedback Feedback[]
   tokens   FeedbackToken[]
 
-  @@index([status])
+  kioskLocks  KioskLock[]
+
+  @@index([status, createdAt])
   @@index([staffId])
-  @@index([createdAt])
 }
 
 model Feedback {
@@ -116,14 +124,15 @@ model FeedbackToken {
 
 model KioskDevice {
   id            String     @id @default(cuid())
-  name          String     // e.g. "Front Desk iPad 1"
-  secretHash    String     // Device pairing secret (store hash after one-time pairing/QR)
-  status        String     @default("IDLE") // IDLE | BUSY | OFFLINE
+  name          String
+  secretHash    String
+  status        String     @default("IDLE")
   lastSeenAt    DateTime   @default(now())
 
-  // Current lock (nullable; set when BUSY)
-  currentLockId String?
-  currentLock   KioskLock? @relation(fields: [currentLockId], references: [id])
+  locks         KioskLock[] @relation("DeviceLocks")
+
+  currentLockId String?     @unique
+  currentLock   KioskLock?  @relation("DeviceCurrentLock", fields: [currentLockId], references: [id])
 
   @@index([status])
   @@index([lastSeenAt])
@@ -131,14 +140,15 @@ model KioskDevice {
 
 model KioskLock {
   id            String       @id @default(cuid())
-  deviceId      String
-  device        KioskDevice  @relation(fields: [deviceId], references: [id])
 
-  // Who initiated the lock
+  deviceId      String
+  device        KioskDevice  @relation("DeviceLocks", fields: [deviceId], references: [id])
+
+  currentOfDevice KioskDevice? @relation("DeviceCurrentLock")
+
   staffId       String
   staff         Staff        @relation(fields: [staffId], references: [id])
 
-  // Business context bound to this lock
   caseId        String
   case          StudentCase  @relation(fields: [caseId], references: [id])
 
