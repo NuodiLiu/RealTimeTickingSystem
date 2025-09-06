@@ -3,6 +3,19 @@
 import { CasesController } from "../../src/controllers/cases.controller";
 import { CasesService } from "../../src/services/cases.service";
 
+
+jest.mock('../../src/lib/prisma', () => ({
+    prisma: {
+        case: {
+            findMany: jest.fn(),
+            create: jest.fn(),
+            update: jest.fn(),
+            findFirst: jest.fn(),
+        }
+    }
+}));
+
+
 jest.mock('../../src/services/cases.service');
 
 const mockCaseService = CasesService as jest.Mocked<typeof CasesService>;

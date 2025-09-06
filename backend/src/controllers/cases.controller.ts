@@ -1,3 +1,4 @@
+import { BadRequestError } from '../error';
 import { CasesService } from '../services/cases.service'
 
 export class CasesController {
@@ -21,6 +22,10 @@ export class CasesController {
 
   static async takeCase(req: any, res: any, next: any) {
     try {
+      if (!req.user || !req.user.id) {
+        throw new BadRequestError('User authentication required');
+      }
+      
       const taken = await CasesService.takeCase(req.params.id, req.user.id);
       res.status(200).json(taken);
     } catch (err) {
@@ -30,6 +35,10 @@ export class CasesController {
 
   static async takeNextCase(req: any, res: any, next: any) {
     try {
+      if (!req.user || !req.user.id) {
+        throw new BadRequestError('User authentication required');
+      }
+
       const taken = await CasesService.takeNextCase(req.user.id);
       res.status(200).json(taken);
     } catch (err) {
