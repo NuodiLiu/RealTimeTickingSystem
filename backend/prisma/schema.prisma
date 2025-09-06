@@ -126,7 +126,6 @@ model KioskDevice {
   id            String     @id @default(cuid())
   name          String
   secretHash    String
-  status        String     @default("IDLE")
   lastSeenAt    DateTime   @default(now())
 
   locks         KioskLock[] @relation("DeviceLocks")
@@ -134,8 +133,11 @@ model KioskDevice {
   currentLockId String?     @unique
   currentLock   KioskLock?  @relation("DeviceCurrentLock", fields: [currentLockId], references: [id])
 
+  pairingSessions PairingSession[]
+
   @@index([status])
   @@index([lastSeenAt])
+
 }
 
 model KioskLock {
@@ -163,4 +165,23 @@ model KioskLock {
 
   @@index([deviceId, active])
   @@index([leaseExpireAt])
+}
+
+// Temporary pairing sessions for QR code flow
+model PairingSession {
+  id           String   @id @default(cuid())
+  pairingToken String   @unique // One-time token in QR code
+  
+  // Links to the KioskDevice that will be created/updated
+  deviceId     String?  // Set after successful pairing
+  device       KioskDevice? @relation(fields: [deviceId], references: [id])
+  
+  status       String   @default("PENDING") // PENDING, COMPLETED, EXPIRED
+  expiresAt    DateTime // Short expiry (5 minutes)
+  
+  createdAt    DateTime @default(now())
+  completedAt  DateTime?
+
+  @@index([pairingToken])
+  @@index([expiresAt])
 }
