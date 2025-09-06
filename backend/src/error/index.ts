@@ -21,11 +21,18 @@ export class DatabaseError extends Error {
 
 export class AuthError extends Error {
   statusCode: number;
-
+  
   constructor(message = 'Authentication error', statusCode = 401) {
     super(message);
     this.name = 'AuthError';
     this.statusCode = statusCode;
+  }
+}
+
+export class ForbiddenError extends AuthError {
+  constructor(message = 'Forbidden') {
+    super(message, 403);
+    this.name = 'ForbiddenError';
   }
 }
 
