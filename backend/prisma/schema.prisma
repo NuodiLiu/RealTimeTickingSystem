@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
@@ -17,34 +11,60 @@ datasource db {
 enum CaseStatus {
   QUEUED
   IN_PROGRESS
+  RESOLVED_PENDING_FEEDBACK
   RESOLVED
 }
 
-model Staff {
-  id       String          @id @default(cuid())
-  employeeNo  String   @unique 
-  name     String
-  email    String          @unique
-  password String // for MVP; replace with SSO later
-  cases    StudentCase[]
-  feedback Feedback[]
-  tokens   FeedbackToken[]
-  idp         IdpAccount?
-  role       StaffRole    @default(STAFF)
-
-  createdInvites Invite[]     @relation("StaffCreatedInvites")
-  sessions       Session[]
-  kioskLocks     KioskLock[]
+enum StaffRole {
+  STAFF
+  ADMIN
 }
 
-enum StaffRole { 
-  STAFF 
-  ADMIN 
+enum DeviceMode {
+  REGISTRATION
+  FEEDBACK
+  DUAL
+}
+
+enum LockStatus {
+  ACTIVE
+  OVERRIDDEN
+  COMPLETED
+  EXPIRED
+}
+
+enum FeedbackSessionStatus {
+  CREATED
+  DELIVERED
+  SUBMITTED
+  OVERRIDDEN
+  CANCELLED
+  EXPIRED
+}
+
+model Staff {
+  id               String        @id @default(cuid())
+  employeeNo       String        @unique
+  name             String
+  email            String        @unique
+  password         String
+  role             StaffRole     @default(STAFF)
+
+  cases            StudentCase[]
+  feedback         Feedback[]
+  idp              IdpAccount?
+
+  createdInvites   Invite[]      @relation("StaffCreatedInvites")
+  sessions         Session[]
+  kioskLocks       KioskLock[]
+  feedbackSessions FeedbackSession[] @relation("StaffFeedbackSessions")
+
+  createdAt        DateTime      @default(now())
 }
 
 model Invite {
   id           String   @id @default(cuid())
-  tokenHash    String                                
+  tokenHash    String
   createdById  String
   createdBy    Staff    @relation("StaffCreatedInvites", fields: [createdById], references: [id])
   expiresAt    DateTime
@@ -57,12 +77,12 @@ model Session {
   id           String   @id @default(cuid())
   staffId      String
   staff        Staff    @relation(fields: [staffId], references: [id])
-  refreshHash  String                                
+  refreshHash  String
   ua           String?
   ip           String?
   createdAt    DateTime @default(now())
   lastUsedAt   DateTime @default(now())
-  expiresAt    DateTime                              
+  expiresAt    DateTime
   revokedAt    DateTime?
 }
 
@@ -70,8 +90,8 @@ model IdpAccount {
   id         String @id @default(cuid())
   staffId    String @unique
   staff      Staff  @relation(fields: [staffId], references: [id])
-  provider   String // "azuread" | "saml" | ...
-  subject    String // idp sub
+  provider   String
+  subject    String
 }
 
 model StudentCase {
@@ -79,15 +99,16 @@ model StudentCase {
   studentName String
   category    String
   status      CaseStatus @default(QUEUED)
-  staffId     String? // nullable until taken
+
+  staffId     String?
   staff       Staff?     @relation(fields: [staffId], references: [id])
+
   createdAt   DateTime   @default(now())
   resolvedAt  DateTime?
 
-  feedback Feedback[]
-  tokens   FeedbackToken[]
-
+  feedback    Feedback[]
   kioskLocks  KioskLock[]
+  feedbackSessions FeedbackSession[] @relation("CaseFeedbackSessions")
 
   @@index([status, createdAt])
   @@index([staffId])
@@ -95,37 +116,23 @@ model StudentCase {
 
 model Feedback {
   id        String   @id @default(cuid())
-  caseId    String
+  caseId    String   @unique           // 一 case 一条反馈（关键约束）
   staffId   String
-  rating    Int // 1..5
+  rating    Int
   comment   String?
   createdAt DateTime @default(now())
 
   case  StudentCase @relation(fields: [caseId], references: [id])
   staff Staff       @relation(fields: [staffId], references: [id])
 
-  @@index([caseId])
   @@index([staffId])
-}
-
-model FeedbackToken {
-  token     String   @id // cryptographically random, URL-safe
-  shortCode String?  @unique
-  caseId    String
-  staffId   String
-  expireAt  DateTime
-  used      Boolean  @default(false)
-
-  case  StudentCase @relation(fields: [caseId], references: [id])
-  staff Staff       @relation(fields: [staffId], references: [id])
-
-  @@index([expireAt, used])
 }
 
 model KioskDevice {
   id            String     @id @default(cuid())
   name          String
   secretHash    String
+  mode          DeviceMode @default(DUAL)  // 设备职责
   lastSeenAt    DateTime   @default(now())
 
   locks         KioskLock[] @relation("DeviceLocks")
@@ -135,7 +142,10 @@ model KioskDevice {
 
   pairingSessions PairingSession[]
 
-  @@index([status])
+  // reverse relation for grammer requirement
+  feedbackSessions FeedbackSession[] @relation("DeviceFeedbackSessions")
+
+  @@index([mode])
   @@index([lastSeenAt])
 
 }
@@ -154,25 +164,52 @@ model KioskLock {
   caseId        String
   case          StudentCase  @relation(fields: [caseId], references: [id])
 
-  // Exactly one active lock per device at a time
-  active        Boolean      @default(true)
+  // 仅用 status 表达锁态
+  status        LockStatus   @default(ACTIVE)
+  version       Int          @default(1)    // 乐观并发版本
 
-  // Lock lease (heartbeat + expiry)
+  // 心跳租约
   leaseExpireAt DateTime
 
   createdAt     DateTime     @default(now())
   releasedAt    DateTime?
 
-  @@index([deviceId, active])
+  @@index([deviceId, status])
   @@index([leaseExpireAt])
+  @@index([caseId])
 }
+
+model FeedbackSession {
+  id           String   @id @default(cuid())
+
+  caseId       String
+  case         StudentCase @relation("CaseFeedbackSessions", fields: [caseId], references: [id])
+
+  staffId      String
+  staff        Staff       @relation("StaffFeedbackSessions", fields: [staffId], references: [id])
+
+  deviceId     String
+  device       KioskDevice @relation("DeviceFeedbackSessions", fields: [deviceId], references: [id])
+
+  status       FeedbackSessionStatus @default(CREATED)
+  createdAt    DateTime @default(now())
+  deliveredAt  DateTime?
+  submittedAt  DateTime?
+  overriddenAt DateTime?
+  cancelledAt  DateTime?
+  expireAt     DateTime?
+
+  @@index([deviceId, status, createdAt])
+  @@index([caseId])
+  @@index([staffId])
+}
+
 
 // Temporary pairing sessions for QR code flow
 model PairingSession {
   id           String   @id @default(cuid())
   pairingToken String   @unique // One-time token in QR code
   
-  // Links to the KioskDevice that will be created/updated
   deviceId     String?  // Set after successful pairing
   device       KioskDevice? @relation(fields: [deviceId], references: [id])
   
