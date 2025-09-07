@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { requireAuth } from "../middlewares/auth.middleware";
+import { requireAuth, requireDevice, requireStaff } from "../middlewares/auth.middleware";
 import { FeedbackController } from "../controllers/feedback.controller";
 
 const router = Router();
 
-router.post("/send", requireAuth, FeedbackController.sendFeedback);
-router.post("/override", requireAuth, FeedbackController.overrideFeedback);
-router.post("/submit", FeedbackController.submitFeedback); // needs to add JWT auth from device
+router.post("/send", requireStaff, FeedbackController.sendFeedback);
+router.post("/override", requireStaff, FeedbackController.overrideFeedback);
+router.post("/submit", requireDevice, FeedbackController.submitFeedback);
 
 export default router;

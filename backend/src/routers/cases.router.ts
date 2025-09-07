@@ -1,10 +1,10 @@
 import { CasesController } from "../controllers/cases.controller";
 import { Router } from "express";
-import { requireStaff } from "../middlewares/auth.middleware";
+import { requireDevice, requireStaff } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-router.post("/", CasesController.postCase);
+router.post("/", requireDevice, CasesController.postCase);
 
 // Staff: list cases by status (?status=queued|in_progress|resolved)
 router.get("/", requireStaff, CasesController.getQueuedCases);

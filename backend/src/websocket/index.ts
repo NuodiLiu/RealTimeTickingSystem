@@ -4,7 +4,7 @@ import { verifyDeviceHandshake } from "./auth";
 import { prisma } from "../lib/prisma";
 import { addLeaseSeconds } from "./lease";
 
-// —— 可选：Origin 白名单（与你 ws 版一致）——
+// origin url white list
 function checkOrigin(origin?: string): boolean {
   if (!origin) return true;
   const allowed = process.env.FRONTEND_URL;

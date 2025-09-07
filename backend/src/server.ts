@@ -13,6 +13,7 @@ import { errorHandler } from "./middlewares/error.middleware";
 
 import { DeviceGateway } from "./websocket/deviceSocket";
 import { bindRealtime } from "./websocket";
+import deviceRouter from "./routers/device.router";
 
 dotenv.config();
 
@@ -39,15 +40,16 @@ app.use(
 app.use("/auth", authRouter);
 app.use("/cases", casesRouter);
 app.use("/pair", pairRouter);
+app.use("/devices", deviceRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);
 
-// ✅ 用 Socket.IO 初始化 & 绑定
+// Socket.IO init and bind
 const io = DeviceGateway.init(server);
 bindRealtime(io);
 
-// ✅ /health 基于 room 统计在线设备（房间名形如 device:{deviceId}）
+// /health 基于 room 统计在线设备（房间名形如 device:{deviceId}）
 app.get("/health", (_req, res) => {
   const rooms = DeviceGateway.io().of("/").adapter.rooms; // Map<string, Set<SocketId>>
   const onlineDeviceIds: string[] = [];
@@ -59,12 +61,7 @@ app.get("/health", (_req, res) => {
     }
   }
 
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    connectedDevices: onlineDeviceIds.length,
-    onlineDeviceIds,
-  });
+  res.json({ status: "ok", timestamp: new Date().toISOString(), connectedDevices: onlineDeviceIds.length, onlineDeviceIds});
 });
 
 // Only listen when not in test mode / serverless
