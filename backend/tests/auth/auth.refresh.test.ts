@@ -5,8 +5,8 @@ import cookieParser from 'cookie-parser';
 import crypto from 'crypto';
 
 // === 如果你使用路径别名 "@/..."，确保在 jest.config 里配了 moduleNameMapper ===
-import { AuthController } from '../src/controllers/auth.controller';
-import { AuthService } from '../src/services/auth.service';
+import { AuthController } from '../../src/controllers/auth.controller';
+import { AuthService } from '../../src/services/auth.service';
 
 // ---- mock prisma（供 AuthService 使用）----
 const findFirst = jest.fn();
