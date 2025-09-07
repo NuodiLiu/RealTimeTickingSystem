@@ -1,10 +1,10 @@
 import request from 'supertest';
 import crypto from 'crypto';
-import app from '../src/server';
+import app from '../../src/server';
 
 // —— 按你的风格：mock prisma ——
 // 只需要 invite.create 就够了；如果其它测试文件也会用到，这里可以加更多 model。
-jest.mock('../src/lib/prisma', () => ({
+jest.mock('../../src/lib/prisma', () => ({
   prisma: {
     invite: {
       create: jest.fn(),
@@ -14,20 +14,25 @@ jest.mock('../src/lib/prisma', () => ({
 
 // —— 该路由需要认证：mock 掉 requireAuth，直接注入 req.user ——
 // 路由层面的“已登录”效果，避免依赖 JWT。
-jest.mock('../src/middlewares/auth.middleware', () => {
+jest.mock('../../src/middlewares/auth.middleware', () => {
   const injectUser = (req: any, _res: any, next: any) => {
     req.user = { id: 'user-123', role: 'ADMIN', employeeNo: 'E001' };
+    next();
+  };
+  const injectDevice = async (req: any, _res: any, next: any) => {
+    req.device = { deviceId: 'dev-1', device: { id: 'dev-1', name: 'mock device' } };
     next();
   };
   return {
     requireAuth: injectUser,
     requireStaff: injectUser,
     requireAdmin: injectUser,
+    requireDevice: injectDevice,
   };
 });
 
 // 取到被 mock 的 prisma
-import { prisma } from '../src/lib/prisma';
+import { prisma } from '../../src/lib/prisma';
 
 describe('POST /auth/invites', () => {
   const ORIGINAL_ENV = process.env;

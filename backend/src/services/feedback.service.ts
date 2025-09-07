@@ -12,8 +12,7 @@ import {
   computeTimes, createSessionTx, createLockTx, casBindCurrentLock, markCasePendingIfNeeded,
   preconditionFailed, clearDevicePointerToLock, overrideOldLockTx, overrideActiveSessionsOnDevice,
 } from "./utils/feedback.utils";
-
-import { DeviceGateway } from "../lib/device-gateway";
+import { DeviceGateway } from "../websocket/deviceSocket";
 
 export type SendFeedbackArgs = { caseId: string; deviceId: string; staffId: string };
 export type OverrideFeedbackArgs = {

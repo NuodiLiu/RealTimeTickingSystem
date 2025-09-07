@@ -6,7 +6,7 @@ const mf = <T extends (...args: any[]) => any>(fn: T) =>
   fn as unknown as MockedFunction<T>;
 
 // 1) 先 mock 依赖
-jest.mock('../src/lib/prisma', () => ({
+jest.mock('../../src/lib/prisma', () => ({
   prisma: {
     staff: {
       findUnique: jest.fn(),
@@ -14,7 +14,7 @@ jest.mock('../src/lib/prisma', () => ({
   },
 }));
 
-jest.mock('../src/services/auth.service', () => {
+jest.mock('../../src/services/auth.service', () => {
   return {
     AuthService: {
       // 先给一个默认 resolvedValue；具体用例里会用 mockImplementation 覆盖
@@ -29,9 +29,9 @@ jest.mock('../src/services/auth.service', () => {
 
 // 2) 再导入 app 与被 mock 的实例
 import request from 'supertest';
-import app from '../src/server';
-import { prisma } from '../src/lib/prisma';
-import { AuthService } from '../src/services/auth.service';
+import app from '../../src/server';
+import { prisma } from '../../src/lib/prisma';
+import { AuthService } from '../../src/services/auth.service';
 
 describe('POST /auth/login (mocked)', () => {
   const ORIGINAL_ENV = process.env;

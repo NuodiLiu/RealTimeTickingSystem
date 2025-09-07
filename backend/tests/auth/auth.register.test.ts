@@ -1,7 +1,7 @@
 import request from 'supertest';
 
 // 先 mock prisma
-jest.mock('../src/lib/prisma', () => ({
+jest.mock('../../src/lib/prisma', () => ({
   prisma: {
     staff: {
       findUnique: jest.fn(),
@@ -18,7 +18,7 @@ jest.mock('../src/lib/prisma', () => ({
 }));
 
 // mock AuthService.createSession（避免依赖 jwt/redis/db 等）
-jest.mock('../src/services/auth.service', () => {
+jest.mock('../../src/services/auth.service', () => {
   return {
     AuthService: {
       createSession: jest.fn().mockResolvedValue({
@@ -32,9 +32,9 @@ jest.mock('../src/services/auth.service', () => {
 });
 
 // 注意：mock 要在 import app 前执行
-import app from '../src/server';
-import { prisma } from '../src/lib/prisma';
-import { AuthService } from '../src/services/auth.service';
+import app from '../../src/server';
+import { prisma } from '../../src/lib/prisma';
+import { AuthService } from '../../src/services/auth.service';
 
 describe('POST /auth/register', () => {
   const ORIGINAL_ENV = process.env;

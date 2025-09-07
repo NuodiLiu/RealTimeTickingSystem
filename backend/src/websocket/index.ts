@@ -46,6 +46,10 @@ export function bindRealtime(io: Server) {
       // 可按需记录
     });
 
+    socket.on("disconnect", () => {
+      clearInterval(timer);
+    });
+
     socket.on("message", async (msg: DeviceToServer) => {
       switch (msg.type) {
         case "PONG": {

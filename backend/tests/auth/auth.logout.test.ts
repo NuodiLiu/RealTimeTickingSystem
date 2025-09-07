@@ -4,24 +4,29 @@ const mf = <T extends (...args: any[]) => any>(fn: T) =>
   fn as unknown as MockedFunction<T>;
 
 // --- 先 mock 依赖 ---
-jest.mock('../src/lib/prisma', () => ({
+jest.mock('../../src/lib/prisma', () => ({
   prisma: {}, // 这个文件不直接用到 prisma；空对象避免其它路由初始化时报错
 }));
 
 // 服务器在挂载其它路由时会用到这些中间件；统一 mock 掉防止 “argument handler must be a function”
-jest.mock('../src/middlewares/auth.middleware', () => {
+jest.mock('../../src/middlewares/auth.middleware', () => {
   const injectUser = (req: any, _res: any, next: any) => {
     req.user = { id: 'user-123', role: 'ADMIN', employeeNo: '123456' };
+    next();
+  };
+  const injectDevice = async (req: any, _res: any, next: any) => {
+    req.device = { deviceId: 'dev-1', device: { id: 'dev-1', name: 'mock device' } };
     next();
   };
   return {
     requireAuth: injectUser,
     requireStaff: injectUser,
     requireAdmin: injectUser,
+    requireDevice: injectDevice,
   };
 });
 
-jest.mock('../src/services/auth.service', () => ({
+jest.mock('../../src/services/auth.service', () => ({
   AuthService: {
     revokeSessionByRefresh: jest.fn().mockResolvedValue(1),
     revokeAllSessionsForUser: jest.fn().mockResolvedValue(1),
@@ -31,9 +36,9 @@ jest.mock('../src/services/auth.service', () => ({
 // --- 再导入 app / 依赖 ---
 import request from 'supertest';
 import express from 'express';
-import app from '../src/server';
-import { AuthService } from '../src/services/auth.service';
-import { AuthController } from '../src/controllers/auth.controller';
+import app from '../../src/server';
+import { AuthService } from '../../src/services/auth.service';
+import { AuthController } from '../../src/controllers/auth.controller';
 
 describe('POST /auth/logout', () => {
   const ORIGINAL_ENV = process.env;
