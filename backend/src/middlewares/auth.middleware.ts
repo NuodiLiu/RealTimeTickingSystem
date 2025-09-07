@@ -2,6 +2,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { AuthError } from "../error";
+import { PairService } from "../services/pair.service";
 
 export type AuthUser = {
   id: string;
@@ -9,10 +10,16 @@ export type AuthUser = {
   employeeNo: string;
 };
 
+export type AuthDevice = {
+  deviceId: string;
+  device: any;
+};
+
 declare global {
   namespace Express {
     interface Request {
       user?: AuthUser;
+      device?: AuthDevice;
     }
   }
 }
@@ -60,5 +67,22 @@ export function requireRole(role: "ADMIN" | "STAFF") {
   };
 }
 
+export function requireDevice(req: Request, res: Response, next: NextFunction) {
+  const hdr = req.header('Authorisation');
+  if (!hdr?.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Missing device credentials" });
+  }
+  const token = hdr.slice("Bearer ".length);
+
+  PairService.validateDeviceCredentials(token)
+    .then(deviceAuth => {
+      req.device = deviceAuth;
+      next();
+    }).catch(error => {
+      res.status(401).json({ error: error.message });
+    });
+}
 export const requireStaff = requireRole("STAFF");
 export const requireAdmin = requireRole("ADMIN");
+
+
