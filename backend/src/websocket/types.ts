@@ -1,0 +1,21 @@
+export type FeedbackShowPayload = {
+  sessionId: string;
+  caseId: string;
+  staff: { id: string; name: string };
+  expireAt: string; // ISO
+};
+
+export type ServerToDevice =
+  | { type: "SHOW_FEEDBACK"; payload: FeedbackShowPayload }
+  | { type: "DISMISS" }
+  | { type: "PING"; payload?: { now: string } }
+  | { type: "LOCK_ASSIGNED"; payload: any }; // 可选：给 REGISTRATION/DUAL 使用
+
+export type DeviceToServer =
+  | { type: "PONG"; payload?: { now: string } }
+  | { type: "DELIVERED"; payload: { sessionId: string } }  // 反馈页已展示
+  | { type: "LEASE"; payload: { deviceId: string } }       // 主动续租
+  | { type: "STATUS"; payload?: never }
+  | { type: "FEEDBACK_UPDATE"; payload?: any };            // 设备状态变更、日志等
+
+export type AuthedDevice = { deviceId: string; mode: "REGISTRATION" | "FEEDBACK" | "DUAL" };

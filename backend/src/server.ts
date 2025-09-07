@@ -3,14 +3,16 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
-
 import cookieParser from "cookie-parser";
+import http from "http";
+
 import authRouter from "./routers/auth.router";
 import casesRouter from "./routers/cases.router";
 import pairRouter from "./routers/pair.router";
 import { errorHandler } from "./middlewares/error.middleware";
-import http from 'http';
-import { setupDeviceWebSocket } from "./websocket/deviceSocket";
+
+import { DeviceGateway } from "./websocket/deviceSocket";
+import { bindRealtime } from "./websocket";
 
 dotenv.config();
 
@@ -37,33 +39,43 @@ app.use(
 app.use("/auth", authRouter);
 app.use("/cases", casesRouter);
 app.use("/pair", pairRouter);
+
 // Error handler (must be last)
 app.use(errorHandler);
 
-const deviceSocket = setupDeviceWebSocket(server);
-app.get("/health", (req, res) => {
+// ✅ 用 Socket.IO 初始化 & 绑定
+const io = DeviceGateway.init(server);
+bindRealtime(io);
+
+// ✅ /health 基于 room 统计在线设备（房间名形如 device:{deviceId}）
+app.get("/health", (_req, res) => {
+  const rooms = DeviceGateway.io().of("/").adapter.rooms; // Map<string, Set<SocketId>>
+  const onlineDeviceIds: string[] = [];
+
+  for (const [name, sockets] of rooms) {
+    // Socket.IO 也会为每个 socketId 建一个同名 room；我们只取自定义的 device:{id}
+    if (name.startsWith("device:") && sockets && sockets.size > 0) {
+      onlineDeviceIds.push(name.slice("device:".length));
+    }
+  }
+
   res.json({
     status: "ok",
-    timestamp: new Date(),
-    connectedDevices: deviceSocket.getOnlineDeviceCount(),
-    onlineDeviceIds: deviceSocket.getOnlineDeviceIds()
+    timestamp: new Date().toISOString(),
+    connectedDevices: onlineDeviceIds.length,
+    onlineDeviceIds,
   });
 });
-
 
 // Only listen when not in test mode / serverless
 if (
   process.env.NODE_ENV !== "test" &&
   !process.env.AWS_LAMBDA_FUNCTION_NAME
 ) {
-  // app.listen(PORT, () => {
-  //   console.log(`Server listening on http://localhost:${PORT}`);
-  // });
   server.listen(PORT, () => {
-    console.log(`Server listening on http://localhost:${PORT}`);
-    console.log(`WebSocket endpoint: ws://localhost:${PORT}/ws/device/{deviceId}`);
+    console.log(`HTTP listening on http://localhost:${PORT}`);
+    console.log(`WebSocket (Socket.IO) path: ws://localhost:${PORT}/ws`);
   });
 }
 
 export default app;
-export { deviceSocket };
