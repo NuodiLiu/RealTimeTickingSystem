@@ -76,4 +76,17 @@ export class DeviceController {
       next(err);
     }
   }
+
+  static async issueWsToken(req: Request, res: Response, next: NextFunction) {
+    try {
+      const deviceId = req.device?.deviceId;
+      if (!deviceId) throw new BadRequestError('Device authentication required'); // ✅ 显式抛 400
+
+      const token = await DeviceService.issueWsToken(deviceId);
+      res.status(200).json({ deviceToken: token, expiresIn: 12 * 60 * 60 });
+    } catch (err) {
+      next(err);
+    }
+  }
+
 }

@@ -2,7 +2,7 @@ import type { KioskDevice } from '../../generated/prisma';
 import { NotFoundError } from '../error';
 import { prisma } from "../lib/prisma";
 import { DeviceMode, DeviceStatus, DeviceWithStatus, ListFilters } from '../lib/utils/type';
-
+import jwt from "jsonwebtoken";
 
 
 export class DeviceService {
@@ -207,5 +207,20 @@ export class DeviceService {
   static async getOnlineDevicesByMode(mode: DeviceMode) {
     const devices = await this.getDevicesByMode(mode);
     return devices.filter((d: KioskDevice & { isOnline: boolean }) => d.isOnline);
+  }
+
+  static async issueWsToken(deviceId: string) {
+    const device = await prisma.kioskDevice.findUnique({
+      where: { id: deviceId }, select: { id: true, mode: true }
+    });
+    if (!device) throw new NotFoundError('Device not found');
+
+    const token = jwt.sign(
+      { typ: 'device', sub: device.id, mode: device.mode },
+      process.env.JWT_SECRET!,
+      { expiresIn: '12h' }
+    );
+
+    return token
   }
 }

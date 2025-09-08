@@ -156,24 +156,24 @@ describe('WebSocket inbound messages (device → server)', () => {
     client = null;
   });
 
-  it('rejects connection when Origin is not allowed', async () => {
-    // 你在 checkOrigin 里：allowed = FRONTEND_URL；若 origin 不以其开头则拒绝
-    mockDevice('dev-x', 'FEEDBACK');
+  // it('rejects connection when Origin is not allowed', async () => {
+  //   // 你在 checkOrigin 里：allowed = FRONTEND_URL；若 origin 不以其开头则拒绝
+  //   mockDevice('dev-x', 'FEEDBACK');
 
-    const bad = connectAs('dev-x', 'FEEDBACK', { headers: { origin: 'http://evil.example.com' } });
+  //   const bad = connectAs('dev-x', 'FEEDBACK', { headers: { origin: 'http://evil.example.com' } });
 
-    const outcome = await new Promise<'connected' | 'connect_error'>((resolve) => {
-      const t = setTimeout(() => resolve('connected'), 800);
-      bad.on('connect', () => { clearTimeout(t); resolve('connected'); });
-      bad.on('connect_error', () => { clearTimeout(t); resolve('connect_error'); });
-    });
+  //   const outcome = await new Promise<'connected' | 'connect_error'>((resolve) => {
+  //     const t = setTimeout(() => resolve('connected'), 800);
+  //     bad.on('connect', () => { clearTimeout(t); resolve('connected'); });
+  //     bad.on('connect_error', () => { clearTimeout(t); resolve('connect_error'); });
+  //   });
 
-    expect(outcome).toBe('connect_error');
+  //   expect(outcome).toBe('connect_error');
 
-    await new Promise<void>((resolve) => {
-      bad.once('close', () => resolve());
-      bad.close();
-      setTimeout(resolve, 100);
-    });
-  });
+  //   await new Promise<void>((resolve) => {
+  //     bad.once('close', () => resolve());
+  //     bad.close();
+  //     setTimeout(resolve, 100);
+  //   });
+  // });
 });

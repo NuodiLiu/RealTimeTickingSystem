@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth, requireDevice, requireStaff } from "../middlewares/auth.middleware";
+import { requireDevice, requireStaff } from "../middlewares/auth.middleware";
 import { FeedbackController } from "../controllers/feedback.controller";
 
 const router = Router();

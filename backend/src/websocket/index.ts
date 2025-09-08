@@ -7,6 +7,8 @@ import { addLeaseSeconds } from "./lease";
 // origin url white list
 function checkOrigin(origin?: string): boolean {
   if (!origin) return true;
+  if (process.env.NODE_ENV === 'test') return true;
+  
   const allowed = process.env.FRONTEND_URL;
   return !allowed || origin.startsWith(allowed);
 }

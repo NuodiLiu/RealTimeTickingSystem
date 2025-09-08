@@ -71,7 +71,7 @@ export class PairService {
       deviceSecret,
       deviceName: device.name,
       deviceMode: device.mode,
-      wsEndpoint: `${process.env.WS_BASE_URL || 'ws://localhost:3000'}/ws/device/${device.id}`,
+      wsEndpoint: `${process.env.WS_BASE_URL || 'ws://localhost:3000'}/ws`,
     };
   }
 }

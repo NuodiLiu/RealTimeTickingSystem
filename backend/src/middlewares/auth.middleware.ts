@@ -102,6 +102,7 @@ export async function requireDevice(req: Request, _res: Response, next: NextFunc
 
     next();
   } catch (err: any) {
-    next(err instanceof Error ? err : new AuthError("Invalid device credentials", 401));
+    if (err instanceof AuthError) return next(err);
+    return next(new AuthError("Invalid device credentials", 401));
   }
 }

@@ -97,7 +97,7 @@ describe('PairService.completePairing', () => {
             deviceSecret: 'device-secret-456',
             deviceName: 'Test Kiosk Device',
             deviceMode: 'DUAL',
-            wsEndpoint: 'ws://localhost:3000/ws/device/device-123'
+            wsEndpoint: 'ws://localhost:3000/ws'
         });
     });
 
@@ -240,7 +240,7 @@ describe('PairService.completePairing', () => {
 
         const result = await PairService.completePairing(mockPairingData);
 
-        expect(result.wsEndpoint).toBe('ws://localhost:3000/ws/device/device-123');
+        expect(result.wsEndpoint).toBe('ws://localhost:3000/ws');
     });
 
     it('should set lastSeenAt to current time when creating device', async () => {

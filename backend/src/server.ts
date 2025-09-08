@@ -14,6 +14,7 @@ import { errorHandler } from "./middlewares/error.middleware";
 import { DeviceGateway } from "./websocket/deviceSocket";
 import { bindRealtime } from "./websocket";
 import deviceRouter from "./routers/device.router";
+import feedbackRouter from "./routers/feedback.router";
 
 dotenv.config();
 
@@ -40,7 +41,8 @@ app.use(
 app.use("/auth", authRouter);
 app.use("/cases", casesRouter);
 app.use("/pair", pairRouter);
-app.use("/devices", deviceRouter);
+app.use("/device", deviceRouter);
+app.use("/feedback", feedbackRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);

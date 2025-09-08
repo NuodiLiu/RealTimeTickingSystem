@@ -14,4 +14,6 @@ router.get("/", requireStaff, DeviceController.listDevices);
 router.get("/by-mode/:mode", requireStaff, DeviceController.getDevicesByMode);
 router.get("/online/:mode", requireStaff, DeviceController.getOnlineDevicesByMode);
 
+router.post("/ws-token", requireDevice, DeviceController.issueWsToken);
+
 export default router;
