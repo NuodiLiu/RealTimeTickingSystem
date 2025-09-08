@@ -1,3 +1,5 @@
+export type DeviceMode = 'REGISTRATION' | 'FEEDBACK' | 'DUAL';
+
 export type FeedbackShowPayload = {
   sessionId: string;
   caseId: string;
@@ -9,7 +11,9 @@ export type ServerToDevice =
   | { type: "SHOW_FEEDBACK"; payload: FeedbackShowPayload }
   | { type: "DISMISS" }
   | { type: "PING"; payload?: { now: string } }
-  | { type: "LOCK_ASSIGNED"; payload: any }; // 可选：给 REGISTRATION/DUAL 使用
+  | { type: "LOCK_ASSIGNED"; payload: any } // 可选：给 REGISTRATION/DUAL 使用
+  | { type: 'MODE_CHANGED'; payload: { mode: DeviceMode } }
+  | { type: 'UNPAIRED' };
 
 export type DeviceToServer =
   | { type: "PONG"; payload?: { now: string } }
@@ -18,4 +22,4 @@ export type DeviceToServer =
   | { type: "STATUS"; payload?: never }
   | { type: "FEEDBACK_UPDATE"; payload?: any };            // 设备状态变更、日志等
 
-export type AuthedDevice = { deviceId: string; mode: "REGISTRATION" | "FEEDBACK" | "DUAL" };
+export type AuthedDevice = { deviceId: string; mode: DeviceMode };

@@ -20,6 +20,19 @@ jest.mock('../../src/middlewares/auth.middleware', () => ({
   requireStaff: (_req: any, _res: any, next: any) => next(),
 }));
 
+jest.mock('../../src/middlewares/azure-auth.middleware', () => ({
+  __esModule: true,
+  // 你的 router 里可能用的是 requireAuth 或 requireLogin；全都放行以防命名差异
+  requireAuth: (_req: any, _res: any, next: any) => next(),
+  requireLogin: (_req: any, _res: any, next: any) => next(),
+  requireTenant: (_req: any, _res: any, next: any) => next(),
+  // 一些 RBAC 代码需要 req.user；这里顺手补一个管理员身份
+  attachReqUser: (req: any, _res: any, next: any) => {
+    req.user = { id: 'test-admin', role: 'ADMIN', employeeNo: 'E001' };
+    next();
+  },
+}));
+
 import deviceRouter from '../../src/routers/device.router';
 import { errorHandler } from '../../src/middlewares/error.middleware';
 

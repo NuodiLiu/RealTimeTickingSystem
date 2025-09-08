@@ -86,7 +86,7 @@ describe('POST /device/ws-token', () => {
     // 确认使用了正确的 DB 查询条件
     expect(prisma.kioskDevice.findUnique).toHaveBeenCalledWith({
       where: { id: 'dev-1' },
-      select: { id: true, mode: true },
+      select: { id: true, mode: true, deletedAt: true },
     });
   });
 

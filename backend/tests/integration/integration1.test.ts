@@ -1,11 +1,7 @@
 /**
- * End-to-End Integration (with real WebSocket):
- * 设备创建 Case（代指学生在 iPad 登记）
- * → Staff 从队列取单
- * → Staff 发送反馈（SHOW_FEEDBACK 发到 iPad）
- * → iPad 真实通过 Socket.IO 收到并回 DELIVERED
- * → iPad（设备鉴权）HTTP 提交反馈
- * → Case 变为 RESOLVED，Lock COMPLETED，Device 清空 currentLockId
+ * End-to-End Integration (with real WebSocket) — Azure SSO 版
+ * 设备创建 Case → Staff 接单 → 发反馈 → iPad 经 Socket 收到并回 DELIVERED
+ * → iPad（设备鉴权）HTTP 提交反馈 → Case RESOLVED、Lock COMPLETED、Device 清空 currentLockId
  */
 
 import http from 'http';
@@ -19,23 +15,29 @@ beforeAll(() => {
   process.env = {
     ...ORIGINAL_ENV,
     NODE_ENV: 'test',
-    JWT_SECRET: ORIGINAL_ENV.JWT_SECRET || 'test-secret-123',
+    // cookie-session 需要
+    SESSION_KEYS: 'k1,k2',
+    // 若启用租户白名单
+    AZURE_AD_TENANT_ID: 'TENANT-OK',
     FRONTEND_URL: ORIGINAL_ENV.FRONTEND_URL || 'http://localhost:3001',
     API_BASE_URL: ORIGINAL_ENV.API_BASE_URL || 'http://localhost:3000',
     WS_BASE_URL: ORIGINAL_ENV.WS_BASE_URL || 'ws://localhost:3000',
+    // 旧 JWT 保留无妨（本测不用）
+    JWT_SECRET: ORIGINAL_ENV.JWT_SECRET || 'test-secret-123',
   };
 });
 afterAll(() => {
   process.env = ORIGINAL_ENV;
 });
 
-/* ===================== 仅 Mock Prisma：内存实现 ===================== */
+/* ===================== 仅 Mock Prisma：内存实现（支持 identityKey） ===================== */
 
 type StaffRow = {
   id: string;
+  identityKey: string; // 新增：attachReqUser 依据它查/建
   employeeNo: string;
   name: string;
-  email: string;
+  email: string | undefined;
   password: string;
   role: 'STAFF' | 'ADMIN';
   createdAt: Date;
@@ -132,9 +134,10 @@ const prismaMock = {
       const d = args?.data ?? {};
       const row: StaffRow = {
         id: d.id ?? cuid(),
-        employeeNo: d.employeeNo,
+        identityKey: d.identityKey ?? 'iss|sub',
+        employeeNo: d.employeeNo ?? `ext-${cuid().slice(1, 8)}`,
         name: d.name ?? 'NoName',
-        email: d.email ?? `${d.employeeNo}@local`,
+        email: d.email,
         password: d.password ?? '',
         role: d.role ?? 'STAFF',
         createdAt: new Date(),
@@ -143,12 +146,44 @@ const prismaMock = {
       return row;
     }),
     findUnique: jest.fn(async (args: any) => {
-      const id = args?.where?.id;
-      return db.staff.find(s => s.id === id) || null;
+      const w = args?.where ?? {};
+      if (w.id) return db.staff.find(s => s.id === w.id) || null;
+      if (w.identityKey) return db.staff.find(s => s.identityKey === w.identityKey) || null;
+      return null;
     }),
     findFirst: jest.fn(async (args: any) => {
       const where = args?.where ?? {};
       return db.staff.find(s => matchWhere(s as any, where)) || null;
+    }),
+    upsert: jest.fn(async (args: any) => {
+      const w = args?.where || {};
+      let row = db.staff.find(s => s.identityKey === w.identityKey);
+      if (!row) {
+        const d = args?.create || {};
+        row = {
+          id: d.id ?? cuid(),
+          identityKey: d.identityKey,
+          employeeNo: d.employeeNo ?? `ext-${cuid().slice(1, 8)}`,
+          name: d.name ?? 'New User',
+          email: d.email,
+          password: '',
+          role: d.role ?? 'STAFF',
+          createdAt: new Date(),
+        };
+        db.staff.push(row);
+      } else {
+        const u = args?.update || {};
+        if (u.name) row.name = u.name;
+        if (u.email) row.email = u.email;
+        if (u.role) row.role = u.role;
+      }
+      const sel = args?.select;
+      if (sel) {
+        const out: any = {};
+        for (const k of Object.keys(sel)) if (sel[k]) out[k] = (row as any)[k];
+        return out;
+      }
+      return row;
     }),
   },
 
@@ -380,7 +415,6 @@ const prismaMock = {
   feedback: {
     create: jest.fn(async (args: any) => {
       const d = args?.data ?? {};
-      // unique caseId
       if (db.feedback.find(f => f.caseId === d.caseId)) {
         const e: any = new Error('Unique violation');
         e.code = 'P2002';
@@ -407,19 +441,12 @@ const prismaMock = {
     }),
   },
 
-  pairingSession: {
-    create: jest.fn(),
-    findUnique: jest.fn(),
-    update: jest.fn(),
-  },
-
+  pairingSession: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
   invite: { create: jest.fn() },
 };
 
 // 注入 prisma mock
-jest.mock('../../src/lib/prisma', () => ({
-  prisma: prismaMock,
-}));
+jest.mock('../../src/lib/prisma', () => ({ prisma: prismaMock }));
 
 /* ===================== 导入真实 app & 绑定 Socket.IO ===================== */
 import app from '../../src/server';
@@ -432,14 +459,11 @@ let io: IOServer;
 
 beforeAll(async () => {
   server = http.createServer(app);
-
-  // 初始化 Socket.IO 并绑定业务事件
   io = DeviceGateway.init(server);
   bindRealtime(io);
 
   await new Promise<void>((resolve) => {
     const s = server.listen(0, () => {
-      // 动态端口
       const addr = s.address();
       if (typeof addr === 'object' && addr?.port) port = addr.port;
       resolve();
@@ -454,18 +478,13 @@ afterAll(async () => {
 
 /* ===================== 工具 ===================== */
 
-function signJWT(staffId: string, role: 'STAFF' | 'ADMIN', emp?: string) {
-  const jwt = require('jsonwebtoken');
-  return jwt.sign({ sub: staffId, role, emp }, process.env.JWT_SECRET!, { expiresIn: '15m' });
-}
-const authz = (t: string) => ({ Authorization: `Bearer ${t}` });
 const deviceAuth = (id: string, secret: string) => ({ Authorization: `Device ${id}:${secret}` });
 
 async function connectIpadClient(
   deviceId: string,
   deviceSecret: string
 ): Promise<{ socket: Socket; waitForPing: () => Promise<void> }> {
-  // 1) 换 token（保持不变）
+  // 1) /device/ws-token（设备鉴权）
   const r = await request(server)
     .post('/device/ws-token')
     .set({ Authorization: `Device ${deviceId}:${deviceSecret}` })
@@ -475,7 +494,7 @@ async function connectIpadClient(
   const { deviceToken } = r.body;
   expect(deviceToken).toBeTruthy();
 
-  // 2) 连接 socket（保持不变）
+  // 2) 连接 socket
   const socket: Socket = ioc(`ws://127.0.0.1:${port}`, {
     path: '/ws',
     transports: ['websocket'],
@@ -483,7 +502,6 @@ async function connectIpadClient(
     extraHeaders: { Authorization: `Bearer ${deviceToken}` },
   });
 
-  // ✅ 提前挂上对 PING 的监听（避免错过服务端“立即 PING”）
   let pingSeen = false;
   const onMessageForPing = (msg: any) => {
     if (msg?.type === 'PING') {
@@ -500,36 +518,31 @@ async function connectIpadClient(
     socket.on('connect_error', (e) => { clearTimeout(t); reject(e); });
   });
 
-  // ✅ waitForPing：收到 PING 就立即就绪；否则“降级就绪”
-  // - 正常情况几毫秒内会收到
-  // - 若因为竞态/环境没收到，最多等 300ms 就当作就绪（连接已建立，房间已加入）
   const waitForPing = async () => {
     await connected;
     if (pingSeen) return;
     await new Promise<void>((resolve) => setTimeout(resolve, 300));
-    // 兜底：仍未见 PING，但我们已连接成功，继续流程也没问题
   };
 
   await connected;
   return { socket, waitForPing };
 }
 
-
-
 /* ===================== 场景测试 ===================== */
 
-describe('Integration | E2E feedback via real WebSocket', () => {
+describe('Integration | E2E feedback via real WebSocket (Azure SSO)', () => {
   const staffId = 'staff-1';
+  const staffIdentityKey = 'iss|sub'; // 与 mock-login 对齐
   const employeeNo = 'S001';
 
   const deviceId = 'dev-1';
   const deviceSecret = 'super-secret';
   const deviceHash = sha256(deviceSecret);
 
-  let staffToken = '';
+  // 员工端使用 agent 维持 cookie 会话
+  let staffAgent: request.SuperTest<request.Test>;
 
   beforeEach(async () => {
-    // 清库
     db.staff.length = 0;
     db.studentCase.length = 0;
     db.kioskDevice.length = 0;
@@ -539,10 +552,11 @@ describe('Integration | E2E feedback via real WebSocket', () => {
 
     jest.clearAllMocks();
 
-    // 种子：1个 STAFF
+    // 种子员工（identityKey 对齐）
     await prismaMock.staff.create({
       data: {
         id: staffId,
+        identityKey: staffIdentityKey,
         employeeNo,
         name: 'Sam Staff',
         email: 'sam@test.local',
@@ -551,7 +565,7 @@ describe('Integration | E2E feedback via real WebSocket', () => {
       },
     });
 
-    // 种子：1台 DUAL 设备
+    // 种子设备
     await prismaMock.kioskDevice.create({
       data: {
         id: deviceId,
@@ -562,11 +576,24 @@ describe('Integration | E2E feedback via real WebSocket', () => {
       },
     });
 
-    staffToken = signJWT(staffId, 'STAFF', employeeNo);
+    // 建立员工会话
+    staffAgent = request.agent(server) as unknown as request.SuperTest<request.Test>;
+    const login = await staffAgent.post('/auth/__test/mock-login').send({
+      identityKey: staffIdentityKey,
+      tid: 'TENANT-OK',
+      upn: 'sam@test.local',
+      name: 'Sam Staff',
+    });
+    expect(login.status).toBe(200);
+
+    // 可选：确认会话
+    const me = await staffAgent.get('/auth/me');
+    expect(me.status).toBe(200);
+    expect(me.body.user?.identityKey).toBe(staffIdentityKey);
   });
 
   it('Device creates case → Staff takes → send feedback → iPad receives+DELIVERED → iPad submits → case resolved', async () => {
-    // 1) 设备创建 Case（模拟学生在 iPad 登记）
+    // 1) 设备创建 Case（登记）
     const createCase = await request(server)
       .post('/cases')
       .set(deviceAuth(deviceId, deviceSecret))
@@ -575,18 +602,12 @@ describe('Integration | E2E feedback via real WebSocket', () => {
     expect(createCase.status).toBe(201);
     const caseId: string = createCase.body.id;
 
-    // 2) Staff 查看队列并接单
-    const listQueued = await request(server)
-      .get('/cases?status=queued')
-      .set(authz(staffToken));
+    // 2) Staff 查看队列并接单（使用 cookie 会话；status 大写）
+    const listQueued = await staffAgent.get('/cases?status=QUEUED');
     expect(listQueued.status).toBe(200);
     expect(listQueued.body.map((c: any) => c.id)).toContain(caseId);
 
-    const takeRes = await request(server)
-      .post(`/cases/${caseId}/take`)
-      .set(authz(staffToken))
-      .send();
-
+    const takeRes = await staffAgent.post(`/cases/${caseId}/take`).send();
     expect(takeRes.status).toBe(200);
     expect(takeRes.body).toMatchObject({ id: caseId, status: 'IN_PROGRESS', staffId });
 
@@ -594,28 +615,27 @@ describe('Integration | E2E feedback via real WebSocket', () => {
     const { socket: ipad, waitForPing } = await connectIpadClient(deviceId, deviceSecret);
     await waitForPing();
 
-    // 接收服务端消息（SHOW_FEEDBACK / PING 等）
+    // 监听 SHOW_FEEDBACK
     const receivedShow = new Promise<any>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('no SHOW_FEEDBACK received')), 8000);
-      ipad.on('message', (msg: any) => {
-        if (msg?.type === 'SHOW_FEEDBACK') {
-          clearTimeout(timer);
-          resolve(msg);
-        }
-      });
+      iPadOn();
+      function iPadOn() {
+        ipad.on('message', (msg: any) => {
+          if (msg?.type === 'SHOW_FEEDBACK') {
+            clearTimeout(timer);
+            resolve(msg);
+          }
+        });
+      }
     });
 
-    // 4) Staff 发送反馈（/feedback/send）
-    const sendRes = await request(server)
-      .post('/feedback/send')
-      .set(authz(staffToken))
-      .send({ caseId, deviceId, staffId });
-
+    // 4) Staff 发送反馈
+    const sendRes = await staffAgent.post('/feedback/send').send({ caseId, deviceId, staffId });
     expect(sendRes.status).toBe(200);
     const sessionId = sendRes.body.session.id;
     expect(sessionId).toBeTruthy();
 
-    // 5) iPad 实际收到 SHOW_FEEDBACK，并回 DELIVERED
+    // 5) iPad 收到并回 DELIVERED
     const showMsg = await receivedShow;
     expect(showMsg.payload).toMatchObject({
       sessionId,
@@ -623,8 +643,6 @@ describe('Integration | E2E feedback via real WebSocket', () => {
       staff: { id: staffId, name: expect.any(String) },
       expireAt: expect.any(String),
     });
-
-    // 回执 DELIVERED（服务端应把 session 置为 DELIVERED）
     ipad.emit('message', { type: 'DELIVERED', payload: { sessionId } });
 
     // 6) iPad（设备鉴权）HTTP 提交反馈
@@ -659,7 +677,6 @@ describe('Integration | E2E feedback via real WebSocket', () => {
     expect(submitAgain.body.session).toMatchObject({ id: sessionId, status: 'SUBMITTED' });
     expect(submitAgain.body.feedback.caseId).toBe(caseId);
 
-    // 清理 socket
     ipad.close();
   });
 });

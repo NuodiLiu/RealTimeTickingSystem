@@ -30,7 +30,7 @@ export class PairService {
     deviceName: string;
     deviceMode?: DeviceMode;
   }) {
-    const { pairingToken, deviceName, deviceMode = 'DUAL' } = data;
+    const { pairingToken, deviceName, deviceMode = 'FEEDBACK' } = data;
 
     if (!pairingToken || !deviceName) {
       throw new MissingFieldError(['pairingToken', 'deviceName']);

@@ -1,8 +1,10 @@
 import type { KioskDevice } from '../../generated/prisma';
-import { NotFoundError } from '../error';
+import { ConflictError, NotFoundError } from '../error';
 import { prisma } from "../lib/prisma";
 import { DeviceMode, DeviceStatus, DeviceWithStatus, ListFilters } from '../lib/utils/type';
 import jwt from "jsonwebtoken";
+import { DeviceGateway } from '../websocket/deviceSocket';
+import type { Prisma } from "@prisma/client";
 
 
 export class DeviceService {
@@ -21,7 +23,7 @@ export class DeviceService {
       },
     });
 
-    if (!device) throw new NotFoundError('Device not found');
+    if (!device || device.deletedAt) throw new NotFoundError('Device not found');
 
     await prisma.kioskDevice.update({
       where: { id: deviceId },
@@ -69,7 +71,7 @@ export class DeviceService {
       },
     });
 
-    if (!device) throw new NotFoundError('Device not found');
+    if (!device || device.deletedAt) throw new NotFoundError('Device not found');
 
     const isOnline = this.isDeviceOnline(device.lastSeenAt);
     const isBusy = device.currentLock?.status === 'ACTIVE';
@@ -110,7 +112,7 @@ export class DeviceService {
   
     // DB-side filter for mode (cheap); online/busy needs app logic
     const rows = await prisma.kioskDevice.findMany({
-      where: { ...(mode ? { mode } : {}) },
+      where: { ...(mode ? { mode } : {}), deletedAt: null },
       include: {
         currentLock: {
           include: {
@@ -163,7 +165,7 @@ export class DeviceService {
 
   static async getDevicesByMode(mode: DeviceMode) {
     const rows = await prisma.kioskDevice.findMany({
-      where: { mode },
+      where: { mode, deletedAt: null },
       include: {
         currentLock: {
           include: {
@@ -211,9 +213,9 @@ export class DeviceService {
 
   static async issueWsToken(deviceId: string) {
     const device = await prisma.kioskDevice.findUnique({
-      where: { id: deviceId }, select: { id: true, mode: true }
+      where: { id: deviceId }, select: { id: true, mode: true, deletedAt: true }
     });
-    if (!device) throw new NotFoundError('Device not found');
+    if (!device || device.deletedAt) throw new NotFoundError('Device not found');
 
     const token = jwt.sign(
       { typ: 'device', sub: device.id, mode: device.mode },
@@ -222,5 +224,68 @@ export class DeviceService {
     );
 
     return token
+  }
+
+  static async changeMode(deviceId: string, newMode: DeviceMode) {
+    const device = await prisma.kioskDevice.findUnique({
+      where: { id: deviceId },
+      include: { currentLock: true },
+    });
+    if (!device || device.deletedAt) throw new NotFoundError('Device not found');
+
+    if (device.currentLock?.status === 'ACTIVE') {
+      throw new ConflictError('Device is in an ACTIVE session; please end it before changing mode');
+    }
+
+    const updated = await prisma.kioskDevice.update({
+      where: { id: deviceId },
+      data: { mode: newMode },
+      select: { id: true, name: true, mode: true, lastSeenAt: true },
+    });
+
+    // notify iPad to switch
+    try {
+      DeviceGateway.publish(deviceId, { type: "MODE_CHANGED", payload: { mode: newMode } });
+    } catch {
+      // WS ignore error, not blocking api call
+    }
+
+    return updated;
+  }
+
+  static async unpair(deviceId: string) {
+    const device = await prisma.kioskDevice.findUnique({
+      where: { id: deviceId },
+      include: { currentLock: true },
+    });
+    if (!device || device.deletedAt) throw new NotFoundError('Device not found');
+
+    if (device.currentLock?.status === 'ACTIVE') {
+      throw new ConflictError('Device is in an ACTIVE session; please end it before unpairing');
+    }
+
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // 1) 清空指针，避免外键问题
+      await tx.kioskDevice.update({
+        where: { id: deviceId },
+        data: { currentLockId: null },
+      });
+
+      // 2) 软删除：标记 deletedAt，并让旧凭证立即失效
+      await tx.kioskDevice.update({
+        where: { id: deviceId },
+        data: {
+          deletedAt: new Date(),
+          secretHash: null,      // ✅ 直接让旧 API key 失效
+        },
+      });
+    });
+
+    // 3) 通知 iPad 客户端自退（若在线）
+    try { 
+      DeviceGateway.publish(deviceId, { type: "UNPAIRED" });
+    } catch {
+      // ignore
+    };
   }
 }
