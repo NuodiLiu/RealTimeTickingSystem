@@ -24,8 +24,29 @@ export interface CreateInviteRes { inviteId: string; email: string; code: string
 
 export interface RegisterReq { email: string; password: string; username?: string; inviteCode?: string }
 export interface LoginReq { email: string; password: string }
-export interface AuthRes { user: { id: string; email: string; username?: string; role?: InviteRole }; }
+// export interface AuthRes { user: { id: string; email: string; username?: string; role?: InviteRole }; }
+// Update this interface to match your backend response
+export interface AuthRes { 
+  staff: { 
+    id: string; 
+    employeeNo: string;
+    name: string; 
+    email: string; 
+    role?: string;
+  };
+  session: {
+    accessToken: string;
+    sessionId: string;
+    expiresAt: string;
+  };
+}
 
+// Keep a separate User type for your frontend state
+export interface User {
+  id: string;
+  email: string;
+  username?: string;
+}
 export type CaseStatus = "queued" | "in_progress" | "resolved";
 export interface CaseItem { id: string; status: CaseStatus; createdAt: string; updatedAt: string; deviceId?: string; staffId?: string; payload?: any }
 export interface CasesListRes { items: CaseItem[] }
@@ -126,7 +147,8 @@ export const AuthAPI = {
   // POST /auth/register
   register: (body: RegisterReq) => post<AuthRes>("/auth/register", body),
   // POST /auth/login
-  login: (body: LoginReq) => post<AuthRes>("/auth/login", body),
+  // login: (body: LoginReq) => post<AuthRes>("/auth/login", body),
+  login: (body: { employeeNo: string }) => post<AuthRes>("/auth/login", body),
   // POST /auth/refresh
   refresh: () => post<undefined>("/auth/refresh"),
   // POST /auth/logout
