@@ -16,4 +16,7 @@ router.get("/online/:mode", requireStaff, DeviceController.getOnlineDevicesByMod
 
 router.post("/ws-token", requireDevice, DeviceController.issueWsToken);
 
+router.patch("/:id/mode", requireStaff, DeviceController.changeMode);
+router.delete("/:id", requireStaff, DeviceController.unpairDevice);
+
 export default router;

@@ -134,6 +134,7 @@ model KioskDevice {
   secretHash    String
   mode          DeviceMode @default(DUAL)  // 设备职责
   lastSeenAt    DateTime   @default(now())
+  deletedAt     DateTime?
 
   locks         KioskLock[] @relation("DeviceLocks")
 

@@ -175,7 +175,7 @@ describe('GET /device (listDevices)', () => {
     // 未传 mode 时，DB 查询不应带 where.mode
     expect(prisma.kioskDevice.findMany).toHaveBeenCalledTimes(1);
     const arg = (prisma.kioskDevice.findMany as jest.Mock).mock.calls[0][0];
-    expect(arg.where).toEqual({});
+    expect(arg.where).toEqual({ deletedAt: null });
     expect(arg.include).toBeDefined();
     expect(arg.orderBy).toEqual({ lastSeenAt: 'desc' });
   });
@@ -196,7 +196,7 @@ describe('GET /device (listDevices)', () => {
 
     // 验证 DB where.mode 生效
     const call = (prisma.kioskDevice.findMany as jest.Mock).mock.calls[0][0];
-    expect(call.where).toEqual({ mode: 'FEEDBACK' });
+    expect(call.where).toEqual({ mode: 'FEEDBACK', deletedAt: null });
   });
 
   it('200 | filters by status=ONLINE (memory-side filter)', async () => {

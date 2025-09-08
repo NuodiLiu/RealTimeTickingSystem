@@ -89,4 +89,29 @@ export class DeviceController {
     }
   }
 
+  static async changeMode(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const { mode } = req.body as { mode?: 'REGISTRATION' | 'FEEDBACK' | 'DUAL' };
+      if (!id) throw new BadRequestError('id required');
+      if (!mode) throw new BadRequestError('mode required');
+
+      const result = await DeviceService.changeMode(id, mode);
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async unpairDevice(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      if (!id) throw new BadRequestError('id required');
+      
+      await DeviceService.unpair(id);
+      res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
+  }
 }

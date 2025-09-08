@@ -140,7 +140,7 @@ describe('GET /device/by-mode/:mode', () => {
     // 确认 DB 查询参数
     expect(prisma.kioskDevice.findMany).toHaveBeenCalledTimes(1);
     const arg = (prisma.kioskDevice.findMany as jest.Mock).mock.calls[0][0];
-    expect(arg.where).toEqual({ mode: 'REGISTRATION' });
+    expect(arg.where).toEqual({ mode: 'REGISTRATION', deletedAt: null });
     expect(arg.include).toBeDefined();
     expect(arg.orderBy).toEqual({ lastSeenAt: 'desc' });
   });
