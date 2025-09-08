@@ -53,6 +53,7 @@ model Staff {
   cases            StudentCase[]
   feedback         Feedback[]
   idp              IdpAccount?
+  identityKey      String        @unique
 
   createdInvites   Invite[]      @relation("StaffCreatedInvites")
   sessions         Session[]

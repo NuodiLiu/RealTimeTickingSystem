@@ -1,5 +1,5 @@
 /**
- * End-to-End Integration (with real WebSocket) — Multi Staff + Override
+ * End-to-End Integration (with real WebSocket) — Multi Staff + Override (Azure SSO)
  *
  * 场景：
  * - 三个学生在 iPad 登记（创建 3 个 case）
@@ -11,7 +11,7 @@
  */
 
 import http from 'http';
-import request from 'supertest';
+import request, { SuperAgentTest } from 'supertest';
 import crypto from 'crypto';
 import { io as ioc, Socket } from 'socket.io-client';
 import type { Server as IOServer } from 'socket.io';
@@ -21,23 +21,29 @@ beforeAll(() => {
   process.env = {
     ...ORIGINAL_ENV,
     NODE_ENV: 'test',
-    JWT_SECRET: ORIGINAL_ENV.JWT_SECRET || 'test-secret-123',
+    // cookie-session 需要
+    SESSION_KEYS: 'k1,k2',
+    // 若启用租户白名单
+    AZURE_AD_TENANT_ID: 'TENANT-OK',
     FRONTEND_URL: ORIGINAL_ENV.FRONTEND_URL || 'http://localhost:3001',
     API_BASE_URL: ORIGINAL_ENV.API_BASE_URL || 'http://localhost:3000',
     WS_BASE_URL: ORIGINAL_ENV.WS_BASE_URL || 'ws://localhost:3000',
+    // 旧 JWT 不再用到，但保留无妨
+    JWT_SECRET: ORIGINAL_ENV.JWT_SECRET || 'test-secret-123',
   };
 });
 afterAll(() => {
   process.env = ORIGINAL_ENV;
 });
 
-/* ===================== 仅 Mock Prisma：内存实现（与单员工版一致） ===================== */
+/* ===================== 仅 Mock Prisma：内存实现（支持 identityKey） ===================== */
 
 type StaffRow = {
   id: string;
+  identityKey: string; // 新增：attachReqUser 依据它查
   employeeNo: string;
   name: string;
-  email: string;
+  email: string | undefined;
   password: string;
   role: 'STAFF' | 'ADMIN';
   createdAt: Date;
@@ -134,9 +140,10 @@ const prismaMock = {
       const d = args?.data ?? {};
       const row: StaffRow = {
         id: d.id ?? cuid(),
-        employeeNo: d.employeeNo,
+        identityKey: d.identityKey ?? 'iss|sub',
+        employeeNo: d.employeeNo ?? `ext-${cuid().slice(1, 8)}`,
         name: d.name ?? 'NoName',
-        email: d.email ?? `${d.employeeNo}@local`,
+        email: d.email,
         password: d.password ?? '',
         role: d.role ?? 'STAFF',
         createdAt: new Date(),
@@ -145,12 +152,38 @@ const prismaMock = {
       return row;
     }),
     findUnique: jest.fn(async (args: any) => {
-      const id = args?.where?.id;
-      return db.staff.find(s => s.id === id) || null;
+      const w = args?.where ?? {};
+      if (w.id) return db.staff.find(s => s.id === w.id) || null;
+      if (w.identityKey) return db.staff.find(s => s.identityKey === w.identityKey) || null;
+      return null;
     }),
     findFirst: jest.fn(async (args: any) => {
       const where = args?.where ?? {};
       return db.staff.find(s => matchWhere(s as any, where)) || null;
+    }),
+    upsert: jest.fn(async (args: any) => {
+      const w = args?.where || {};
+      let row = db.staff.find(s => s.identityKey === w.identityKey);
+      if (!row) {
+        const d = args?.create || {};
+        row = {
+          id: d.id ?? cuid(),
+          identityKey: d.identityKey,
+          employeeNo: d.employeeNo ?? `ext-${cuid().slice(1, 8)}`,
+          name: d.name ?? 'New User',
+          email: d.email,
+          password: '',
+          role: d.role ?? 'STAFF',
+          createdAt: new Date(),
+        };
+        db.staff.push(row);
+      } else {
+        const u = args?.update || {};
+        if (u.name) row.name = u.name;
+        if (u.email) row.email = u.email;
+        if (u.role) row.role = u.role;
+      }
+      return row;
     }),
   },
 
@@ -410,12 +443,7 @@ const prismaMock = {
     }),
   },
 
-  pairingSession: {
-    create: jest.fn(),
-    findUnique: jest.fn(),
-    update: jest.fn(),
-  },
-
+  pairingSession: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
   invite: { create: jest.fn() },
 };
 
@@ -453,11 +481,6 @@ afterAll(async () => {
 
 /* ===================== 工具 ===================== */
 
-function signJWT(staffId: string, role: 'STAFF' | 'ADMIN', emp?: string) {
-  const jwt = require('jsonwebtoken');
-  return jwt.sign({ sub: staffId, role, emp }, process.env.JWT_SECRET!, { expiresIn: '15m' });
-}
-const authz = (t: string) => ({ Authorization: `Bearer ${t}` });
 const deviceAuth = (id: string, secret: string) => ({ Authorization: `Device ${id}:${secret}` });
 
 async function connectIpadClient(
@@ -508,16 +531,16 @@ async function connectIpadClient(
 
 /* ===================== 场景测试 ===================== */
 
-describe('Integration | Multi-staff with override via real WebSocket', () => {
+describe('Integration | Multi-staff with override via real WebSocket (Azure SSO)', () => {
   const deviceId = 'dev-1';
   const deviceSecret = 'super-secret';
   const deviceHash = sha256(deviceSecret);
 
-  const staffA = { id: 'staff-A', emp: 'S001', name: 'Alice Staff' };
-  const staffB = { id: 'staff-B', emp: 'S002', name: 'Bob Staff' };
+  const staffA = { id: 'staff-A', emp: 'S001', name: 'Alice Staff', identityKey: 'iss|sub-A' };
+  const staffB = { id: 'staff-B', emp: 'S002', name: 'Bob Staff',   identityKey: 'iss|sub-B' };
 
-  let tokenA = '';
-  let tokenB = '';
+  let staffAgentA: SuperAgentTest;
+  let staffAgentB: SuperAgentTest;
 
   beforeEach(async () => {
     // 清库
@@ -530,12 +553,28 @@ describe('Integration | Multi-staff with override via real WebSocket', () => {
 
     jest.clearAllMocks();
 
-    // 两个 staff
+    // 两个 staff（identityKey 对齐 mock-login）
     await prismaMock.staff.create({
-      data: { id: staffA.id, employeeNo: staffA.emp, name: staffA.name, email: 'a@test.local', password: 'x', role: 'STAFF' }
+      data: {
+        id: staffA.id,
+        identityKey: staffA.identityKey,
+        employeeNo: staffA.emp,
+        name: staffA.name,
+        email: 'a@test.local',
+        password: 'x',
+        role: 'STAFF',
+      }
     });
     await prismaMock.staff.create({
-      data: { id: staffB.id, employeeNo: staffB.emp, name: staffB.name, email: 'b@test.local', password: 'x', role: 'STAFF' }
+      data: {
+        id: staffB.id,
+        identityKey: staffB.identityKey,
+        employeeNo: staffB.emp,
+        name: staffB.name,
+        email: 'b@test.local',
+        password: 'x',
+        role: 'STAFF',
+      }
     });
 
     // 设备
@@ -543,8 +582,24 @@ describe('Integration | Multi-staff with override via real WebSocket', () => {
       data: { id: deviceId, name: 'iPad-1', secretHash: deviceHash, mode: 'DUAL', lastSeenAt: new Date() }
     });
 
-    tokenA = signJWT(staffA.id, 'STAFF', staffA.emp);
-    tokenB = signJWT(staffB.id, 'STAFF', staffB.emp);
+    // 分别建立两个员工会话
+    staffAgentA = request.agent(server) as unknown as request.SuperTest<request.Test>;
+    staffAgentB = request.agent(server) as unknown as request.SuperTest<request.Test>;
+
+    const loginA = await staffAgentA.post('/auth/__test/mock-login').send({
+      identityKey: staffA.identityKey,
+      tid: 'TENANT-OK',
+      upn: 'a@test.local',
+      name: staffA.name,
+    });
+    const loginB = await staffAgentB.post('/auth/__test/mock-login').send({
+      identityKey: staffB.identityKey,
+      tid: 'TENANT-OK',
+      upn: 'b@test.local',
+      name: staffB.name,
+    });
+    expect(loginA.status).toBe(200);
+    expect(loginB.status).toBe(200);
   });
 
   it('multi staff take, send, override, submit → final states correct', async () => {
@@ -565,19 +620,19 @@ describe('Integration | Multi-staff with override via real WebSocket', () => {
     const case3 = c3.body.id as string;
 
     // 2) 多 staff 交错接单：S2 -> S1 -> S2
-    const q1 = await request(server).get('/cases?status=queued').set(authz(tokenB));
+    const q1 = await staffAgentB.get('/cases?status=QUEUED');
     expect(q1.status).toBe(200);
     expect(q1.body.map((x: any) => x.id)).toEqual(expect.arrayContaining([case1, case2, case3]));
 
-    const t1 = await request(server).post(`/cases/${case1}/take`).set(authz(tokenB)).send();
+    const t1 = await staffAgentB.post(`/cases/${case1}/take`).send();
     expect(t1.status).toBe(200);
     expect(t1.body).toMatchObject({ id: case1, status: 'IN_PROGRESS', staffId: staffB.id });
 
-    const t2 = await request(server).post(`/cases/${case2}/take`).set(authz(tokenA)).send();
+    const t2 = await staffAgentA.post(`/cases/${case2}/take`).send();
     expect(t2.status).toBe(200);
     expect(t2.body).toMatchObject({ id: case2, status: 'IN_PROGRESS', staffId: staffA.id });
 
-    const t3 = await request(server).post(`/cases/${case3}/take`).set(authz(tokenB)).send();
+    const t3 = await staffAgentB.post(`/cases/${case3}/take`).send();
     expect(t3.status).toBe(200);
     expect(t3.body).toMatchObject({ id: case3, status: 'IN_PROGRESS', staffId: staffB.id });
 
@@ -596,8 +651,8 @@ describe('Integration | Multi-staff with override via real WebSocket', () => {
       });
     });
 
-    const send1 = await request(server).post('/feedback/send').set(authz(tokenA))
-      .send({ caseId: case2, deviceId, staffId: staffA.id });
+    const send1 = await staffAgentA.post('/feedback/send')
+      .send({ caseId: case2, deviceId, staffId: staffA.id }); // 若服务端从 req.user 取也没关系
     expect(send1.status).toBe(200);
     const session1 = send1.body.session.id as string;
     const lock1 = send1.body.lock.id as string;
@@ -615,14 +670,11 @@ describe('Integration | Multi-staff with override via real WebSocket', () => {
     ipad.emit('message', { type: 'DELIVERED', payload: { sessionId: session1 } });
 
     // 5) staffB 对同一台设备执行 override（基于 lock1/version1）
-    //    期望先收到 DISMISS，再收到新的 SHOW_FEEDBACK
-    const seen: any[] = [];
     const eventsPromise = new Promise<{ dismiss: boolean; show: any }>((resolve, reject) => {
       let gotDismiss = false;
       let gotShow: any = null;
       const timer = setTimeout(() => reject(new Error('override push not received')), 8000);
       const handler = (msg: any) => {
-        seen.push(msg?.type);
         if (msg?.type === 'DISMISS') gotDismiss = true;
         if (msg?.type === 'SHOW_FEEDBACK') {
           gotShow = msg;
@@ -634,7 +686,7 @@ describe('Integration | Multi-staff with override via real WebSocket', () => {
       ipad.on('message', handler);
     });
 
-    const override = await request(server).post('/feedback/override').set(authz(tokenB)).send({
+    const override = await staffAgentB.post('/feedback/override').send({
       caseId: case2,
       deviceId,
       staffId: staffB.id,
@@ -678,7 +730,7 @@ describe('Integration | Multi-staff with override via real WebSocket', () => {
       });
     });
 
-    const send3 = await request(server).post('/feedback/send').set(authz(tokenB))
+    const send3 = await staffAgentB.post('/feedback/send')
       .send({ caseId: case3, deviceId, staffId: staffB.id });
     expect(send3.status).toBe(200);
     const session3 = send3.body.session.id as string;
@@ -720,11 +772,11 @@ describe('Integration | Multi-staff with override via real WebSocket', () => {
     const s1 = db.feedbackSession.find(s => s.id === session1)!;
     const s2 = db.feedbackSession.find(s => s.id === session2)!;
     const s3 = db.feedbackSession.find(s => s.id === session3)!;
-    expect(['OVERRIDDEN', 'DELIVERED', 'CREATED']).toContain(s1.status); // overrideActiveSessionsOnDevice 可能直接标记 OVERRIDDEN
+    expect(['OVERRIDDEN', 'DELIVERED', 'CREATED']).toContain(s1.status);
     expect(s2.status).toBe('SUBMITTED');
     expect(s3.status).toBe('SUBMITTED');
 
-    // 幂等提交 session2 再次提交应该成功返回已存在反馈
+    // 幂等提交 session2
     const submit2Again = await request(server).post('/feedback/submit')
       .set(deviceAuth(deviceId, deviceSecret))
       .send({ sessionId: session2, rating: 4, comment: 'dup' });

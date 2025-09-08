@@ -5,6 +5,7 @@ import helmet from "helmet";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import http from "http";
+import cookieSession from "cookie-session";
 
 import authRouter from "./routers/auth.router";
 import casesRouter from "./routers/cases.router";
@@ -24,6 +25,14 @@ const server = http.createServer(app);
 
 // Trust proxies (e.g. for secure cookies behind reverse proxy)
 app.set("trust proxy", 1);
+app.use(cookieSession({
+  name: "sid",
+  keys: (process.env.SESSION_KEYS || "").split(","),
+  httpOnly: true,
+  sameSite: "lax",
+  secure: process.env.NODE_ENV === "production",
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+}));
 
 // Middleware
 app.use(express.json({ limit: "50mb" }));

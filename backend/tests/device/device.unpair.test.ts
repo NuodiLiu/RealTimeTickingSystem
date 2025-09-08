@@ -29,6 +29,19 @@ jest.mock('../../src/websocket/deviceSocket', () => ({
   DeviceGateway: { publish: (...args: any[]) => publishMock(...args) },
 }));
 
+jest.mock('../../src/middlewares/azure-auth.middleware', () => ({
+  __esModule: true,
+  // 你的 router 里可能用的是 requireAuth 或 requireLogin；全都放行以防命名差异
+  requireAuth: (_req: any, _res: any, next: any) => next(),
+  requireLogin: (_req: any, _res: any, next: any) => next(),
+  requireTenant: (_req: any, _res: any, next: any) => next(),
+  // 一些 RBAC 代码需要 req.user；这里顺手补一个管理员身份
+  attachReqUser: (req: any, _res: any, next: any) => {
+    req.user = { id: 'test-admin', role: 'ADMIN', employeeNo: 'E001' };
+    next();
+  },
+}));
+
 import deviceRouter from '../../src/routers/device.router';
 import { errorHandler } from '../../src/middlewares/error.middleware';
 
@@ -168,12 +181,23 @@ describe('DELETE /device/:id (unpair)', () => {
     jest.isolateModules(() => {
       jest.resetModules();
 
-      jest.doMock('../../src/lib/prisma', () => ({
-        __esModule: true,
-        prisma,
-      }));
-      const { AuthError } = require('../../src/error');
+      // 复用 prisma 的同一实例
+      jest.doMock('../../src/lib/prisma', () => ({ __esModule: true, prisma }));
 
+      // 重新 mock Azure 守卫（放行）
+      jest.doMock('../../src/middlewares/azure-auth.middleware', () => ({
+        __esModule: true,
+        requireAuth: (_req: any, _res: any, next: any) => next(),
+        requireLogin: (_req: any, _res: any, next: any) => next(),
+        requireTenant: (_req: any, _res: any, next: any) => next(),
+        attachReqUser: (req: any, _res: any, next: any) => {
+          req.user = { id: 'test-admin', role: 'ADMIN', employeeNo: 'E001' };
+          next();
+        },
+      }));
+
+      // 这个用例要验证 requireStaff 拒绝，因此只在这里把 requireStaff 改成返回 401
+      const { AuthError } = require('../../src/error');
       jest.doMock('../../src/middlewares/auth.middleware', () => ({
         __esModule: true,
         requireDevice: (_req: any, _res: any, next: any) => next(),
@@ -181,16 +205,15 @@ describe('DELETE /device/:id (unpair)', () => {
           next(new AuthError('Unauthorized', 401)),
       }));
 
-      const freshApp = express();
-      freshApp.use(express.json());
+      const freshApp = require('express')();
+      freshApp.use(require('express').json());
       const freshRouter = require('../../src/routers/device.router').default;
       const freshError = require('../../src/middlewares/error.middleware').errorHandler;
-
       freshApp.use('/device', freshRouter);
       freshApp.use(freshError);
-
       (global as any).__APP__UNPAIR__ = freshApp;
     });
+
 
     const freshApp: express.Express = (global as any).__APP__UNPAIR__;
     const res = await request(freshApp).delete('/device/dev-4');
