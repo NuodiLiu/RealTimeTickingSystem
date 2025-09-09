@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev": "ts-node src/server.ts",
     "test": "jest"
   },
   "keywords": [],

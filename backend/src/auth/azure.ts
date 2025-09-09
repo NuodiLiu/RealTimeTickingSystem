@@ -1,5 +1,7 @@
 // src/auth/azure.ts
 import { ConfidentialClientApplication, LogLevel } from "@azure/msal-node";
+import dotenv from "dotenv";
+dotenv.config();
 
 const tenant = process.env.AZURE_AD_TENANT_ID || "common";
 const authority = `https://login.microsoftonline.com/${tenant}`; // v2 endpoint

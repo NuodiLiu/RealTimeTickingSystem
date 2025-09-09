@@ -9,7 +9,6 @@ declare module "cookie-session" {
       upn?: string | null;
       name?: string | null;
 
-      // 若在登录时同步绑定到 Staff，可顺便带上
       staffId?: string;
       role?: "STAFF" | "ADMIN";
       employeeNo?: string;
