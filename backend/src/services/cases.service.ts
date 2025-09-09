@@ -26,6 +26,12 @@ export class CasesService {
     }
 
     static async takeCase(id: string, staffId: string) {
+        console.log('takeCase called with:', { id, staffId });
+  
+        // Check if this staffId exists in the database
+        const staffExists = await prisma.staff.findUnique({ where: { id: staffId } });
+        console.log('Staff exists?', staffExists ? 'YES' : 'NO');
+      
         const result = await prisma.studentCase.updateMany({
             where: { id, status: 'QUEUED' },
             data: { status: 'IN_PROGRESS', staffId },

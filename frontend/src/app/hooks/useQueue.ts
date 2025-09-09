@@ -78,8 +78,13 @@ export default function useQueue(userId?: string) {
     catch (e: any) { setError(e?.message ?? "Failed to take next case"); }
   }
   async function resolve(id: string) {
-    try { await CasesAPI.resolve(id); await load(); }
-    catch (e: any) { setError(e?.message ?? "Failed to resolve case"); }
+    try { 
+      await CasesAPI.resolve(id); 
+      await load(); 
+    }
+    catch (e: any) { 
+      setError(e?.message ?? "Failed to resolve case"); 
+    }
   }
 
   return { queued, myActive, loading, error, take, takeNext, resolve, reload: load };

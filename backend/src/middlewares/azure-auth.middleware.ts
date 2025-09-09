@@ -1,7 +1,7 @@
 // src/middlewares/azure-auth.ts
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import { prisma } from "../lib/prisma";
-import { AuthError } from "../error";
+import { AuthError, BadRequestError } from "../error";
 
 /** 仅校验是否已登录（存在 session.user） */
 export function requireLogin(req: Request, _res: Response, next: NextFunction) {
@@ -33,6 +33,11 @@ export async function attachReqUser(req: Request, _res: Response, next: NextFunc
     const su = (req.session as any)?.user;
     if (!su) return next(new AuthError("Unauthorized", 401));
 
+    if (process.env.NODE_ENV === 'development' && su.staffId && su.role && su.employeeNo) {
+      req.user = { id: su.staffId, role: su.role, employeeNo: su.employeeNo };
+      return next();
+    }
+    
     // 1) 会话级缓存：有 staff 信息且在 TTL 内，直接用
     const cachedAt: number | undefined = (su as any)._staffCachedAt;
     if (su.staffId && su.role && su.employeeNo && cachedAt && Date.now() - cachedAt < STAFF_CACHE_TTL_MS) {
@@ -47,13 +52,17 @@ export async function attachReqUser(req: Request, _res: Response, next: NextFunc
     const upn: string | null = su.upn ?? null;
     const displayName: string | null = su.name ?? null;
 
+    if (!upn) {
+      throw new BadRequestError("UPN (email) is missing from Azure token");
+    }
+
     // 3) 并发安全的一次性 UPSERT（基于 identityKey 唯一）
     const staff = await prisma.staff.upsert({
       where: { identityKey },
       create: {
         identityKey,
         name: displayName ?? "New User",
-        email: upn ?? undefined,
+        email: upn,
         // employeeNo 使用随机占位，避免唯一冲突；之后允许后台/管理员修改
         employeeNo: `ext-${(crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`)}`,
         role: "STAFF",

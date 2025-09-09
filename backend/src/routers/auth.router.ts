@@ -3,8 +3,46 @@ import { Router } from "express";
 import crypto from "crypto";
 import { msalClient, authParams } from "../auth/azure";
 import { AuthError, BadRequestError } from "../error"; // <- 用你的错误类
+import { prisma } from "../lib/prisma";
 
 const router = Router();
+
+if (process.env.NODE_ENV === 'development') {
+  router.post('/dev-login', async (req, res) => {
+    try {
+      // Create or find the dev staff member
+      const devStaff = await prisma.staff.upsert({
+        where: { identityKey: 'dev|user' },
+        update: {},
+        create: {
+          identityKey: 'dev|user',
+          employeeNo: 'DEV001',
+          name: 'Dev User',
+          email: 'dev@test.local',
+          password: '',
+          role: 'ADMIN'
+        }
+      });
+
+      (req.session as any).user = {
+        identityKey: 'dev|user',
+        tid: 'dev-tenant',
+        upn: 'dev@test.local',
+        name: 'Dev User',
+        staffId: devStaff.id, // Use the actual database ID
+        role: 'ADMIN',
+        employeeNo: 'DEV001',
+        _staffCachedAt: Date.now()
+      };
+      console.log('Dev login - session set:', (req.session as any).user); // Add this line
+
+
+      res.json({ ok: true, user: (req.session as any).user });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create dev user' });
+    }
+  });
+}
 
 if (process.env.NODE_ENV === "test") {
   router.post("/__test/mock-login", (req, res) => {
