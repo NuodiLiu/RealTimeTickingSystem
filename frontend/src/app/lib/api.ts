@@ -170,7 +170,14 @@ export const CasesAPI = {
 
 export const DeviceAPI = {
   // GET /device 
-  list: () => get<DevicesListRes>("/device"),
+  // list: () => get<DevicesListRes>("/device"),
+  list: async () => {
+    const response = await fetch(`${API_BASE}/device`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch devices");
+    }
+    return await response.json();
+  },
   // GET /device/by-mode/:mode 
   getByMode: (mode: string) => get<DevicesListRes>(`/device/by-mode/${encodeURIComponent(mode)}`),
   // GET /device/online/:mode 
@@ -198,4 +205,7 @@ export const PairAPI = {
   // POST /pair/generate-qr (staff) 
   generateQR: (body: PairGenerateQrReq) => post<{ ok: true; qr: string; deviceId?: string }>("/pair/generate-qr", body),
 };
+
+// src/lib/api.ts
+
 

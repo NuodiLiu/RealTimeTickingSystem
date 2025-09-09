@@ -8,13 +8,33 @@ import EmptyState from "../components/EmptyState";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import useAuth from "../hooks/useAuth";
 import useQueue from "../hooks/useQueue";
-import { AuthAPI, FeedbackAPI } from "../lib/api";
+import { DeviceAPI, FeedbackAPI } from "../lib/api";  // Import DeviceAPI to fetch device data
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000";
 
 export default function DashboardPage() {
   const { user, booting, logout } = useAuth();
   const { queued, myActive, loading, take, takeNext, resolve } = useQueue(user?.id);
+
+  // Fetch devices status
+  const [devices, setDevices] = useState<any[]>([]);
+  const [deviceLoading, setDeviceLoading] = useState(true);
+
+  useEffect(() => {
+    const loadDevices = async () => {
+      setDeviceLoading(true);
+      try {
+        const res = await DeviceAPI.list();  // Fetch devices from backend
+        setDevices(res.items || []);
+      } catch (e) {
+        console.error("Failed to load devices:", e);
+      } finally {
+        setDeviceLoading(false);
+      }
+    };
+
+    loadDevices();
+  }, []);
 
   // simple health ping → online dot
   const [online, setOnline] = useState<boolean>(true);
@@ -34,13 +54,11 @@ export default function DashboardPage() {
   }, []);
 
   // redirect unauthenticated users
-  // UNCOMMENT ONCE AUTH IS IMPLEMENTED 
-//   useEffect(() => {
-//     if (!booting && !user) window.location.href = "/login";
-//   }, [booting, user]);
+  useEffect(() => {
+    if (!booting && !user) window.location.href = "/login";
+  }, [booting, user]);
 
   async function sendFeedbackRequest(caseId: string) {
-    // You may want to choose a device; for now, let backend pick one or extend UI.
     try {
       await FeedbackAPI.send({ caseId, deviceId: "" as any });
       alert("Feedback request sent.");
@@ -117,6 +135,30 @@ export default function DashboardPage() {
             </div>
           ) : (
             <EmptyState label="You have no active cases." />
+          )}
+        </section>
+
+        {/* RIGHT MOST: Devices List */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+            iPad Devices
+          </h2>
+          {deviceLoading ? (
+            <LoadingSkeleton rows={3} />
+          ) : devices && devices.length > 0 ? (
+            <div className="space-y-3">
+              {devices.map((device: any) => (
+                <div key={device.id} className="flex justify-between p-4 border rounded-md">
+                  <div>
+                    <h3 className="font-semibold">{device.deviceLabel || "iPad"}</h3>
+                    <p className="text-sm text-zinc-500">Mode: {device.mode}</p>
+                    <p className="text-sm text-zinc-500">Status: {device.online ? "Online" : "Offline"}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState label="No devices available." />
           )}
         </section>
       </div>
