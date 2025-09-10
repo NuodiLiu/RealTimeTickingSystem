@@ -45,7 +45,9 @@ export interface AuthRes {
 export interface User {
   id: string;
   email: string;
-  username?: string;
+  username: string;
+  role: 'ADMIN' | 'STAFF'; // Ensure role is part of the user object
+  token?: string;
 }
 export type CaseStatus = "queued" | "in_progress" | "resolved";
 export interface CaseItem { 
@@ -193,6 +195,9 @@ export const CasesAPI = {
   resolve: (id: string) => post<ResolveCaseRes>(`/cases/${encodeURIComponent(id)}/resolve`),
   // Device-only (usually kiosk) POST /cases 
   createFromDevice: (payload: any) => post<{ case: CaseItem }>("/cases", payload),
+  // export to excel
+  exportCases: () => get<any[]>('/cases/export-cases'),
+
 };
 
 export const DeviceAPI = {

@@ -208,7 +208,7 @@ export class DeviceService {
 
   static async getOnlineDevicesByMode(mode: DeviceMode) {
     const devices = await this.getDevicesByMode(mode);
-    return devices.filter((d) => d.isOnline);
+    return devices.filter((d: { isOnline: any; }) => d.isOnline);
   }
 
   static async issueWsToken(deviceId: string) {

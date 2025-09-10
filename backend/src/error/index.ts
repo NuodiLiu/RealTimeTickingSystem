@@ -64,6 +64,13 @@ export class MissingFieldError extends BadRequestError {
   }
 }
 
+export class ForbiddenRoleError extends ForbiddenError {
+  constructor(message = 'Insufficient role permissions') {
+    super(message);
+    this.name = 'ForbiddenRoleError';
+  }
+}
+
 export class ConflictError extends Error {
   statusCode: number;
 

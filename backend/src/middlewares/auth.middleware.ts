@@ -17,6 +17,10 @@ export function requireRoleAtLeast(required: Role): RequestHandler {
     const user = (req as any).user as { id: string; role: Role } | undefined;
     if (!user) return next(new Error("Unauthorized"));
     const ok = ROLE_RANK[user.role] >= ROLE_RANK[required];
+    console.log("🚀 ~ user role ~ user.role:", user.role);
+    console.log("🚀 ~ required ~ required:", required);
+
+
     if (!ok) return next(new Error("Forbidden"));
     next();
   };

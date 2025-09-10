@@ -23,7 +23,8 @@
     "node-fetch": "^3.3.2",
     "openid-client": "^6.7.1",
     "socket.io": "^4.8.1",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.9",
