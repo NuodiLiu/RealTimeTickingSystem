@@ -24,10 +24,40 @@ export interface CreateInviteRes { inviteId: string; email: string; code: string
 
 export interface RegisterReq { email: string; password: string; username?: string; inviteCode?: string }
 export interface LoginReq { email: string; password: string }
-export interface AuthRes { user: { id: string; email: string; username?: string; role?: InviteRole }; }
+// export interface AuthRes { user: { id: string; email: string; username?: string; role?: InviteRole }; }
+// Update this interface to match your backend response
+export interface AuthRes { 
+  staff: { 
+    id: string; 
+    employeeNo: string;
+    name: string; 
+    email: string; 
+    role?: string;
+  };
+  session: {
+    accessToken: string;
+    sessionId: string;
+    expiresAt: string;
+  };
+}
 
+// Keep a separate User type for your frontend state
+export interface User {
+  id: string;
+  email: string;
+  username?: string;
+}
 export type CaseStatus = "queued" | "in_progress" | "resolved";
-export interface CaseItem { id: string; status: CaseStatus; createdAt: string; updatedAt: string; deviceId?: string; staffId?: string; payload?: any }
+export interface CaseItem { 
+  id: string; 
+  status: CaseStatus; 
+  createdAt: string; 
+  updatedAt: string;
+  startedAt?: string; 
+  resolvedAt?: string;
+  deviceId?: string; 
+  staffId?: string; 
+  payload?: any }
 export interface CasesListRes { items: CaseItem[] }
 
 export interface TakeCaseRes { case: CaseItem }
@@ -126,7 +156,8 @@ export const AuthAPI = {
   // POST /auth/register
   register: (body: RegisterReq) => post<AuthRes>("/auth/register", body),
   // POST /auth/login
-  login: (body: LoginReq) => post<AuthRes>("/auth/login", body),
+  // login: (body: LoginReq) => post<AuthRes>("/auth/login", body),
+  login: (body: { employeeNo: string }) => post<AuthRes>("/auth/login", body),
   // POST /auth/refresh
   refresh: () => post<undefined>("/auth/refresh"),
   // POST /auth/logout
@@ -149,6 +180,13 @@ export const CasesAPI = {
 export const DeviceAPI = {
   // GET /device 
   list: () => get<DevicesListRes>("/device"),
+  // list: async () => {
+  //   const response = await fetch(`${API_BASE}/device`);
+  //   if (!response.ok) {
+  //     throw new Error("Failed to fetch devices");
+  //   }
+  //   return await response.json();
+  // },
   // GET /device/by-mode/:mode 
   getByMode: (mode: string) => get<DevicesListRes>(`/device/by-mode/${encodeURIComponent(mode)}`),
   // GET /device/online/:mode 
@@ -176,4 +214,7 @@ export const PairAPI = {
   // POST /pair/generate-qr (staff) 
   generateQR: (body: PairGenerateQrReq) => post<{ ok: true; qr: string; deviceId?: string }>("/pair/generate-qr", body),
 };
+
+// src/lib/api.ts
+
 

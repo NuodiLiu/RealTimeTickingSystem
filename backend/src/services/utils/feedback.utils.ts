@@ -187,6 +187,6 @@ export async function overrideOldLockTx(db: DB, lockId: string, expectedVersion:
 export function overrideActiveSessionsOnDevice(db: DB, deviceId: string, staffId: string, now = new Date()) {
   return db.feedbackSession.updateMany({
     where: { deviceId, status: { in: ["CREATED", "DELIVERED"] } },
-    data: { status: "OVERRIDDEN", overriddenAt: now, overrideByStaffId: staffId },
+    data: { status: "OVERRIDDEN", overriddenAt: now},
   });
 }

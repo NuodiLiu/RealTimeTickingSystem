@@ -33,6 +33,11 @@ export async function attachReqUser(req: Request, _res: Response, next: NextFunc
     const su = (req.session as any)?.user;
     if (!su) return next(new AuthError("Unauthorized", 401));
 
+    if (process.env.NODE_ENV === 'development' && su.staffId && su.role && su.employeeNo) {
+      req.user = { id: su.staffId, role: su.role, employeeNo: su.employeeNo };
+      return next();
+    }
+    
     // 1) 会话级缓存：有 staff 信息且在 TTL 内，直接用
     const cachedAt: number | undefined = (su as any)._staffCachedAt;
     if (su.staffId && su.role && su.employeeNo && cachedAt && Date.now() - cachedAt < STAFF_CACHE_TTL_MS) {

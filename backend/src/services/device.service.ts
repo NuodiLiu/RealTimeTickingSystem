@@ -208,7 +208,7 @@ export class DeviceService {
 
   static async getOnlineDevicesByMode(mode: DeviceMode) {
     const devices = await this.getDevicesByMode(mode);
-    return devices.filter((d: KioskDevice & { isOnline: boolean }) => d.isOnline);
+    return devices.filter((d) => d.isOnline);
   }
 
   static async issueWsToken(deviceId: string) {
@@ -276,7 +276,7 @@ export class DeviceService {
         where: { id: deviceId },
         data: {
           deletedAt: new Date(),
-          secretHash: null,      // ✅ 直接让旧 API key 失效
+          secretHash: "",      // ✅ 直接让旧 API key 失效
         },
       });
     });
