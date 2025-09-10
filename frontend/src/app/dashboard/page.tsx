@@ -58,11 +58,22 @@ export default function DashboardPage() {
     if (!booting && !user) window.location.href = "/login";
   }, [booting, user]);
 
-  // Send feedback request
+  // Check if feedback is available (has online devices)
+  const hasAvailableDevices = devices && devices.some((device: any) => 
+    (device.online || device.isOnline) && 
+    (device.mode === 'FEEDBACK' || device.mode === 'DUAL')
+  );
+
+  // Send feedback request (disabled if no devices available)
   async function sendFeedbackRequest(caseId: string) {
+    if (!hasAvailableDevices) {
+      alert("No available devices for feedback. Please ensure at least one iPad is online and supports feedback.");
+      return;
+    }
+    
     try {
-      await FeedbackAPI.send({ caseId, deviceId: "" as any });
-      alert("Feedback request sent.");
+      // For now, this is disabled - user needs to select a device first
+      alert("Please select a device from the iPad Devices list first, then try again.");
     } catch (e: any) {
       alert(e?.message ?? "Failed to send feedback request.");
     }
@@ -197,6 +208,7 @@ export default function DashboardPage() {
                     item={c}
                     onResolve={resolve}
                     onFeedback={sendFeedbackRequest}
+                    feedbackDisabled={!hasAvailableDevices}
                   />
                 ))}
               </div>

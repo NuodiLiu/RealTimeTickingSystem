@@ -1,4 +1,4 @@
-export type DeviceMode = 'REGISTRATION' | 'FEEDBACK' | 'DUAL';
+export type DeviceMode = 'REGISTRATION' | 'FEEDBACK';
 
 export type FeedbackShowPayload = {
   sessionId: string;
@@ -11,7 +11,7 @@ export type ServerToDevice =
   | { type: "SHOW_FEEDBACK"; payload: FeedbackShowPayload }
   | { type: "DISMISS" }
   | { type: "PING"; payload?: { now: string } }
-  | { type: "LOCK_ASSIGNED"; payload: any } // 可选：给 REGISTRATION/DUAL 使用
+  | { type: "LOCK_ASSIGNED"; payload: any } // 可选：给 REGISTRATION 使用
   | { type: 'MODE_CHANGED'; payload: { mode: DeviceMode } }
   | { type: 'UNPAIRED' };
 

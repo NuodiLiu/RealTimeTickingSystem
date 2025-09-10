@@ -5,10 +5,12 @@ export default function ActiveCaseRow({
   item,
   onResolve,
   onFeedback,
+  feedbackDisabled = false,
 }: {
   item: CaseItem;
   onResolve: (id: string) => void;
   onFeedback: (id: string) => void;
+  feedbackDisabled?: boolean;
 }) {
   const [elapsedTime, setElapsedTime] = useState("");
 
@@ -73,7 +75,13 @@ export default function ActiveCaseRow({
         </button>
         <button 
           onClick={() => onFeedback(item.id)} 
-          className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+          disabled={feedbackDisabled}
+          className={`rounded-md border px-3 py-1.5 text-sm ${
+            feedbackDisabled 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+              : 'hover:bg-gray-50'
+          }`}
+          title={feedbackDisabled ? 'No devices available for feedback' : 'Send feedback request'}
         >
           FEEDBACK
         </button>

@@ -1,6 +1,6 @@
 // 设备模式枚举 —— 与 Prisma 一致
 enum DeviceMode: String, Codable {
-    case REGISTRATION, FEEDBACK, DUAL
+    case REGISTRATION, FEEDBACK
 }
 
 enum DeviceStatus: String, Codable {
@@ -62,8 +62,14 @@ struct CreateCaseResponse: Decodable {
 
 // /feedback/submit
 struct SubmitFeedbackRequest: Encodable {
-    let caseId: String
+    let sessionId: String
     let rating: Int
-    let text: String?
+    let comment: String?
+    
+    init(sessionId: String, rating: Int, text: String?) {
+        self.sessionId = sessionId
+        self.rating = rating
+        self.comment = text
+    }
 }
 struct SubmitFeedbackResponse: Decodable { let ok: Bool? }

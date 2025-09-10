@@ -7,7 +7,7 @@ enum RootRoute: Hashable { case register, feedback }
 final class RootViewModel: ObservableObject {
     @Published var route: RootRoute = .register
     @Published var isPaired: Bool = false
-    @Published var currentMode: DeviceMode = .DUAL
+    @Published var currentMode: DeviceMode = .REGISTRATION
     @Published var pendingFeedback: FeedbackShowPayload?
 
     let env: AppEnvironment
@@ -24,7 +24,11 @@ final class RootViewModel: ObservableObject {
                 guard let self else { return }
                 self.currentMode = m
                 self.env.modeStore.save(m)
-                self.route = self.routeFor(m)          // ← 仅两页之间切换
+                // Clear pending feedback when mode changes
+                if m != .FEEDBACK {
+                    self.pendingFeedback = nil
+                }
+                self.route = self.routeFor(m)          // Switch between pages based on mode
             }.store(in: &bag)
 
         env.gatewayCenter.$showFeedback
@@ -55,15 +59,14 @@ final class RootViewModel: ObservableObject {
 
         if env.authProvider.deviceApiKey != nil {
             isPaired = true
-            let stored = env.modeStore.load() ?? .DUAL
+            let stored = env.modeStore.load() ?? .REGISTRATION
             currentMode = stored
             route = routeFor(stored)
             attachSocket()
         } else {
-            // 未配对：保持未配对状态（不要强行把 route 改到 .register 作为 UI 入口）
+            // 未配对：保持未配对状态
             isPaired = false
-            // 可选择不改 route，反正 RootView 会先显示 PairingView
-            route = .register   // ← 留着也行，但 UI 没用到它；配对完会正确切换
+            route = .register
         }
     }
 
@@ -74,7 +77,7 @@ final class RootViewModel: ObservableObject {
 
     func onPairedSuccessfully(mode: DeviceMode?) {
         isPaired = true
-        let finalMode = mode ?? .DUAL
+        let finalMode = mode ?? .REGISTRATION
         currentMode = finalMode
         env.modeStore.save(finalMode)
         route = routeFor(finalMode)
@@ -82,6 +85,8 @@ final class RootViewModel: ObservableObject {
     }
 
     func backToModePage() {
+        // Clear pending feedback to return to cover page
+        pendingFeedback = nil
         route = routeFor(currentMode)
     }
     
@@ -93,7 +98,7 @@ final class RootViewModel: ObservableObject {
             env.socketService.disconnect()
             
             isPaired = false
-            currentMode = .DUAL
+            currentMode = .REGISTRATION
             route = .register
             
             print("📱 Device unpaired successfully")
@@ -108,7 +113,7 @@ final class RootViewModel: ObservableObject {
         print("📱 Current state - isPaired: \(isPaired), mode: \(currentMode), route: \(route)")
         
         isPaired = false
-        currentMode = .DUAL
+        currentMode = .REGISTRATION
         route = .register
         
         print("📱 After reset - isPaired: \(isPaired), mode: \(currentMode), route: \(route)")
@@ -126,7 +131,7 @@ final class RootViewModel: ObservableObject {
             
             // 重置状态，返回配对界面
             isPaired = false
-            currentMode = .DUAL
+            currentMode = .REGISTRATION
             route = .register
             
             print("📱 After server unpair - isPaired: \(isPaired), mode: \(currentMode), route: \(route)")
@@ -140,7 +145,6 @@ final class RootViewModel: ObservableObject {
         switch mode {
         case .REGISTRATION: return .register
         case .FEEDBACK:     return .feedback
-        case .DUAL:         return .register   // 你可以改成 feedback；这里只能二选一
         }
     }
 }

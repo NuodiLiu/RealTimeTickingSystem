@@ -4,7 +4,15 @@ import { CasesService } from '../services/cases.service'
 export class CasesController {
   static async getQueuedCases(req: any, res: any, next: any) {
     try {
-      const cases = await CasesService.getQueuedCases(req.query.status);
+      const statusQuery = req.query.status;
+      
+      // Validate status parameter
+      const validStatuses = ['queued', 'in_progress', 'resolved'];
+      if (statusQuery && !validStatuses.includes(statusQuery.toLowerCase())) {
+          throw new BadRequestError(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+      }
+      
+      const cases = await CasesService.getQueuedCases(statusQuery);
       res.status(200).json(cases);
     } catch (err) {
       next(err);

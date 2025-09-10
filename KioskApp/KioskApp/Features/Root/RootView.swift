@@ -19,14 +19,12 @@ struct RootView: View {
                             if p != nil { vm.route = .feedback }
                         }
                 case .feedback:
-                    if let caseId = vm.pendingFeedback?.caseId {
-                        FeedbackView(vm: FeedbackViewModel(env: vm.env, caseId: caseId)) {
+                    if let payload = vm.pendingFeedback {
+                        FeedbackView(vm: FeedbackViewModel(env: vm.env, caseId: payload.caseId, payload: payload)) {
                             vm.backToModePage()
                         }
                     } else {
-                        FeedbackView(vm: FeedbackViewModel(env: vm.env, caseId: "N/A")) {
-                            vm.backToModePage()
-                        }
+                        FeedbackCoverView()
                     }
                 }
             }

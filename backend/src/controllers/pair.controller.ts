@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { PairService } from '../services/pair.service';
 
 type DeviceStatus = 'OFFLINE' | 'IDLE' | 'BUSY';
-type DeviceMode   = 'REGISTRATION' | 'FEEDBACK' | 'DUAL';
+type DeviceMode   = 'REGISTRATION' | 'FEEDBACK';
 export type DeviceWithStatus = {
   deviceId: string;
   name: string;

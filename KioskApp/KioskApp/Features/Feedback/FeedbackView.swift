@@ -52,16 +52,12 @@ struct FeedbackView: View {
                 .frame(maxWidth: 800)
                 .frame(maxWidth: .infinity, alignment: .center)
             }
-            // 允许下拉收起键盘（不依赖 keyboard toolbar）
-            .scrollDismissesKeyboard(.interactively)
-            .scrollBounceBehavior(.basedOnSize) // 基于内容大小决定弹跳
-            .scrollDisabled(false) // 允许必要的滚动
-            .gesture(
-                // 拦截过度拖动
+            // Disable scrolling in kiosk mode to prevent unwanted interactions
+            .scrollDisabled(true)
+            .simultaneousGesture(
+                // Block all drag gestures to prevent scrolling
                 DragGesture()
-                    .onChanged { _ in
-                        // 静默拦截
-                    }
+                    .onChanged { _ in }
             )
 
             // 底部固定操作条

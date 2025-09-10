@@ -4,7 +4,7 @@ export type ListFilters = {
   thresholdMinutes?: number;
 };
 
-export type DeviceMode = 'REGISTRATION' | 'FEEDBACK' | 'DUAL';
+export type DeviceMode = 'REGISTRATION' | 'FEEDBACK';
 export type DeviceStatus = 'OFFLINE' | 'IDLE' | 'BUSY';
 
 export type DeviceWithStatus = {

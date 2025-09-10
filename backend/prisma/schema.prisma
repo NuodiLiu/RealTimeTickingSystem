@@ -7,6 +7,159 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Staff {
+  id               String            @id @default(cuid())
+  employeeNo       String            @unique
+  name             String
+  email            String            @unique
+  password         String
+  role             StaffRole         @default(STAFF)
+  identityKey      String            @unique
+  createdAt        DateTime          @default(now())
+  feedback         Feedback[]
+  feedbackSessions FeedbackSession[] @relation("StaffFeedbackSessions")
+  idp              IdpAccount?
+  createdInvites   Invite[]          @relation("StaffCreatedInvites")
+  kioskLocks       KioskLock[]
+  sessions         Session[]
+  cases            StudentCase[]
+}
+
+model Invite {
+  id          String    @id @default(cuid())
+  tokenHash   String
+  createdById String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  createdBy   Staff     @relation("StaffCreatedInvites", fields: [createdById], references: [id])
+}
+
+model Session {
+  id          String    @id @default(cuid())
+  staffId     String
+  refreshHash String
+  ua          String?
+  ip          String?
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime  @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  staff       Staff     @relation(fields: [staffId], references: [id])
+}
+
+model IdpAccount {
+  id       String @id @default(cuid())
+  staffId  String @unique
+  provider String
+  subject  String
+  staff    Staff  @relation(fields: [staffId], references: [id])
+}
+
+model StudentCase {
+  id               String            @id @default(cuid())
+  studentName      String
+  category         String
+  status           CaseStatus        @default(QUEUED)
+  staffId          String?
+  createdAt        DateTime          @default(now())
+  resolvedAt       DateTime?
+  startedAt        DateTime?
+  feedback         Feedback?
+  feedbackSessions FeedbackSession[] @relation("CaseFeedbackSessions")
+  kioskLocks       KioskLock[]
+  staff            Staff?            @relation(fields: [staffId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([staffId])
+}
+
+model Feedback {
+  id        String      @id @default(cuid())
+  caseId    String      @unique
+  staffId   String
+  rating    Int
+  comment   String?
+  createdAt DateTime    @default(now())
+  case      StudentCase @relation(fields: [caseId], references: [id])
+  staff     Staff       @relation(fields: [staffId], references: [id])
+
+  @@index([staffId])
+}
+
+model KioskDevice {
+  id               String            @id @default(cuid())
+  name             String
+  secretHash       String
+  mode             DeviceMode        @default(DUAL)
+  lastSeenAt       DateTime          @default(now())
+  deletedAt        DateTime?
+  currentLockId    String?           @unique
+  feedbackSessions FeedbackSession[] @relation("DeviceFeedbackSessions")
+  currentLock      KioskLock?        @relation("DeviceCurrentLock", fields: [currentLockId], references: [id])
+  locks            KioskLock[]       @relation("DeviceLocks")
+  pairingSessions  PairingSession[]
+
+  @@index([mode])
+  @@index([lastSeenAt])
+}
+
+model KioskLock {
+  id              String       @id @default(cuid())
+  deviceId        String
+  staffId         String
+  caseId          String
+  status          LockStatus   @default(ACTIVE)
+  version         Int          @default(1)
+  leaseExpireAt   DateTime
+  createdAt       DateTime     @default(now())
+  releasedAt      DateTime?
+  currentOfDevice KioskDevice? @relation("DeviceCurrentLock")
+  case            StudentCase  @relation(fields: [caseId], references: [id])
+  device          KioskDevice  @relation("DeviceLocks", fields: [deviceId], references: [id])
+  staff           Staff        @relation(fields: [staffId], references: [id])
+
+  @@index([deviceId, status])
+  @@index([leaseExpireAt])
+  @@index([caseId])
+}
+
+model FeedbackSession {
+  id           String                @id @default(cuid())
+  caseId       String
+  staffId      String
+  deviceId     String
+  status       FeedbackSessionStatus @default(CREATED)
+  createdAt    DateTime              @default(now())
+  deliveredAt  DateTime?
+  submittedAt  DateTime?
+  overriddenAt DateTime?
+  cancelledAt  DateTime?
+  expireAt     DateTime?
+  case         StudentCase           @relation("CaseFeedbackSessions", fields: [caseId], references: [id])
+  device       KioskDevice           @relation("DeviceFeedbackSessions", fields: [deviceId], references: [id])
+  staff        Staff                 @relation("StaffFeedbackSessions", fields: [staffId], references: [id])
+
+  @@index([deviceId, status, createdAt])
+  @@index([caseId])
+  @@index([staffId])
+}
+
+model PairingSession {
+  id           String       @id @default(cuid())
+  pairingToken String       @unique
+  deviceId     String?
+  status       String       @default("PENDING")
+  expiresAt    DateTime
+  createdAt    DateTime     @default(now())
+  completedAt  DateTime?
+  device       KioskDevice? @relation(fields: [deviceId], references: [id])
+
+  @@index([pairingToken])
+  @@index([expiresAt])
+}
+
 enum CaseStatus {
   QUEUED
   IN_PROGRESS
@@ -39,189 +192,4 @@ enum FeedbackSessionStatus {
   OVERRIDDEN
   CANCELLED
   EXPIRED
-}
-
-model Staff {
-  id               String        @id @default(cuid())
-  employeeNo       String        @unique
-  name             String
-  email            String        @unique
-  password         String
-  role             StaffRole     @default(STAFF)
-
-  cases            StudentCase[]
-  feedback         Feedback[]
-  idp              IdpAccount?
-  identityKey      String        @unique
-
-  createdInvites   Invite[]      @relation("StaffCreatedInvites")
-  sessions         Session[]
-  kioskLocks       KioskLock[]
-  feedbackSessions FeedbackSession[] @relation("StaffFeedbackSessions")
-
-  createdAt        DateTime      @default(now())
-}
-
-model Invite {
-  id           String   @id @default(cuid())
-  tokenHash    String
-  createdById  String
-  createdBy    Staff    @relation("StaffCreatedInvites", fields: [createdById], references: [id])
-  expiresAt    DateTime
-  usedAt       DateTime?
-  revokedAt    DateTime?
-  createdAt    DateTime @default(now())
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  staffId      String
-  staff        Staff    @relation(fields: [staffId], references: [id])
-  refreshHash  String
-  ua           String?
-  ip           String?
-  createdAt    DateTime @default(now())
-  lastUsedAt   DateTime @default(now())
-  expiresAt    DateTime
-  revokedAt    DateTime?
-}
-
-model IdpAccount {
-  id         String @id @default(cuid())
-  staffId    String @unique
-  staff      Staff  @relation(fields: [staffId], references: [id])
-  provider   String
-  subject    String
-}
-
-model StudentCase {
-  id          String     @id @default(cuid())
-  studentName String
-  category    String
-  status      CaseStatus @default(QUEUED)
-
-  staffId     String?
-  staff       Staff?     @relation(fields: [staffId], references: [id])
-
-  createdAt   DateTime   @default(now())
-  resolvedAt  DateTime?
-  startedAt   DateTime?  // Add this line
-
-
-  feedback    Feedback[]
-  kioskLocks  KioskLock[]
-  feedbackSessions FeedbackSession[] @relation("CaseFeedbackSessions")
-
-  @@index([status, createdAt])
-  @@index([staffId])
-}
-
-model Feedback {
-  id        String   @id @default(cuid())
-  caseId    String   @unique           // 一 case 一条反馈（关键约束）
-  staffId   String
-  rating    Int
-  comment   String?
-  createdAt DateTime @default(now())
-
-  case  StudentCase @relation(fields: [caseId], references: [id])
-  staff Staff       @relation(fields: [staffId], references: [id])
-
-  @@index([staffId])
-}
-
-model KioskDevice {
-  id            String     @id @default(cuid())
-  name          String
-  secretHash    String
-  mode          DeviceMode @default(DUAL)  // 设备职责
-  lastSeenAt    DateTime   @default(now())
-  deletedAt     DateTime?
-
-  locks         KioskLock[] @relation("DeviceLocks")
-
-  currentLockId String?     @unique
-  currentLock   KioskLock?  @relation("DeviceCurrentLock", fields: [currentLockId], references: [id])
-
-  pairingSessions PairingSession[]
-
-  // reverse relation for grammer requirement
-  feedbackSessions FeedbackSession[] @relation("DeviceFeedbackSessions")
-
-  @@index([mode])
-  @@index([lastSeenAt])
-
-}
-
-model KioskLock {
-  id            String       @id @default(cuid())
-
-  deviceId      String
-  device        KioskDevice  @relation("DeviceLocks", fields: [deviceId], references: [id])
-
-  currentOfDevice KioskDevice? @relation("DeviceCurrentLock")
-
-  staffId       String
-  staff         Staff        @relation(fields: [staffId], references: [id])
-
-  caseId        String
-  case          StudentCase  @relation(fields: [caseId], references: [id])
-
-  // 仅用 status 表达锁态
-  status        LockStatus   @default(ACTIVE)
-  version       Int          @default(1)    // 乐观并发版本
-
-  // 心跳租约
-  leaseExpireAt DateTime
-
-  createdAt     DateTime     @default(now())
-  releasedAt    DateTime?
-
-  @@index([deviceId, status])
-  @@index([leaseExpireAt])
-  @@index([caseId])
-}
-
-model FeedbackSession {
-  id           String   @id @default(cuid())
-
-  caseId       String
-  case         StudentCase @relation("CaseFeedbackSessions", fields: [caseId], references: [id])
-
-  staffId      String
-  staff        Staff       @relation("StaffFeedbackSessions", fields: [staffId], references: [id])
-
-  deviceId     String
-  device       KioskDevice @relation("DeviceFeedbackSessions", fields: [deviceId], references: [id])
-
-  status       FeedbackSessionStatus @default(CREATED)
-  createdAt    DateTime @default(now())
-  deliveredAt  DateTime?
-  submittedAt  DateTime?
-  overriddenAt DateTime?
-  cancelledAt  DateTime?
-  expireAt     DateTime?
-
-  @@index([deviceId, status, createdAt])
-  @@index([caseId])
-  @@index([staffId])
-}
-
-
-// Temporary pairing sessions for QR code flow
-model PairingSession {
-  id           String   @id @default(cuid())
-  pairingToken String   @unique // One-time token in QR code
-  
-  deviceId     String?  // Set after successful pairing
-  device       KioskDevice? @relation(fields: [deviceId], references: [id])
-  
-  status       String   @default("PENDING") // PENDING, COMPLETED, EXPIRED
-  expiresAt    DateTime // Short expiry (5 minutes)
-  
-  createdAt    DateTime @default(now())
-  completedAt  DateTime?
-
-  @@index([pairingToken])
-  @@index([expiresAt])
 }

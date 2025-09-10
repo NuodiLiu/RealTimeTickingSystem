@@ -53,7 +53,7 @@ export class DeviceController {
   static async getDevicesByMode(req: Request, res: Response, next: NextFunction) {
     try {
       const mode = req.params.mode as DeviceMode;
-      const validModes: DeviceMode[] = ['REGISTRATION', 'FEEDBACK', 'DUAL'];
+      const validModes: DeviceMode[] = ['REGISTRATION', 'FEEDBACK'];
       if (!validModes.includes(mode)) throw new BadRequestError('Invalid device mode');
 
       const devices = await DeviceService.getDevicesByMode(mode);
@@ -67,7 +67,7 @@ export class DeviceController {
   static async getOnlineDevicesByMode(req: Request, res: Response, next: NextFunction) {
     try {
       const mode = req.params.mode as DeviceMode;
-      const validModes: DeviceMode[] = ['REGISTRATION', 'FEEDBACK', 'DUAL'];
+      const validModes: DeviceMode[] = ['REGISTRATION', 'FEEDBACK'];
       if (!validModes.includes(mode)) throw new BadRequestError('Invalid device mode');
 
       const devices = await DeviceService.getOnlineDevicesByMode(mode);
@@ -92,7 +92,7 @@ export class DeviceController {
   static async changeMode(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const { mode } = req.body as { mode?: 'REGISTRATION' | 'FEEDBACK' | 'DUAL' };
+      const { mode } = req.body as { mode?: 'REGISTRATION' | 'FEEDBACK' };
       if (!id) throw new BadRequestError('id required');
       if (!mode) throw new BadRequestError('mode required');
 

@@ -40,8 +40,8 @@ final class FeedbackViewModel: ObservableObject {
     // MARK: - 生命周期钩子
     /// 视图出现时调用：上行 ACK、上报状态心跳等
     func onAppear() {
-        if let sid = pendingPayload?.sessionId {
-            env.socketService.sendDelivered(sessionId: sid)
+        if let payload = pendingPayload {
+            env.socketService.sendDelivered(sessionId: payload.sessionId)
         }
         env.socketService.sendStatusPing()
     }
@@ -58,13 +58,19 @@ final class FeedbackViewModel: ObservableObject {
             errorMessage = rating == 0 ? "Please Rate" : nil
             return
         }
+        
+        guard let sessionId = pendingPayload?.sessionId else {
+            errorMessage = "No active feedback session"
+            return
+        }
+        
         isSubmitting = true
         errorMessage = nil
         defer { isSubmitting = false }
 
         do {
             try await env.feedbackAPI.submit(
-                caseId: caseId,
+                sessionId: sessionId,
                 rating: rating,
                 text: text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
             )

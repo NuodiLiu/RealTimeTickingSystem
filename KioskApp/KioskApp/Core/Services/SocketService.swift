@@ -96,8 +96,8 @@ final class SocketService {
                    let decoded: FeedbackShowPayload = Self.decode(raw) {
                     self.delegate?.gatewayShowFeedback(decoded, raw: raw)
                 } else { 
-                    self.delegate?.gatewayShowFeedback(FeedbackShowPayload(sessionId: nil, caseId: nil, title: nil, message: nil),
-                                                      raw: (payload as? [String: Any]) ?? [:]) 
+                    print("❌ Failed to decode SHOW_FEEDBACK payload: \(payload ?? "Default")")
+                    // Don't call delegate with invalid data
                 }
             case "DISMISS": 
                 self.delegate?.gatewayDismiss()
@@ -165,5 +165,16 @@ extension DeviceGatewayDelegate {
     func gatewayDeviceUnpaired() {}
 }
 
-struct FeedbackShowPayload: Decodable { let sessionId: String?; let caseId: String?; let title: String?; let message: String? }
+struct FeedbackShowPayload: Decodable { 
+    let sessionId: String
+    let caseId: String
+    let staff: StaffInfo
+    let expireAt: String
+}
+
+struct StaffInfo: Decodable {
+    let id: String
+    let name: String
+}
+
 struct LockAssignedPayload: Decodable { let lockId: String?; let caseId: String?; let staffName: String?; let leaseExpireAt: String? }
