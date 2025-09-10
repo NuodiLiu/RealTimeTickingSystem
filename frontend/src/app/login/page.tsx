@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, Shield, ArrowRight } from 'lucide-react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);

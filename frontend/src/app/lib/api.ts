@@ -9,7 +9,7 @@
 // -----------------------------
 // Config
 // -----------------------------
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
 // Helper to join URL segments safely
 const join = (base: string, path: string) => `${base.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
@@ -70,9 +70,27 @@ export interface FeedbackSendReq { caseId: string; deviceId: string; }
 export interface FeedbackOverrideReq { caseId: string; deviceId: string; expectedLockId: string; expectedVersion: number; }
 export interface FeedbackSubmitReq { sessionId: string; rating: number; comment?: string }
 
-export interface PairCompleteReq { deviceId: string; secret: string }
-export interface PairGenerateQrReq { mode: string; deviceLabel?: string }
+// export interface PairCompleteReq { deviceId: string; secret: string }
+export interface PairCompleteReq {
+  pairingToken: string;
+  deviceName: string;
+  deviceMode?: "REGISTRATION" | "FEEDBACK" | "DUAL";
+}
 
+export interface PairCompleteRes {
+  deviceId: string;
+  deviceSecret: string;
+  deviceName: string;
+  deviceMode: "REGISTRATION" | "FEEDBACK" | "DUAL";
+  wsEndpoint: string;
+}
+export interface PairGenerateQrReq { mode: string; deviceLabel?: string }
+export interface PairGenerateQrRes {
+  qrUrl: string;
+  pairingToken: string;
+  sessionId: string;
+  expiresAt: string;
+}
 // Generic API Error shape your backend sends like { error: string }
 export class ApiError extends Error {
   status: number;
@@ -209,10 +227,11 @@ export const FeedbackAPI = {
 };
 
 export const PairAPI = {
-  // POST /pair/complete (public or device) 
-  complete: (body: PairCompleteReq) => post<{ ok: true; deviceId: string }>("/pair/complete", body),
-  // POST /pair/generate-qr (staff) 
-  generateQR: (body: PairGenerateQrReq) => post<{ ok: true; qr: string; deviceId?: string }>("/pair/generate-qr", body),
+  generateQR: (body: { mode?: string } = {}) =>
+    post<PairGenerateQrRes>("/pair/generate-qr", body),
+  
+  complete: (body: PairCompleteReq) =>
+    post<PairCompleteRes>("/pair/complete", body), // Correct response
 };
 
 // src/lib/api.ts

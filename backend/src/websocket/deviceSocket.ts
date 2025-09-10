@@ -8,7 +8,7 @@ export class DeviceGateway {
     const io = new Server(httpServer, {
       path: "/ws",                                 // 统一 WS 路径
       cors: {
-        origin: process.env.FRONTEND_URL || "http://localhost:3001",
+        origin: process.env.FRONTEND_URL || "http://localhost:3000",
         credentials: true,
       },
       maxHttpBufferSize: 256 * 1024,               // ~= maxPayload
