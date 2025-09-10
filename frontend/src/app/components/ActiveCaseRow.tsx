@@ -6,11 +6,13 @@ export default function ActiveCaseRow({
   onResolve,
   onFeedback,
   feedbackDisabled = false,
+  feedbackDisabledReason = 'No devices available for feedback',
 }: {
   item: CaseItem;
   onResolve: (id: string) => void;
   onFeedback: (id: string) => void;
   feedbackDisabled?: boolean;
+  feedbackDisabledReason?: string;
 }) {
   const [elapsedTime, setElapsedTime] = useState("");
 
@@ -81,7 +83,7 @@ export default function ActiveCaseRow({
               ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
               : 'hover:bg-gray-50'
           }`}
-          title={feedbackDisabled ? 'No devices available for feedback' : 'Send feedback request'}
+          title={feedbackDisabled ? feedbackDisabledReason : 'Send feedback request'}
         >
           FEEDBACK
         </button>

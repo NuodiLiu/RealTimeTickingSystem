@@ -80,9 +80,9 @@ if (
   process.env.NODE_ENV !== "test" &&
   !process.env.AWS_LAMBDA_FUNCTION_NAME
 ) {
-  server.listen(PORT, () => {
-    console.log(`HTTP listening on http://localhost:${PORT}`);
-    console.log(`WebSocket (Socket.IO) path: ws://localhost:${PORT}/ws`);
+  server.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`HTTP listening on http://0.0.0.0:${PORT}`);
+    console.log(`WebSocket (Socket.IO) path: ws://0.0.0.0:${PORT}/ws`);
   });
 }
 

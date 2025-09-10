@@ -3,9 +3,10 @@ import { BadRequestError, ConflictError, MissingFieldError, NotFoundError } from
 
 export class CasesService {
     static async getQueuedCases(statusQuery?: string) {
-        const map: Record<string, 'QUEUED' | 'IN_PROGRESS' | 'RESOLVED'> = {
+        const map: Record<string, 'QUEUED' | 'IN_PROGRESS' | 'RESOLVED_PENDING_FEEDBACK' | 'RESOLVED'> = {
             queued: 'QUEUED',
             in_progress: 'IN_PROGRESS',
+            resolved_pending_feedback: 'RESOLVED_PENDING_FEEDBACK',
             resolved: 'RESOLVED',
         };
 

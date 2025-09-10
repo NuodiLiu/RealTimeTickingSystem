@@ -9,18 +9,25 @@ import EmptyState from "../components/EmptyState";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import useAuth from "../hooks/useAuth";
 import useQueue from "../hooks/useQueue";
-import { DeviceAPI, FeedbackAPI, PairAPI, CasesAPI } from "../lib/api";
+import { DeviceAPI, FeedbackAPI, PairAPI, CasesAPI, HealthAPI } from "../lib/api";
 import * as XLSX from 'xlsx'; // Import XLSX library for exporting Excel
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
 export default function DashboardPage() {
   const { user, booting, logout } = useAuth();
-  const { queued, myActive, loading, take, takeNext, resolve } = useQueue(user?.id);
+  const { queued, myActive, loading, take, takeNext, resolve, reload } = useQueue(user?.id);
 
   // Devices state
   const [devices, setDevices] = useState<any[]>([]);
   const [deviceLoading, setDeviceLoading] = useState(true);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+
+  // Load selected device from localStorage on mount
+  useEffect(() => {
+    const savedDeviceId = localStorage.getItem('selected-feedback-device');
+    if (savedDeviceId) {
+      setSelectedDeviceId(savedDeviceId);
+    }
+  }, []);
 
   useEffect(() => {
     const loadDevices = async () => {
@@ -28,6 +35,17 @@ export default function DashboardPage() {
       try {
         const res = await DeviceAPI.list();
         setDevices(res.items || []);
+        
+        // If we have a saved selected device, verify it still exists and is available
+        if (selectedDeviceId) {
+          const selectedDevice = (res.items || []).find((d: any) => d.deviceId === selectedDeviceId);
+          if (!selectedDevice || !isDeviceAvailableForFeedback(selectedDevice)) {
+            // Clear invalid selection
+            setSelectedDeviceId(null);
+            localStorage.removeItem('selected-feedback-device');
+            console.log('Cleared invalid device selection:', selectedDeviceId);
+          }
+        }
       } catch (e) {
         console.error("Failed to load devices:", e);
       } finally {
@@ -35,19 +53,15 @@ export default function DashboardPage() {
       }
     };
     loadDevices();
-  }, []);
+  }, [selectedDeviceId]);
 
   // Health ping
   const [online, setOnline] = useState<boolean>(true);
   useEffect(() => {
     let timer: any;
     const ping = async () => {
-      try {
-        const res = await fetch(`${API_BASE.replace(/\/$/, "")}/health`, { credentials: "include" });
-        setOnline(res.ok);
-      } catch {
-        setOnline(false);
-      }
+      const isOnline = await HealthAPI.check();
+      setOnline(isOnline);
     };
     ping();
     timer = setInterval(ping, 5000);
@@ -59,22 +73,38 @@ export default function DashboardPage() {
     if (!booting && !user) window.location.href = "/login";
   }, [booting, user]);
 
-  // Check if feedback is available (has online devices)
-  const hasAvailableDevices = devices && devices.some((device: any) => 
-    (device.online || device.isOnline) && 
-    (device.mode === 'FEEDBACK' || device.mode === 'DUAL')
-  );
+  // Helper function to check if device is available for feedback
+  const isDeviceAvailableForFeedback = (device: any) => {
+    return (device.isOnline || device.online) && 
+           (device.mode === 'FEEDBACK' || device.mode === 'DUAL');
+  };
 
-  // Send feedback request (disabled if no devices available)
+  // Handle device selection
+  const handleSelectDevice = (deviceId: string) => {
+    setSelectedDeviceId(deviceId);
+    localStorage.setItem('selected-feedback-device', deviceId);
+  };
+
+  // Get selected device info
+  const selectedDevice = devices.find(d => d.deviceId === selectedDeviceId);
+
+  // Check if feedback is available (has selected online device)
+  const hasAvailableDevices = selectedDevice && isDeviceAvailableForFeedback(selectedDevice);
+
+  // Send feedback request (uses selected device)
   async function sendFeedbackRequest(caseId: string) {
-    if (!hasAvailableDevices) {
-      alert("No available devices for feedback. Please ensure at least one iPad is online and supports feedback.");
+    if (!hasAvailableDevices || !selectedDevice) {
+      alert("Please select an available device for feedback first.");
       return;
     }
     
     try {
-      // For now, this is disabled - user needs to select a device first
-      alert("Please select a device from the iPad Devices list first, then try again.");
+      await FeedbackAPI.send({
+        caseId: caseId,
+        deviceId: selectedDevice.deviceId
+      });
+      // Reload queue data to reflect the status change
+      reload();
     } catch (e: any) {
       alert(e?.message ?? "Failed to send feedback request.");
     }
@@ -231,6 +261,13 @@ export default function DashboardPage() {
                     onResolve={resolve}
                     onFeedback={sendFeedbackRequest}
                     feedbackDisabled={!hasAvailableDevices}
+                    feedbackDisabledReason={
+                      !selectedDevice 
+                        ? 'Please select a device for feedback first'
+                        : !selectedDevice.isOnline
+                        ? 'Selected device is offline'
+                        : 'No available devices for feedback'
+                    }
                   />
                 ))}
               </div>
@@ -270,36 +307,65 @@ export default function DashboardPage() {
               <LoadingSkeleton rows={3} />
             ) : devices && devices.length > 0 ? (
               <div className="space-y-3">
-                {devices.map((device: any) => (
-                  <div
-                    key={device.id}
-                    className="flex justify-between p-4 border rounded-md bg-white shadow-sm"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-gray-900 truncate">
-                        {device.name || device.deviceLabel || "iPad Device"}
-                      </h3>
-                      <p className="text-sm text-zinc-500 mt-1">
-                        Mode: <span className="font-medium">{device.mode}</span>
-                      </p>
-                      <div className="flex items-center mt-2">
-                        <div
-                          className={`w-2 h-2 rounded-full mr-2 ${
-                            device.online || device.isOnline ? "bg-green-500" : "bg-red-500"
-                          }`}
-                        />
-                        <span className="text-sm text-zinc-600">
-                          {device.online || device.isOnline ? "Online" : "Offline"}
-                        </span>
-                      </div>
-                      {device.lastSeenAt && (
-                        <p className="text-xs text-zinc-400 mt-1">
-                          Last seen: {new Date(device.lastSeenAt).toLocaleTimeString()}
+                {devices.map((device: any) => {
+                  const isSelected = device.deviceId === selectedDeviceId;
+                  const isAvailable = isDeviceAvailableForFeedback(device);
+                  const isClickable = isAvailable;
+                  
+                  return (
+                    <div
+                      key={device.deviceId}
+                      onClick={() => isClickable && handleSelectDevice(device.deviceId)}
+                      className={`
+                        flex justify-between p-4 border rounded-md shadow-sm transition-all
+                        ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}
+                        ${isClickable ? 'cursor-pointer hover:shadow-md' : 'cursor-not-allowed opacity-60'}
+                        ${isSelected ? 'ring-2 ring-blue-200' : ''}
+                      `}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-gray-900 truncate">
+                            {device.name || device.deviceLabel || "iPad Device"}
+                          </h3>
+                          {isSelected && (
+                            <span className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full">
+                              Selected
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-zinc-500 mt-1">
+                          Mode: <span className="font-medium">{device.mode}</span>
                         </p>
-                      )}
+                        <div className="flex items-center mt-2">
+                          <div
+                            className={`w-2 h-2 rounded-full mr-2 ${
+                              device.isOnline ? "bg-green-500" : "bg-red-500"
+                            }`}
+                          />
+                          <span className="text-sm text-zinc-600">
+                            {device.isOnline ? "Online" : "Offline"}
+                          </span>
+                          {device.status && (
+                            <span className="ml-2 px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
+                              {device.status}
+                            </span>
+                          )}
+                        </div>
+                        {device.lastSeenAt && (
+                          <p className="text-xs text-zinc-400 mt-1">
+                            Last seen: {new Date(device.lastSeenAt).toLocaleTimeString()}
+                          </p>
+                        )}
+                        {!isAvailable && (
+                          <p className="text-xs text-red-500 mt-1">
+                            {!device.isOnline ? "Device is offline" : "Device mode doesn't support feedback"}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <EmptyState label="No devices available." />

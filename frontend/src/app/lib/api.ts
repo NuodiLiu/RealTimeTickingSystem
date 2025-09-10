@@ -49,7 +49,7 @@ export interface User {
   role: 'ADMIN' | 'STAFF'; // Ensure role is part of the user object
   token?: string;
 }
-export type CaseStatus = "queued" | "in_progress" | "resolved";
+export type CaseStatus = "queued" | "in_progress" | "resolved_pending_feedback" | "resolved";
 export interface CaseItem { 
   id: string; 
   status: CaseStatus; 
@@ -65,7 +65,26 @@ export interface CasesListRes { items: CaseItem[] }
 export interface TakeCaseRes { case: CaseItem }
 export interface ResolveCaseRes { case: CaseItem }
 
-export interface DevicesListItem { id: string; mode: string; online: boolean; updatedAt: string }
+export interface DevicesListItem { 
+  deviceId: string; 
+  name: string;
+  mode: "REGISTRATION" | "FEEDBACK" | "DUAL"; 
+  status: "OFFLINE" | "IDLE" | "BUSY";
+  isOnline: boolean; 
+  lastSeenAt: string;
+  currentLock?: {
+    id: string;
+    status: string;
+    case: {
+      id: string;
+      studentName: string;
+      category: string;
+      status: string;
+    };
+    staffName: string;
+    leaseExpireAt: string;
+  };
+}
 export interface DevicesListRes { items: DevicesListItem[] }
 
 export interface FeedbackSendReq { caseId: string; deviceId: string; }
@@ -93,6 +112,20 @@ export interface PairGenerateQrRes {
   sessionId: string;
   expiresAt: string;
 }
+
+export interface HealthPing {
+  status: 'ok' | 'error';
+  version?: string;
+  uptime?: number; // seconds
+}
+
+export interface HealthRes {
+  status: "ok" | "error";
+  timestamp: string;
+  connectedDevices: number;
+  onlineDeviceIds: string[];
+}
+
 // Generic API Error shape your backend sends like { error: string }
 export class ApiError extends Error {
   status: number;
@@ -237,6 +270,18 @@ export const PairAPI = {
   
   complete: (body: PairCompleteReq) =>
     post<PairCompleteRes>("/pair/complete", body), // Correct response
+};
+
+export const HealthAPI = {
+  ping: () => get<HealthRes>("/health"),
+  check: async (): Promise<boolean> => {
+    try {
+      const res = await get<HealthRes>("/health");
+      return res?.status === "ok";
+    } catch {
+      return false;
+    }
+  },
 };
 
 // src/lib/api.ts

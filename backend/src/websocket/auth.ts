@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
 
 type DeviceJwt = { typ?: string; sub: string; mode?: string; iat?: number; exp?: number };
+type StaffJwt = { typ?: string; sub: string; iat?: number; exp?: number };
 
 export async function verifyDeviceHandshake(socket: Socket): Promise<{ deviceId: string; mode: string; }> {
   const bearer = String(socket.handshake.headers.authorization || "");
@@ -32,6 +33,52 @@ export async function verifyDeviceHandshake(socket: Socket): Promise<{ deviceId:
   if (!device) throw new Error("Device not found");
 
   return { deviceId: device.id, mode: device.mode as string };
+}
+
+// New function to handle both device and dashboard connections
+export async function verifySocketHandshake(socket: Socket): Promise<{ type: 'device' | 'dashboard'; deviceId?: string; mode?: string; userId?: string; }> {
+  const bearer = String(socket.handshake.headers.authorization || "");
+  const fromHeader = bearer.replace(/^Bearer\s+/i, "");
+  const fromAuth =
+    (socket.handshake.auth?.deviceToken as string | undefined) ??
+    (socket.handshake.auth?.token as string | undefined);
+
+  const token = fromAuth || fromHeader;
+  
+  // If no token, assume it's a dashboard connection (for now, we'll allow anonymous dashboard connections)
+  if (!token) {
+    return { type: 'dashboard' };
+  }
+
+  let payload: DeviceJwt | StaffJwt;
+  try {
+    payload = jwt.verify(token, process.env.JWT_SECRET!) as DeviceJwt | StaffJwt;
+  } catch {
+    // If token is invalid, still allow dashboard connection
+    return { type: 'dashboard' };
+  }
+
+  if (payload.typ === 'device') {
+    const devicePayload = payload as DeviceJwt;
+    if (!devicePayload.sub) {
+      throw new Error("Invalid device token payload");
+    }
+
+    const device = await prisma.kioskDevice.findUnique({
+      where: { id: devicePayload.sub },
+      select: { id: true, mode: true },
+    });
+    if (!device) throw new Error("Device not found");
+
+    return { 
+      type: 'device', 
+      deviceId: device.id, 
+      mode: device.mode as string 
+    };
+  } else {
+    // Assume it's a staff/dashboard connection
+    return { type: 'dashboard', userId: payload.sub };
+  }
 }
 
 // 与你 ws 版一致：生成 token 的函数（在配对/注册成功后发给设备端）

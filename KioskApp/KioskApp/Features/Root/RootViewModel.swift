@@ -1,6 +1,7 @@
 // Features/Root/RootViewModel.swift
 import Foundation
 import Combine
+import UIKit
 
 enum RootRoute: Hashable { case register, feedback }
 
@@ -58,12 +59,21 @@ final class RootViewModel: ObservableObject {
             }.store(in: &bag)
 
         if env.authProvider.deviceApiKey != nil {
+            print("📱 RootViewModel: Found existing device credentials")
+            print("📱 RootViewModel: API Key exists: \(env.authProvider.deviceApiKey?.prefix(20) ?? "nil")...")
+            print("📱 RootViewModel: WS Token exists: \(env.authProvider.wsToken?.prefix(20) ?? "nil")...")
+            
             isPaired = true
             let stored = env.modeStore.load() ?? .REGISTRATION
             currentMode = stored
             route = routeFor(stored)
+            
+            print("📱 RootViewModel: Restored mode: \(stored), route: \(route)")
+            print("📱 RootViewModel: Attempting to attach socket...")
+            
             attachSocket()
         } else {
+            print("📱 RootViewModel: No existing device credentials found")
             // 未配对：保持未配对状态
             isPaired = false
             route = .register
@@ -71,8 +81,26 @@ final class RootViewModel: ObservableObject {
     }
 
     func attachSocket() {
+        print("📱 RootViewModel: Attaching socket...")
         env.socketService.delegate = env.gatewayCenter
         env.socketService.connect()
+        
+        // 监听应用生命周期来处理连接状态
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleAppBecameActive()
+        }
+    }
+    
+    private func handleAppBecameActive() {
+        // 当应用重新激活时，检查连接状态
+        if isPaired && !env.socketService.isConnected {
+            print("📱 RootViewModel: App became active, reconnecting socket...")
+            env.socketService.reconnect()
+        }
     }
 
     func onPairedSuccessfully(mode: DeviceMode?) {

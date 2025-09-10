@@ -7,7 +7,7 @@ export class CasesController {
       const statusQuery = req.query.status;
       
       // Validate status parameter
-      const validStatuses = ['queued', 'in_progress', 'resolved'];
+      const validStatuses = ['queued', 'in_progress', 'resolved_pending_feedback', 'resolved'];
       if (statusQuery && !validStatuses.includes(statusQuery.toLowerCase())) {
           throw new BadRequestError(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
       }

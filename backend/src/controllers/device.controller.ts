@@ -43,7 +43,7 @@ export class DeviceController {
       if (status) filters.status = status;
   
       const devices = await DeviceService.listDevices(filters);
-      res.status(200).json(devices);
+      res.status(200).json({ items: devices });
     } catch (err) {
       next(err);
     }

@@ -17,8 +17,17 @@ final class AppEnvironment {
     var gatewayCenter = GatewayCenter()
     
     private init() {
-        let api = (Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String) ?? "http://127.0.0.1:3000"
-        let ws  = (Bundle.main.object(forInfoDictionaryKey: "WS_BASE_URL")  as? String) ?? "http://127.0.0.1:3000"
+        // 改回localhost连接
+        let api = "http://localhost:3000"
+        let ws  = "http://localhost:3000"
+        
+        // 保留调试信息以备后续配置使用
+        print("📱 AppEnvironment: API_BASE_URL from Bundle: \(Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") ?? "nil")")
+        print("📱 AppEnvironment: INFOPLIST_KEY_API_BASE_URL from Bundle: \(Bundle.main.object(forInfoDictionaryKey: "INFOPLIST_KEY_API_BASE_URL") ?? "nil")")
+        print("📱 AppEnvironment: WS_BASE_URL from Bundle: \(Bundle.main.object(forInfoDictionaryKey: "WS_BASE_URL") ?? "nil")")
+        print("📱 AppEnvironment: INFOPLIST_KEY_WS_BASE_URL from Bundle: \(Bundle.main.object(forInfoDictionaryKey: "INFOPLIST_KEY_WS_BASE_URL") ?? "nil")")
+        print("📱 AppEnvironment: Using localhost API URL: \(api)")
+        print("📱 AppEnvironment: Using localhost WS URL: \(ws)")
 
         guard let apiURL = URL(string: api), let wsURL = URL(string: ws) else { fatalError("Bad base URLs") }
         self.apiBaseURL = apiURL

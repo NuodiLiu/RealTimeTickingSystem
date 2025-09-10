@@ -1,8 +1,16 @@
 import type { Server } from "socket.io";
 import type { DeviceToServer, AuthedDevice, ServerToDevice } from "./types";
-import { verifyDeviceHandshake } from "./auth";
+import { verifySocketHandshake } from "./auth";
 import { prisma } from "../lib/prisma";
 import { addLeaseSeconds } from "./lease";
+
+// Type for socket data
+type SocketData = {
+  type: 'device' | 'dashboard';
+  deviceId?: string;
+  mode?: string;
+  userId?: string;
+};
 
 // origin url white list
 function checkOrigin(origin?: string): boolean {
@@ -40,8 +48,8 @@ export function bindRealtime(io: Server) {
   io.use(async (socket, next) => {
     try {
       if (!checkOrigin(socket.request.headers.origin)) return next(new Error("Origin not allowed"));
-      const { deviceId, mode } = await verifyDeviceHandshake(socket);
-      (socket.data as AuthedDevice) = { deviceId, mode: mode as any };
+      const connectionInfo = await verifySocketHandshake(socket);
+      (socket.data as SocketData) = connectionInfo;
       next();
     } catch (e) {
       next(e as any);
@@ -49,7 +57,26 @@ export function bindRealtime(io: Server) {
   });
 
   io.on("connection", async (socket) => {
-    const { deviceId, mode } = socket.data as AuthedDevice;
+    const connectionInfo = socket.data as SocketData;
+    
+    // Handle dashboard connections
+    if (connectionInfo.type === 'dashboard') {
+      console.log('Dashboard connected');
+      
+      socket.on("disconnect", () => {
+        console.log('Dashboard disconnected');
+      });
+      
+      return; // Dashboard connections don't need device-specific logic
+    }
+    
+    // Handle device connections
+    const { deviceId, mode } = connectionInfo;
+    if (!deviceId || !mode) {
+      socket.disconnect();
+      return;
+    }
+    
     const room = `device:${deviceId}`;
 
     // disconnect previous connection if there are any
@@ -69,8 +96,71 @@ export function bindRealtime(io: Server) {
     socket.emit("message", { type: "PING", payload: { now: new Date().toISOString() } } as ServerToDevice);
 
     // 多连接：Socket.IO 的 room 天然支持“同设备多连接”——无需你自己维护 Map/Set
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       clearInterval(timer);
+      console.log(`Device ${deviceId} disconnected.`);
+
+      try {
+        const device = await prisma.kioskDevice.findUnique({
+          where: { id: deviceId },
+          include: {
+            currentLock: true
+          }
+        });
+
+        if (device?.currentLock && device.currentLock.status === 'ACTIVE') {
+          const lock = device.currentLock;
+          const caseId = lock.caseId;
+
+          console.log(`Device ${deviceId} had an active lock ${lock.id} for case ${caseId}. Cleaning up due to disconnect.`);
+
+          await prisma.$transaction(async (tx) => {
+            // 1. Resolve the associated case if it's not already resolved
+            const currentCase = await tx.studentCase.findUnique({ where: { id: caseId } });
+            if (currentCase?.status !== 'RESOLVED') {
+              await tx.studentCase.update({
+                where: { id: caseId },
+                data: {
+                  status: 'RESOLVED',
+                  resolvedAt: new Date(),
+                },
+              });
+            }
+
+            // 2. Mark the lock as EXPIRED
+            await tx.kioskLock.update({
+              where: { id: lock.id },
+              data: { status: 'EXPIRED' },
+            });
+
+            // 3. Release the device
+            await tx.kioskDevice.update({
+              where: { id: deviceId },
+              data: { currentLockId: null },
+            });
+
+            // 4. Cancel any pending feedback sessions for this case/device
+            await tx.feedbackSession.updateMany({
+                where: {
+                    caseId: caseId,
+                    deviceId: deviceId,
+                    status: { in: ['CREATED', 'DELIVERED'] }
+                },
+                data: {
+                    status: 'CANCELLED'
+                }
+            });
+          });
+
+          console.log(`Cleaned up resources for case ${caseId} and device ${deviceId}.`);
+          
+          // Notify dashboard clients
+          io.emit("event", { type: "case:updated", payload: { id: caseId, status: "RESOLVED" } });
+          io.emit("event", { type: "device:updated", payload: { id: deviceId, isBusy: false } });
+        }
+      } catch (error) {
+        console.error(`Error during disconnect cleanup for device ${deviceId}:`, error);
+      }
     });
 
     socket.on("message", async (raw: unknown) => {

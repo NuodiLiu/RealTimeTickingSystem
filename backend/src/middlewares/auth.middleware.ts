@@ -1,7 +1,7 @@
 // src/middleware/auth.ts
 import { Request, Response, NextFunction, RequestHandler } from "express";
 
-import { AuthError } from "../error";
+import { AuthError, ForbiddenRoleError } from "../error";
 import { validateDeviceApiKey } from "../lib/utils/auth";
 
 export type Role = "ADMIN" | "STAFF";
@@ -15,13 +15,15 @@ const ROLE_RANK: Record<Role, number> = {
 export function requireRoleAtLeast(required: Role): RequestHandler {
   return (req: Request, _res: Response, next: NextFunction) => {
     const user = (req as any).user as { id: string; role: Role } | undefined;
-    if (!user) return next(new Error("Unauthorized"));
+    if (!user) return next(new AuthError("Unauthorized", 401)); 
+    
+    if (!(user.role in ROLE_RANK)) {
+      return next(new AuthError("Invalid user role", 401));
+    }
+    
     const ok = ROLE_RANK[user.role] >= ROLE_RANK[required];
-    console.log("🚀 ~ user role ~ user.role:", user.role);
-    console.log("🚀 ~ required ~ required:", required);
 
-
-    if (!ok) return next(new Error("Forbidden"));
+    if (!ok) return next(new ForbiddenRoleError()); 
     next();
   };
 }

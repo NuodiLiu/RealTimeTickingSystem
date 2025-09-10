@@ -1,18 +1,96 @@
 // Core/Services/SocketService.swift
 import Foundation
 import SocketIO
+import UIKit
 
 final class SocketService {
     private var manager: SocketManager?
     private var socket: SocketIOClient?
     private let wsBaseURL: URL
     private let authProvider: AuthProviding
+    private var isIntentionallyDisconnected = false
+    private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
 
     weak var delegate: DeviceGatewayDelegate?
 
     init(wsBaseURL: URL, authProvider: AuthProviding) {
         self.wsBaseURL = wsBaseURL
         self.authProvider = authProvider
+        setupApplicationLifecycleNotifications()
+    }
+    
+    deinit {
+        removeApplicationLifecycleNotifications()
+        endBackgroundTask()
+    }
+    
+    // MARK: - Application Lifecycle Management
+    
+    private func setupApplicationLifecycleNotifications() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationWillTerminate),
+            name: UIApplication.willTerminateNotification,
+            object: nil
+        )
+    }
+    
+    private func removeApplicationLifecycleNotifications() {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    @objc private func applicationWillEnterForeground() {
+        print("📱 SocketService: App entering foreground, checking connection...")
+        endBackgroundTask()
+        
+        // 如果有有效的认证信息且不是故意断开的，尝试重连
+        if authProvider.wsToken != nil && !isIntentionallyDisconnected {
+            if socket?.status != .connected {
+                print("📱 SocketService: Auto-reconnecting on foreground...")
+                connect()
+            }
+        }
+    }
+    
+    @objc private func applicationDidEnterBackground() {
+        print("📱 SocketService: App entering background, starting background task...")
+        
+        // 开始后台任务，给Socket.IO一些时间来处理断开
+        backgroundTask = UIApplication.shared.beginBackgroundTask { [weak self] in
+            print("📱 SocketService: Background task expired")
+            self?.endBackgroundTask()
+        }
+        
+        // 给socket一些时间在后台发送必要的断开信号
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.endBackgroundTask()
+        }
+    }
+    
+    @objc private func applicationWillTerminate() {
+        print("📱 SocketService: App will terminate, disconnecting...")
+        disconnect()
+    }
+    
+    private func endBackgroundTask() {
+        if backgroundTask != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTask)
+            backgroundTask = .invalid
+        }
     }
 
     /// 根据"当前"wsToken 动态创建 manager/socket 并连接
@@ -24,6 +102,7 @@ final class SocketService {
         }
 
         print("📱 SocketService.connect() starting with wsToken: \(String(wsToken.prefix(20)))...")
+        isIntentionallyDisconnected = false
 
         // 如果已有连接，先断开并销毁（避免旧 header）
         if let s = socket, s.status == .connected { 
@@ -38,19 +117,20 @@ final class SocketService {
         print("📱 SocketService: Connecting to \(socketURL)")
 
         let cfg: SocketIOClientConfiguration = [
-            .log(true),  // 临时启用日志以便调试
+            .log(false),  // 在生产环境中关闭详细日志
             .compress,
             .path("/ws"),
             .forceWebsockets(true),
             .reconnects(true),
-            .reconnectAttempts(-1),
+            .reconnectAttempts(-1),  // 无限重连尝试
             .reconnectWait(2),
+            .reconnectWaitMax(10),   // 最大重连间隔
             .extraHeaders([
                 "Authorization": "Bearer \(wsToken)",
-                "Origin": "http://localhost:3000",
+                "Origin": socketURL.absoluteString,
                 "User-Agent": "KioskApp-iOS/1.0"
             ]),
-            .forceNew(true)  // 强制创建新连接
+            .forceNew(false)  // 允许复用连接以提高效率
         ]
 
         let manager = SocketManager(socketURL: socketURL, config: cfg)
@@ -65,12 +145,23 @@ final class SocketService {
             print("📱 SocketService: Connected successfully!")
             self?.delegate?.gatewayDidConnect() 
         }
-        socket.on(clientEvent: .disconnect) { [weak self] _,_ in 
-            print("📱 SocketService: Disconnected")
+        
+        socket.on(clientEvent: .disconnect) { [weak self] data,_ in 
+            print("📱 SocketService: Disconnected - reason: \(data)")
             self?.delegate?.gatewayDidDisconnect() 
         }
+        
         socket.on(clientEvent: .error) { data,_ in 
             print("📱 SocketService: Connection error: \(data)") 
+        }
+        
+        socket.on(clientEvent: .reconnect) { [weak self] _,_ in
+            print("📱 SocketService: Reconnected successfully!")
+            self?.delegate?.gatewayDidConnect()
+        }
+        
+        socket.on(clientEvent: .reconnectAttempt) { data,_ in
+            print("📱 SocketService: Reconnection attempt: \(data)")
         }
 
         // 统一"message"事件
@@ -124,9 +215,21 @@ final class SocketService {
     }
 
     func disconnect() {
+        print("📱 SocketService: Manual disconnect requested")
+        isIntentionallyDisconnected = true
         socket?.disconnect()
         socket = nil
         manager = nil
+        endBackgroundTask()
+    }
+    
+    func reconnect() {
+        print("📱 SocketService: Manual reconnect requested")
+        if authProvider.wsToken != nil {
+            connect()
+        } else {
+            print("📱 SocketService: Cannot reconnect - no WebSocket token")
+        }
     }
 
     var isConnected: Bool { socket?.status == .connected }

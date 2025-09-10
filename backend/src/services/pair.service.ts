@@ -46,8 +46,9 @@ export class PairService {
     pairingToken: string;
     deviceName: string;
     deviceMode?: DeviceMode;
+    deviceId?: string; // 可选：重新配对已存在的设备
   }) {
-    const { pairingToken, deviceName, deviceMode = 'FEEDBACK' } = data;
+    const { pairingToken, deviceName, deviceMode = 'FEEDBACK', deviceId } = data;
 
     if (!pairingToken || !deviceName) {
       throw new MissingFieldError(['pairingToken', 'deviceName']);
@@ -83,14 +84,59 @@ export class PairService {
     const deviceSecret = crypto.randomBytes(32).toString('hex');
     const secretHash = crypto.createHash('sha256').update(deviceSecret).digest('hex');
 
-    const device = await prisma.kioskDevice.create({
-      data: {
-        name: deviceName,
-        secretHash,
-        mode: deviceMode,
-        lastSeenAt: new Date(),
-      },
-    });
+    let device;
+    
+    // 检查是否为重新配对现有设备
+    if (deviceId) {
+      const existingDevice = await prisma.kioskDevice.findUnique({
+        where: { id: deviceId }
+      });
+      
+      if (existingDevice && !existingDevice.deletedAt) {
+        // 更新现有设备的配对信息
+        device = await prisma.kioskDevice.update({
+          where: { id: deviceId },
+          data: {
+            name: deviceName,
+            secretHash,
+            mode: deviceMode,
+            lastSeenAt: new Date(),
+          },
+        });
+      } else {
+        throw new BadRequestError('Device not found or has been deleted');
+      }
+    } else {
+      // 检查是否已有同名设备（可能是重新安装的app）
+      const existingDevice = await prisma.kioskDevice.findFirst({
+        where: { 
+          name: deviceName,
+          deletedAt: null
+        }
+      });
+      
+      if (existingDevice) {
+        // 重新配对现有设备而不是创建新的
+        device = await prisma.kioskDevice.update({
+          where: { id: existingDevice.id },
+          data: {
+            secretHash,
+            mode: deviceMode,
+            lastSeenAt: new Date(),
+          },
+        });
+      } else {
+        // 创建新设备
+        device = await prisma.kioskDevice.create({
+          data: {
+            name: deviceName,
+            secretHash,
+            mode: deviceMode,
+            lastSeenAt: new Date(),
+          },
+        });
+      }
+    }
 
     // Generate WebSocket token for device
     const wsToken = signDeviceToken(device.id, deviceMode);
