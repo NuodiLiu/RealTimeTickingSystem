@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		018F61A32E6F119200EC2FE1 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = 018F61A22E6F119200EC2FE1 /* SocketIO */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		018F61792E6F105D00EC2FE1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -45,6 +49,11 @@
 			path = KioskAppUITests;
 			sourceTree = "<group>";
 		};
+		018F61B02E6F128400EC2FE1 /* Resources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Resources;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,6 +61,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				018F61A32E6F119200EC2FE1 /* SocketIO in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,6 +85,7 @@
 		018F61622E6F105C00EC2FE1 = {
 			isa = PBXGroup;
 			children = (
+				018F61B02E6F128400EC2FE1 /* Resources */,
 				018F616D2E6F105C00EC2FE1 /* KioskApp */,
 				018F617B2E6F105D00EC2FE1 /* KioskAppTests */,
 				018F61852E6F105D00EC2FE1 /* KioskAppUITests */,
@@ -109,9 +120,11 @@
 			);
 			fileSystemSynchronizedGroups = (
 				018F616D2E6F105C00EC2FE1 /* KioskApp */,
+				018F61B02E6F128400EC2FE1 /* Resources */,
 			);
 			name = KioskApp;
 			packageProductDependencies = (
+				018F61A22E6F119200EC2FE1 /* SocketIO */,
 			);
 			productName = KioskApp;
 			productReference = 018F616B2E6F105C00EC2FE1 /* KioskApp.app */;
@@ -195,6 +208,9 @@
 			);
 			mainGroup = 018F61622E6F105C00EC2FE1;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				018F61A12E6F119200EC2FE1 /* XCRemoteSwiftPackageReference "socket" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 018F616C2E6F105C00EC2FE1 /* Products */;
 			projectDirPath = "";
@@ -271,6 +287,8 @@
 /* Begin XCBuildConfiguration section */
 		018F618A2E6F105D00EC2FE1 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 018F61B02E6F128400EC2FE1 /* Resources */;
+			baseConfigurationReferenceRelativePath = "Config/Debug-Local.xcconfig";
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -334,6 +352,8 @@
 		};
 		018F618B2E6F105D00EC2FE1 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 018F61B02E6F128400EC2FE1 /* Resources */;
+			baseConfigurationReferenceRelativePath = "Config/Release-Prod.xcconfig";
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -397,6 +417,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to scan QR codes for device pairing.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -424,6 +445,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to scan QR codes for device pairing.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -550,6 +572,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		018F61A12E6F119200EC2FE1 /* XCRemoteSwiftPackageReference "socket" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/socketio/socket.io-client-swift";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		018F61A22E6F119200EC2FE1 /* SocketIO */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 018F61A12E6F119200EC2FE1 /* XCRemoteSwiftPackageReference "socket" */;
+			productName = SocketIO;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 018F61632E6F105C00EC2FE1 /* Project object */;
 }
