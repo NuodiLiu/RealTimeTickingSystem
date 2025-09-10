@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { AuthAPI, ApiError, User } from "../lib/api";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 
+
+
 export default function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [booting, setBooting] = useState(true);
@@ -16,21 +18,22 @@ export default function useAuth() {
         const meResponse = await fetch(`${API_BASE}/auth/me`, {
           credentials: 'include',
         });
-        
+
         if (meResponse.ok) {
           const data = await meResponse.json();
           if (data.user && mounted) {
-            // Use the REAL staffId from the session
-            setUser({ 
-              id: data.user.staffId,  // This should be the real database ID
+            // Ensure user has the role property
+            setUser({
+              id: data.user.staffId,
               email: data.user.upn,
-              username: data.user.name
+              username: data.user.name,
+              role: data.user.role,  // Ensure role is included
             });
             setBooting(false);
             return;
           }
         }
-        
+
         // If no session, user is not logged in
         if (mounted) {
           setUser(null);
@@ -45,14 +48,19 @@ export default function useAuth() {
     })();
     return () => { mounted = false; };
   }, []);
+
   async function login(employeeNo: string) {
     try {
       const res = await AuthAPI.login({ employeeNo });
-      // Now access res.staff instead of res.user
-      setUser({ 
-        id: res.staff.id, 
+      // Ensure the response includes role
+      if (res.staff.role != "STAFF" && res.staff.role != "ADMIN") {
+        throw new Error("Must be admin or staff");
+      }
+      setUser({
+        id: res.staff.id,
         email: res.staff.email,
-        username: res.staff.name
+        username: res.staff.name,
+        role: res.staff.role, // Ensure role is set
       });
     } catch (error) {
       throw error;
@@ -60,12 +68,12 @@ export default function useAuth() {
   }
 
   async function logout() {
-    try { 
-      await AuthAPI.logout(); 
+    try {
+      await AuthAPI.logout();
     } catch (e) {
       console.error('Logout error:', e);
-    } finally { 
-      setUser(null); 
+    } finally {
+      setUser(null);
     }
   }
 

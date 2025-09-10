@@ -9,7 +9,8 @@ import EmptyState from "../components/EmptyState";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import useAuth from "../hooks/useAuth";
 import useQueue from "../hooks/useQueue";
-import { DeviceAPI, FeedbackAPI, PairAPI } from "../lib/api";
+import { DeviceAPI, FeedbackAPI, PairAPI, CasesAPI } from "../lib/api";
+import * as XLSX from 'xlsx'; // Import XLSX library for exporting Excel
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
@@ -91,15 +92,36 @@ export default function DashboardPage() {
     }
   }
 
+  // Export to Excel functionality
+  const handleExportToExcel = async () => {
+    try {
+      if (user?.role !== 'ADMIN') {
+        alert('You do not have permission to export this data.');
+        return;
+      }
+  
+      // Call the API to fetch the cases for export
+      const data = await CasesAPI.exportCases();  // Use the new exportCases API helper
+  
+      // Export the data to Excel using XLSX
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Cases');
+      XLSX.writeFile(wb, 'cases_export.xlsx');
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      alert('An error occurred while exporting the data.');
+    }
+  };
+
+
   // Modal control state
   const [pairOpen, setPairOpen] = useState(false); // Modal initially closed
 
-  // Open the QR Modal when clicking Generate QR button
   const openPairModal = useCallback(() => {
     setPairOpen(true); // Open the modal when QR generation is triggered
   }, []);
 
-  // Close the QR Modal
   const closePairModal = useCallback(() => {
     setPairOpen(false); // Close modal when clicked
   }, []);
@@ -221,6 +243,12 @@ export default function DashboardPage() {
                 className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50"
               >
                 Generate QR
+              </button>
+              <button
+                onClick={handleExportToExcel}
+                className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50"
+              >
+                Export to Excel
               </button>
             </div>
           </div>
