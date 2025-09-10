@@ -73,7 +73,7 @@ final class RegistrationViewModel: ObservableObject {
     // MARK: - 提交
     /// 提交后可选择是否清空表单（默认不清空，便于继续提交相似记录）
     @MainActor
-    func submit(clearOnSuccess: Bool = false) async {
+    func submit(clearOnSuccess: Bool = true) async {
         // 避免重复点击/竞态
         guard canSubmit else {
             self.errorMessage = "请填写姓名并选择分类"
@@ -82,19 +82,24 @@ final class RegistrationViewModel: ObservableObject {
 
         isSubmitting = true
         errorMessage = nil
+        lastCreatedCaseId = nil // 清除之前的成功消息
         defer { isSubmitting = false }
 
         do {
-            let resp = try await env.casesAPI.createCase(
+            _ = try await env.casesAPI.createCase(
                 name: normalizedName,
                 categoryId: categoryId
             )
-            lastCreatedCaseId = resp.id
-
+            lastCreatedCaseId = "Successful" // 简化成功消息
+            
             if clearOnSuccess {
                 name = ""
-                // categoryId 是否清空看业务：一般不清空，便于连续同类录入
-                // categoryId = ""
+                // 保留分类选择，便于连续同类录入
+            }
+            
+            // 3秒后自动清除成功提示
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                self.lastCreatedCaseId = nil
             }
         } catch {
             errorMessage = error.localizedDescription

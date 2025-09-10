@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UIKit
 
 
 final class PairAPI {
@@ -18,7 +19,12 @@ final class PairAPI {
             method: .POST,
             needsDeviceAuth: false
         )
-        let req = PairCompleteRequest(pairingToken: pairingToken, mode: mode?.rawValue)
+        let deviceName = await UIDevice.current.name
+        let req = PairCompleteRequest(
+            pairingToken: pairingToken, 
+            deviceName: deviceName,
+            mode: mode?.rawValue
+        )
         return try await client.request(ep, body: req)
     }
 }

@@ -14,6 +14,7 @@ final class GatewayCenter: ObservableObject, DeviceGatewayDelegate {
     @Published var showFeedback: FeedbackShowPayload?
     @Published var lockAssigned: LockAssignedPayload?
     @Published var modeChanged: DeviceMode?
+    @Published var deviceUnpaired: Bool = false
 
     func gatewayDidConnect() { isConnected = true }
     func gatewayDidDisconnect() { isConnected = false }
@@ -32,5 +33,16 @@ final class GatewayCenter: ObservableObject, DeviceGatewayDelegate {
 
     func gatewayModeChanged(_ mode: DeviceMode) {
         modeChanged = mode
+    }
+    
+    func gatewayDeviceUnpaired() {
+        print("📱 GatewayCenter: Device unpaired by server - setting deviceUnpaired = true")
+        deviceUnpaired = true
+        
+        // 1秒后自动重置状态，避免重复触发
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            print("📱 GatewayCenter: Resetting deviceUnpaired flag")
+            self.deviceUnpaired = false
+        }
     }
 }

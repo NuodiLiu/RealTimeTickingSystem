@@ -63,6 +63,8 @@ struct PairingView: View {
             }
             .padding(32)
         }
+        .devResetGesture() // 添加开发者重置手势
+        .kioskDragBlock() // 禁用拖动手势
         // 全屏相机
         .fullScreenCover(isPresented: $vm.isScanning) {
             ZStack {
@@ -83,10 +85,23 @@ struct PairingView: View {
                         .foregroundColor(.gray)
                         .padding(.horizontal)
                     
-                    Button("Simulate QR Scan") {
-                        Task { await vm.handleScanned(token: "test-token-123") }
+                    VStack(spacing: 10) {
+                        Button("Simulate QR Scan (Dev Token)") {
+                            // 使用后端预设的开发环境测试令牌
+                            let simulatedToken = "test-token-123"
+                            print("🧪 Simulating scan with token: \(simulatedToken)")
+                            Task { await vm.handleScanned(token: simulatedToken) }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        
+                        Button("Simulate QR Scan (Random Token)") {
+                            // 生成随机令牌来测试错误处理
+                            let randomToken = "pair_\(UUID().uuidString.prefix(8))"
+                            print("🧪 Simulating scan with random token: \(randomToken)")
+                            Task { await vm.handleScanned(token: randomToken) }
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.borderedProminent)
                 }
                 #else
                 QRScannerView { value in

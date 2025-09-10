@@ -34,6 +34,25 @@ final class RootViewModel: ObservableObject {
                 if p != nil { self?.route = .feedback } // REGISTRATION 模式下也可被临时覆盖
             }.store(in: &bag)
 
+        // 监听服务器发送的 unpair 事件
+        env.gatewayCenter.$deviceUnpaired
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isUnpaired in
+                print("📱 RootViewModel: deviceUnpaired changed to: \(isUnpaired)")
+                if isUnpaired {
+                    print("📱 RootViewModel: *** SERVER UNPAIR TRIGGERED *** Processing server unpair event")
+                    self?.handleServerUnpair()
+                }
+            }.store(in: &bag)
+        
+        // 监听开发者重置请求
+        NotificationCenter.default.publisher(for: .deviceResetRequested)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                print("📱 *** NOTIFICATION RECEIVED *** DeviceResetRequested")
+                self?.resetPairedStatus()
+            }.store(in: &bag)
+
         if env.authProvider.deviceApiKey != nil {
             isPaired = true
             let stored = env.modeStore.load() ?? .DUAL
@@ -64,6 +83,57 @@ final class RootViewModel: ObservableObject {
 
     func backToModePage() {
         route = routeFor(currentMode)
+    }
+    
+    // 手动触发的 unpair（目前没有UI）
+    func unpairDevice() {
+        do {
+            try env.authProvider.clearDevice()
+            env.modeStore.clear()
+            env.socketService.disconnect()
+            
+            isPaired = false
+            currentMode = .DUAL
+            route = .register
+            
+            print("📱 Device unpaired successfully")
+        } catch {
+            print("❌ Failed to unpair device: \(error)")
+        }
+    }
+    
+    // 手动重置配对状态（用于调试或强制重置）
+    func resetPairedStatus() {
+        print("📱 *** DEV RESET TRIGGERED *** Manually resetting paired status")
+        print("📱 Current state - isPaired: \(isPaired), mode: \(currentMode), route: \(route)")
+        
+        isPaired = false
+        currentMode = .DUAL
+        route = .register
+        
+        print("📱 After reset - isPaired: \(isPaired), mode: \(currentMode), route: \(route)")
+    }
+    
+    // 处理服务器发送的 unpair 事件
+    private func handleServerUnpair() {
+        print("📱 *** HANDLING SERVER UNPAIR EVENT ***")
+        print("📱 Current state - isPaired: \(isPaired), mode: \(currentMode), route: \(route)")
+        
+        do {
+            try env.authProvider.clearDevice()
+            env.modeStore.clear()
+            env.socketService.disconnect()
+            
+            // 重置状态，返回配对界面
+            isPaired = false
+            currentMode = .DUAL
+            route = .register
+            
+            print("📱 After server unpair - isPaired: \(isPaired), mode: \(currentMode), route: \(route)")
+            print("✅ Successfully handled server unpair - returning to pairing screen")
+        } catch {
+            print("❌ Failed to handle server unpair: \(error)")
+        }
     }
 
     private func routeFor(_ mode: DeviceMode) -> RootRoute {

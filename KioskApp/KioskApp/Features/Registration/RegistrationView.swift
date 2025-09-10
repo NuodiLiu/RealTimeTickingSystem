@@ -4,6 +4,9 @@ import SwiftUI
 struct RegistrationView: View {
     @ObservedObject var vm: RegistrationViewModel
     @FocusState private var nameFocused: Bool
+    
+    // 从环境获取 AppEnvironment，以便访问重置功能
+    private let appEnv = AppEnvironment.shared
 
     // 把 categoryId ↔ CategoryItem? 做成绑定，InlineDropdown 才能直接显示所选名称
     private var selectedCategoryBinding: Binding<CategoryItem?> {
@@ -19,7 +22,7 @@ struct RegistrationView: View {
             Color(.systemGroupedBackground).ignoresSafeArea()
 
             // 主体内容：居中窄列，适合站立操作
-            ScrollView {
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 28) {
                     Header()
 
@@ -80,7 +83,13 @@ struct RegistrationView: View {
                     .tint(Color.secondary)
 
                     Button {
-                        Task { await vm.submit() }
+                        Task { 
+                            await vm.submit()
+                            // 提交成功后重新聚焦到名字输入框
+                            if vm.lastCreatedCaseId != nil {
+                                nameFocused = true
+                            }
+                        }
                     } label: {
                         HStack(spacing: 10) {
                             if vm.isSubmitting { ProgressView() }
@@ -99,6 +108,15 @@ struct RegistrationView: View {
                 .padding(.vertical, 16)
                 .background(.ultraThinMaterial)
             }
+            .scrollBounceBehavior(.basedOnSize) // 基于内容大小决定弹跳
+            .scrollDisabled(false) // 允许必要的滚动
+            .gesture(
+                // 拦截过度拖动
+                DragGesture()
+                    .onChanged { _ in
+                        // 静默拦截
+                    }
+            )
         }
         .onAppear { nameFocused = true }
         .toolbar {
@@ -117,8 +135,8 @@ struct RegistrationView: View {
         // 成功与错误反馈（顶部弹条更显眼）
         .overlay(alignment: .top) {
             VStack(spacing: 10) {
-                if let id = vm.lastCreatedCaseId {
-                    Banner(text: "Submitted: \(id)", style: .success)
+                if let _ = vm.lastCreatedCaseId {
+                    Banner(text: "Successful", style: .success)
                 }
                 if let e = vm.errorMessage {
                     Banner(text: e, style: .error)
@@ -126,6 +144,8 @@ struct RegistrationView: View {
             }
             .padding(.top, 8)
         }
+        .devResetGesture() // 添加开发者重置手势
+        .kioskDragBlock() // 禁用拖动手势
     }
 }
 

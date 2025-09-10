@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import AVFoundation
+import UIKit
 
 /// 首次进入/未配对时的 VM：选择 mode -> 扫码 -> 调用 /pair/complete
 final class PairingViewModel: ObservableObject {
@@ -60,15 +61,33 @@ final class PairingViewModel: ObservableObject {
             struct EPResp: Decodable {
                 let deviceId: String
                 let apiKey: String
+                let wsToken: String?        // WebSocket JWT 认证 token
+                let wsEndpoint: String?     // WebSocket 端点 URL
                 let mode: DeviceMode?
             }
             let ep = Endpoint<EPResp>(path: "/pair/complete", method: .POST, needsDeviceAuth: false)
-            let body = PairCompleteRequest(pairingToken: token, mode: selectedMode.rawValue)
+            let deviceName = UIDevice.current.name
+            let body = PairCompleteRequest(
+                pairingToken: token, 
+                deviceName: deviceName,
+                mode: selectedMode.rawValue
+            )
+            
+            print("🔄 Pairing request:")
+            print("   Token: \(token)")
+            print("   Device: \(deviceName)")
+            print("   Mode: \(selectedMode.rawValue)")
             
             let resp: EPResp = try await env.apiClient.request(ep, body: body)
             
             let finalMode = resp.mode ?? selectedMode
-            let creds = DeviceCredentials(deviceId: resp.deviceId, apiKey: resp.apiKey, mode: finalMode)
+            let creds = DeviceCredentials(
+                deviceId: resp.deviceId, 
+                apiKey: resp.apiKey, 
+                wsToken: resp.wsToken,
+                wsEndpoint: resp.wsEndpoint,
+                mode: finalMode
+            )
             try env.authProvider.storeDevice(credentials: creds)
             print("Stored device, id:", creds.deviceId.prefix(6), "mode:", creds.mode.rawValue)
             

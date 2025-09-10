@@ -6,9 +6,27 @@ import { addLeaseSeconds } from "./lease";
 
 // origin url white list
 function checkOrigin(origin?: string): boolean {
-  if (!origin) return true;
+  // Always allow in development
+  if (process.env.NODE_ENV === 'development') return true;
+  
+  // Always allow in test
   if (process.env.NODE_ENV === 'test') return true;
   
+  // Allow no origin (mobile apps, Postman, etc.)
+  if (!origin) return true;
+  
+  // Allow common mobile app origins
+  const mobileOrigins = [
+    'capacitor://localhost',
+    'ionic://localhost',
+    'file://',
+  ];
+  
+  if (mobileOrigins.some(allowed => origin.startsWith(allowed))) {
+    return true;
+  }
+  
+  // Allow configured frontend URL
   const allowed = process.env.FRONTEND_URL;
   return !allowed || origin.startsWith(allowed);
 }

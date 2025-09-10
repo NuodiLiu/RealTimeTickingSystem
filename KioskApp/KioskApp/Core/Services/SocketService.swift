@@ -15,55 +15,92 @@ final class SocketService {
         self.authProvider = authProvider
     }
 
-    /// 根据“当前”apiKey 动态创建 manager/socket 并连接
+    /// 根据"当前"wsToken 动态创建 manager/socket 并连接
     func connect() {
-        // 没配对就先不连
-        guard let apiKey = authProvider.deviceApiKey else {
-            print("SocketService.connect() skipped: no device apiKey yet")
+        // 检查是否有 WebSocket token，如果没有则跳过连接
+        guard let wsToken = authProvider.wsToken else {
+            print("📱 SocketService.connect() skipped: no WebSocket token available")
             return
         }
 
+        print("📱 SocketService.connect() starting with wsToken: \(String(wsToken.prefix(20)))...")
+
         // 如果已有连接，先断开并销毁（避免旧 header）
-        if let s = socket, s.status == .connected { s.disconnect() }
+        if let s = socket, s.status == .connected { 
+            print("📱 SocketService: Disconnecting existing connection")
+            s.disconnect() 
+        }
         socket = nil
         manager = nil
 
+        // 使用 wsEndpoint 如果可用，否则使用默认
+        let socketURL = authProvider.wsEndpoint.flatMap(URL.init) ?? wsBaseURL
+        print("📱 SocketService: Connecting to \(socketURL)")
+
         let cfg: SocketIOClientConfiguration = [
-            .log(false),
+            .log(true),  // 临时启用日志以便调试
             .compress,
             .path("/ws"),
             .forceWebsockets(true),
             .reconnects(true),
             .reconnectAttempts(-1),
             .reconnectWait(2),
-            .extraHeaders(["Authorization": "Device \(apiKey)"])
+            .extraHeaders([
+                "Authorization": "Bearer \(wsToken)",
+                "Origin": "http://localhost:3000",
+                "User-Agent": "KioskApp-iOS/1.0"
+            ]),
+            .forceNew(true)  // 强制创建新连接
         ]
 
-        let manager = SocketManager(socketURL: wsBaseURL, config: cfg)
+        let manager = SocketManager(socketURL: socketURL, config: cfg)
         let socket = manager.defaultSocket
         self.manager = manager
         self.socket = socket
 
-        // 客户端事件
-        socket.on(clientEvent: .connect) { [weak self] _,_ in self?.delegate?.gatewayDidConnect() }
-        socket.on(clientEvent: .disconnect) { [weak self] _,_ in self?.delegate?.gatewayDidDisconnect() }
-        socket.on(clientEvent: .error) { data,_ in print("SOCKET error:", data) }
+        print("📱 SocketService: Socket manager created, attempting connection...")
 
-        // 统一“message”事件
+        // 客户端事件
+        socket.on(clientEvent: .connect) { [weak self] _,_ in 
+            print("📱 SocketService: Connected successfully!")
+            self?.delegate?.gatewayDidConnect() 
+        }
+        socket.on(clientEvent: .disconnect) { [weak self] _,_ in 
+            print("📱 SocketService: Disconnected")
+            self?.delegate?.gatewayDidDisconnect() 
+        }
+        socket.on(clientEvent: .error) { data,_ in 
+            print("📱 SocketService: Connection error: \(data)") 
+        }
+
+        // 统一"message"事件
         socket.on("message") { [weak self] data,_ in
-            guard let self, let dict = data.first as? [String: Any],
-                  let type = dict["type"] as? String else { return }
+            guard let self else { return }
+            
+            print("📱 SocketService: Raw message received: \(data)")
+            
+            guard let dict = data.first as? [String: Any],
+                  let type = dict["type"] as? String else { 
+                print("📱 SocketService: Failed to parse message - invalid format")
+                return 
+            }
+            
             let payload = dict["payload"]
+            print("📱 SocketService: Parsed message - type: '\(type)', payload: \(payload ?? "nil")")
 
             switch type {
-            case "PING": self.emit(type: "PONG")
+            case "PING": 
+                self.emit(type: "PONG")
             case "SHOW_FEEDBACK":
                 if let raw = payload as? [String: Any],
                    let decoded: FeedbackShowPayload = Self.decode(raw) {
                     self.delegate?.gatewayShowFeedback(decoded, raw: raw)
-                } else { self.delegate?.gatewayShowFeedback(FeedbackShowPayload(sessionId: nil, caseId: nil, title: nil, message: nil),
-                                                            raw: (payload as? [String: Any]) ?? [:]) }
-            case "DISMISS": self.delegate?.gatewayDismiss()
+                } else { 
+                    self.delegate?.gatewayShowFeedback(FeedbackShowPayload(sessionId: nil, caseId: nil, title: nil, message: nil),
+                                                      raw: (payload as? [String: Any]) ?? [:]) 
+                }
+            case "DISMISS": 
+                self.delegate?.gatewayDismiss()
             case "LOCK_ASSIGNED":
                 if let raw = payload as? [String: Any],
                    let decoded: LockAssignedPayload = Self.decode(raw) {
@@ -74,7 +111,12 @@ final class SocketService {
                    let m = (raw["mode"] as? String).flatMap(DeviceMode.init(rawValue:)) {
                     self.delegate?.gatewayModeChanged(m)
                 }
-            default: break
+            case "DEVICE_UNPAIRED", "UNPAIRED":
+                print("📱 SocketService: Received \(type) event from server")
+                self.delegate?.gatewayDeviceUnpaired()
+            default: 
+                print("📱 SocketService: Unknown message type: \(type)")
+                break
             }
         }
 
@@ -115,10 +157,12 @@ protocol DeviceGatewayDelegate: AnyObject {
     func gatewayDismiss()
     func gatewayLockAssigned(_ payload: LockAssignedPayload, raw: [String: Any])
     func gatewayModeChanged(_ mode: DeviceMode)
+    func gatewayDeviceUnpaired()
 }
 
 extension DeviceGatewayDelegate {
     func gatewayModeChanged(_ mode: DeviceMode) {}
+    func gatewayDeviceUnpaired() {}
 }
 
 struct FeedbackShowPayload: Decodable { let sessionId: String?; let caseId: String?; let title: String?; let message: String? }

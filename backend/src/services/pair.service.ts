@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { prisma } from "../lib/prisma";
 import { BadRequestError, MissingFieldError } from "../error";
 import { DeviceMode } from '../lib/utils/type';
+import { signDeviceToken } from '../websocket/auth';
 
 export class PairService {
   // generate qr for kiosk
@@ -16,6 +17,22 @@ export class PairService {
         status: 'PENDING',
       },
     });
+
+    // DEV CODE
+    if (process.env.NODE_ENV === 'development') {
+      await prisma.pairingSession.upsert({
+        where: { pairingToken: 'test-token-123' },
+        update: {
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1h valid
+          status: 'PENDING',
+        },
+        create: {
+          pairingToken: 'test-token-123',
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          status: 'PENDING',
+        },
+      });
+    }
 
     const apiBase = process.env.API_BASE_URL || 'http://localhost:3000';
     const qrData = { pairingToken, apiEndpoint: apiBase };
@@ -40,7 +57,26 @@ export class PairService {
       where: { pairingToken },
     });
 
-    if (!session || session.status !== 'PENDING' || session.expiresAt < new Date()) {
+    // In development, allow test-token-123 to be reused
+    const isTestToken = process.env.NODE_ENV === 'development' && pairingToken === 'test-token-123';
+    
+    if (!session) {
+      throw new BadRequestError('Invalid or expired pairing token');
+    }
+    
+    // For test token, allow reuse even if expired or completed
+    if (isTestToken && (session.status === 'COMPLETED' || session.expiresAt < new Date())) {
+      // Reset the test token for reuse
+      await prisma.pairingSession.update({
+        where: { id: session.id },
+        data: {
+          status: 'PENDING',
+          deviceId: null,
+          completedAt: null,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // Extend expiry
+        },
+      });
+    } else if (!isTestToken && (session.expiresAt < new Date() || session.status !== 'PENDING')) {
       throw new BadRequestError('Invalid or expired pairing token');
     }
 
@@ -56,19 +92,26 @@ export class PairService {
       },
     });
 
-    // update pairing session
-    await prisma.pairingSession.update({
-      where: { id: session.id },
-      data: {
-        status: 'COMPLETED',
-        deviceId: device.id,
-        completedAt: new Date(),
-      },
-    });
+    // Generate WebSocket token for device
+    const wsToken = signDeviceToken(device.id, deviceMode);
+
+    // update pairing session (but keep test token reusable in development)
+    if (!isTestToken) {
+      await prisma.pairingSession.update({
+        where: { id: session.id },
+        data: {
+          status: 'COMPLETED',
+          deviceId: device.id,
+          completedAt: new Date(),
+        },
+      });
+    }
 
     return {
       deviceId: device.id,
       deviceSecret,
+      apiKey: `${device.id}:${deviceSecret}`, // Combined for Authorization header
+      wsToken, // JWT token for WebSocket authentication
       deviceName: device.name,
       deviceMode: device.mode,
       wsEndpoint: `${process.env.WS_BASE_URL || 'ws://localhost:3000'}/ws`,

@@ -21,6 +21,10 @@ final class CasesAPI {
             needsDeviceAuth: true
         )
         let body = CreateCaseRequest(name: name, categoryId: categoryId)
+        
+        // 调试日志：打印请求体内容
+        print("📝 CreateCase Request - studentName: '\(name)', category: '\(categoryId)'")
+        
         return try await client.request(ep, body: body)
     }
 }

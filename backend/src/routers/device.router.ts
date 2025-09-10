@@ -20,4 +20,9 @@ router.post("/ws-token", requireDevice, DeviceController.issueWsToken);
 router.patch("/:id/mode", requireAuth, requireStaff, DeviceController.changeMode);
 router.delete("/:id", requireAuth, requireStaff, DeviceController.unpairDevice);
 
+// DEV ONLY: Unpair without auth for testing
+if (process.env.NODE_ENV === 'development') {
+  router.delete("/dev-unpair/:id", DeviceController.unpairDevice);
+}
+
 export default router;

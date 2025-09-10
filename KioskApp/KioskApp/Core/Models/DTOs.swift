@@ -10,19 +10,29 @@ enum DeviceStatus: String, Codable {
 // iPad 本地保存的调用凭据（配对后写入 Keychain）
 struct DeviceCredentials: Codable, Equatable {
     let deviceId: String
-    let apiKey: String
+    let apiKey: String          // HTTP API 认证
+    let wsToken: String?        // WebSocket JWT 认证 token
+    let wsEndpoint: String?     // WebSocket 端点 URL
     let mode: DeviceMode
 }
 
 // /pair/complete
 struct PairCompleteRequest: Encodable {
     let pairingToken: String
+    let deviceName: String
     let mode: String?
 }
 struct PairCompleteResponse: Decodable {
-    let deviceId: String
-    let apiKey: String
-    let mode: DeviceMode?   // 可选
+    let deviceId: String?
+    let deviceSecret: String?
+    let apiKey: String?
+    let wsToken: String?         // WebSocket JWT 认证 token
+    let deviceName: String?
+    let deviceMode: String?      // "FEEDBACK|REGISTRATION|DUAL"
+    let wsEndpoint: String?      // WebSocket 端点 URL
+    let mode: DeviceMode?        // 可选，向后兼容
+    let success: Bool?
+    let message: String?
 }
 
 // /cases
@@ -34,8 +44,14 @@ enum CaseStatus: String, Codable {
 }
 
 struct CreateCaseRequest: Encodable {
-    let name: String
-    let categoryId: String
+    let studentName: String
+    let category: String
+    
+    // 便捷初始化器，接受原来的参数名
+    init(name: String, categoryId: String) {
+        self.studentName = name
+        self.category = categoryId
+    }
 }
 
 struct CreateCaseResponse: Decodable {

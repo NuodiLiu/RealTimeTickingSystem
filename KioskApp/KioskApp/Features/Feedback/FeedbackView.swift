@@ -10,7 +10,7 @@ struct FeedbackView: View {
         ZStack {
             Color(.systemGroupedBackground).ignoresSafeArea()
 
-            ScrollView {
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 28) {
                     // Header
                     VStack(alignment: .leading, spacing: 6) {
@@ -54,6 +54,15 @@ struct FeedbackView: View {
             }
             // 允许下拉收起键盘（不依赖 keyboard toolbar）
             .scrollDismissesKeyboard(.interactively)
+            .scrollBounceBehavior(.basedOnSize) // 基于内容大小决定弹跳
+            .scrollDisabled(false) // 允许必要的滚动
+            .gesture(
+                // 拦截过度拖动
+                DragGesture()
+                    .onChanged { _ in
+                        // 静默拦截
+                    }
+            )
 
             // 底部固定操作条
             VStack(spacing: 0) {
@@ -107,6 +116,8 @@ struct FeedbackView: View {
             }
             .padding(.top, 8)
         }
+        .devResetGesture() // 添加开发者重置手势
+        .kioskDragBlock() // 禁用拖动手势
     }
 }
 
