@@ -18,6 +18,8 @@ function normalizeCases(res: unknown): CaseItem[] {
       status: (s === "queued" || s === "in_progress" || s === "resolved") ? s : "queued",
       createdAt: c.createdAt ?? new Date().toISOString(),
       updatedAt: c.updatedAt ?? c.createdAt ?? new Date().toISOString(),
+      startedAt: c.startedAt, // Add this line - map startedAt from backend
+      resolvedAt: c.resolvedAt, // Add this too for completeness
       deviceId: c.deviceId,
       staffId: c.staffId,
       // put studentName/category into payload so existing components show them
@@ -70,13 +72,31 @@ export default function useQueue(userId?: string) {
   );
 
   async function take(id: string) {
-    try { await CasesAPI.take(id); await load(); }
-    catch (e: any) { setError(e?.message ?? "Failed to take case"); }
+    try { 
+      console.log('Taking case:', id);
+      const result = await CasesAPI.take(id);
+      console.log('Take API result:', result);
+      await load(); 
+    }
+    catch (e: any) { 
+      console.error('Take error:', e);
+      setError(e?.message ?? "Failed to take case"); 
+    }
   }
+
   async function takeNext() {
-    try { await CasesAPI.takeNext(); await load(); }
-    catch (e: any) { setError(e?.message ?? "Failed to take next case"); }
+    try { 
+      console.log('Taking next case');
+      const result = await CasesAPI.takeNext();
+      console.log('Take next API result:', result);
+      await load(); 
+    }
+    catch (e: any) { 
+      console.error('Take next error:', e);
+      setError(e?.message ?? "Failed to take next case"); 
+    }
   }
+
   async function resolve(id: string) {
     try { 
       await CasesAPI.resolve(id); 

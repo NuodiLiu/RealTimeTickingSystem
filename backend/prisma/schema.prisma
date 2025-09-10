@@ -105,6 +105,8 @@ model StudentCase {
 
   createdAt   DateTime   @default(now())
   resolvedAt  DateTime?
+  startedAt   DateTime?  // Add this line
+
 
   feedback    Feedback[]
   kioskLocks  KioskLock[]

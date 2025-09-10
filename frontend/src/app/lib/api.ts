@@ -48,7 +48,16 @@ export interface User {
   username?: string;
 }
 export type CaseStatus = "queued" | "in_progress" | "resolved";
-export interface CaseItem { id: string; status: CaseStatus; createdAt: string; updatedAt: string; deviceId?: string; staffId?: string; payload?: any }
+export interface CaseItem { 
+  id: string; 
+  status: CaseStatus; 
+  createdAt: string; 
+  updatedAt: string;
+  startedAt?: string; 
+  resolvedAt?: string;
+  deviceId?: string; 
+  staffId?: string; 
+  payload?: any }
 export interface CasesListRes { items: CaseItem[] }
 
 export interface TakeCaseRes { case: CaseItem }
