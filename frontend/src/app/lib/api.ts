@@ -68,7 +68,7 @@ export interface ResolveCaseRes { case: CaseItem }
 export interface DevicesListItem { 
   deviceId: string; 
   name: string;
-  mode: "REGISTRATION" | "FEEDBACK" | "DUAL"; 
+  mode: "REGISTRATION" | "FEEDBACK"; 
   status: "OFFLINE" | "IDLE" | "BUSY";
   isOnline: boolean; 
   lastSeenAt: string;
@@ -95,14 +95,14 @@ export interface FeedbackSubmitReq { sessionId: string; rating: number; comment?
 export interface PairCompleteReq {
   pairingToken: string;
   deviceName: string;
-  deviceMode?: "REGISTRATION" | "FEEDBACK" | "DUAL";
+  deviceMode?: "REGISTRATION" | "FEEDBACK";
 }
 
 export interface PairCompleteRes {
   deviceId: string;
   deviceSecret: string;
   deviceName: string;
-  deviceMode: "REGISTRATION" | "FEEDBACK" | "DUAL";
+  deviceMode: "REGISTRATION" | "FEEDBACK";
   wsEndpoint: string;
 }
 export interface PairGenerateQrReq { mode: string; deviceLabel?: string }

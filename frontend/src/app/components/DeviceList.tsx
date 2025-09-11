@@ -7,7 +7,6 @@ interface DeviceListProps {
 }
 
 const DEVICE_MODES = [
-  { value: "dual", label: "Dual", color: "bg-blue-100 text-blue-800" },
   { value: "feedback", label: "Feedback", color: "bg-green-100 text-green-800" },
   { value: "registration", label: "Registration", color: "bg-purple-100 text-purple-800" }
 ];
@@ -55,22 +54,22 @@ export default function DeviceList({ devices, onModeChange }: DeviceListProps) {
     <div className="space-y-3">
       {devices.map((device) => (
         <div
-          key={device.id}
+          key={device.deviceId}
           className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
         >
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
                 <div className="font-mono text-sm font-medium text-gray-900 truncate">
-                  {device.id.split('-')[0]}...
+                  {device.deviceId.split('-')[0]}...
                 </div>
                 <span
                   className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(
-                    device.online,
+                    device.isOnline,
                     device.mode
                   )}`}
                 >
-                  {device.online ? "Online" : "Offline"}
+                  {device.isOnline ? "Online" : "Offline"}
                 </span>
               </div>
               
@@ -79,8 +78,8 @@ export default function DeviceList({ devices, onModeChange }: DeviceListProps) {
                 {onModeChange ? (
                   <select
                     value={device.mode}
-                    onChange={(e) => handleModeChange(device.id, e.target.value)}
-                    disabled={changingMode === device.id || !device.online}
+                    onChange={(e) => handleModeChange(device.deviceId, e.target.value)}
+                    disabled={changingMode === device.deviceId || !device.isOnline}
                     className="text-xs border border-gray-200 rounded px-2 py-1 bg-white disabled:opacity-50"
                   >
                     {DEVICE_MODES.map((mode) => (
@@ -101,11 +100,11 @@ export default function DeviceList({ devices, onModeChange }: DeviceListProps) {
               </div>
               
               <div className="text-xs text-gray-500">
-                Last seen: {formatLastSeen(device.updatedAt)}
+                Last seen: {formatLastSeen(device.lastSeenAt)}
               </div>
             </div>
             
-            {changingMode === device.id && (
+            {changingMode === device.deviceId && (
               <div className="ml-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
               </div>

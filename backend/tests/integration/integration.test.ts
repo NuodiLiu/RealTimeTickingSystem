@@ -56,7 +56,7 @@ type KioskDeviceRow = {
   id: string;
   name: string;
   secretHash: string;
-  mode: "REGISTRATION" | "FEEDBACK" | "DUAL";
+  mode: "REGISTRATION" | "FEEDBACK";
   lastSeenAt: Date;
   currentLockId: string | null;
 };

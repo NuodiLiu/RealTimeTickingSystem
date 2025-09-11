@@ -40,10 +40,10 @@ export default function DashboardPage() {
         
         // Filter devices by mode
         const feedbackDevs = allDevices.filter((device: any) => 
-          device.mode === 'FEEDBACK' || device.mode === 'DUAL'
+          device.mode === 'FEEDBACK'
         );
         const registrationDevs = allDevices.filter((device: any) => 
-          device.mode === 'REGISTRATION' || device.mode === 'DUAL'
+          device.mode === 'REGISTRATION'
         );
         
         setFeedbackDevices(feedbackDevs);
@@ -87,10 +87,12 @@ export default function DashboardPage() {
   }, [booting, user]);
 
   // Helper function to check if device is available for feedback
-  const isDeviceAvailableForFeedback = (device: any) => {
-    return (device.isOnline || device.online) && 
-           (device.mode === 'FEEDBACK' || device.mode === 'DUAL');
-  };
+  function isDeviceAvailableForFeedback(device: any) {
+    return device && 
+           (device.mode === 'FEEDBACK') && 
+           device.isOnline && 
+           device.status !== 'BUSY';
+  }
 
   // Handle device selection
   const handleSelectDevice = (deviceId: string) => {
@@ -143,10 +145,10 @@ export default function DashboardPage() {
       const allDevices = allDevicesRes.items || [];
       
       const feedbackDevs = allDevices.filter((device: any) => 
-        device.mode === 'FEEDBACK' || device.mode === 'DUAL'
+        device.mode === 'FEEDBACK'
       );
       const registrationDevs = allDevices.filter((device: any) => 
-        device.mode === 'REGISTRATION' || device.mode === 'DUAL'
+        device.mode === 'REGISTRATION'
       );
       
       setFeedbackDevices(feedbackDevs);
@@ -163,7 +165,7 @@ export default function DashboardPage() {
   const [pairError, setPairError] = useState<string | null>(null);
   const [pairQrDataUrl, setPairQrDataUrl] = useState<string | null>(null);
 
-  async function handleGenerateQR(mode: string = "DUAL") {
+  async function handleGenerateQR(mode: string = "REGISTRATION") {
     try {
       setPairError(null);
       setPairGenerating(true);
@@ -415,7 +417,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => {
                   openPairModal();
-                  handleGenerateQR("DUAL");
+                  handleGenerateQR("REGISTRATION");
                 }}
                 className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50"
               >
@@ -505,7 +507,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2">
                 <button
                   disabled={pairGenerating}
-                  onClick={() => handleGenerateQR("DUAL")}
+                  onClick={() => handleGenerateQR("REGISTRATION")}
                   className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50 disabled:opacity-50"
                 >
                   {pairGenerating ? "Generating…" : "Generate QR"}

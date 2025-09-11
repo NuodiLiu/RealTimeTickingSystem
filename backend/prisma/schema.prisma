@@ -92,7 +92,7 @@ model KioskDevice {
   id               String            @id @default(cuid())
   name             String
   secretHash       String
-  mode             DeviceMode        @default(DUAL)
+  mode             DeviceMode        @default(REGISTRATION)
   lastSeenAt       DateTime          @default(now())
   deletedAt        DateTime?
   currentLockId    String?           @unique
@@ -175,7 +175,6 @@ enum StaffRole {
 enum DeviceMode {
   REGISTRATION
   FEEDBACK
-  DUAL
 }
 
 enum LockStatus {
