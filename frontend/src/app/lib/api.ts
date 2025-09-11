@@ -57,6 +57,7 @@ export interface CaseItem {
   updatedAt: string;
   startedAt?: string; 
   resolvedAt?: string;
+  escalatedTo?: string;
   deviceId?: string; 
   staffId?: string; 
   payload?: any }
@@ -229,6 +230,8 @@ export const CasesAPI = {
   takeNext: () => post<TakeCaseRes>("/cases/take-next"),
   // POST /cases/:id/resolve 
   resolve: (id: string) => post<ResolveCaseRes>(`/cases/${encodeURIComponent(id)}/resolve`),
+  // POST /cases/:id/escalate
+  escalate: (id: string, department: string) => post<ResolveCaseRes>(`/cases/${encodeURIComponent(id)}/escalate`, { department }),
   // Device-only (usually kiosk) POST /cases 
   createFromDevice: (payload: any) => post<{ case: CaseItem }>("/cases", payload),
   // export to excel

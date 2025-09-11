@@ -39,6 +39,7 @@ function normalizeCases(res: unknown): CaseItem[] {
       updatedAt: c.updatedAt ?? c.createdAt ?? new Date().toISOString(),
       startedAt: c.startedAt, // Add this line - map startedAt from backend
       resolvedAt: c.resolvedAt, // Add this too for completeness
+      escalatedTo: c.escalatedTo, // Add escalatedTo field
       deviceId: c.deviceId,
       staffId: c.staffId,
       // put studentName/category into payload so existing components show them
@@ -183,5 +184,16 @@ export default function useQueue(userId?: string) {
     }
   }
 
-  return { queued, myActive, loading, error, take, takeNext, resolve, reload: load };
+  async function escalate(id: string, department: string) {
+    try { 
+      await CasesAPI.escalate(id, department); 
+      await load(); 
+    }
+    catch (e: any) { 
+      setError(e?.message ?? "Failed to escalate case"); 
+      throw e; // Re-throw so the component can handle the error
+    }
+  }
+
+  return { queued, myActive, loading, error, take, takeNext, resolve, escalate, reload: load };
 }
