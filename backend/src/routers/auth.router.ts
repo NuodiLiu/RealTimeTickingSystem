@@ -42,6 +42,41 @@ if (process.env.NODE_ENV === 'development') {
       res.status(500).json({ error: 'Failed to create dev user' });
     }
   });
+
+  // Add staff user for testing admin restrictions
+  router.post('/dev-login-staff', async (req, res) => {
+    try {
+      // Create or find the test staff member
+      const testStaff = await prisma.staff.upsert({
+        where: { identityKey: 'dev|staff' },
+        update: {},
+        create: {
+          identityKey: 'dev|staff',
+          employeeNo: 'STAFF001',
+          name: 'Test Staff',
+          email: 'staff@test.local',
+          password: '',
+          role: 'STAFF'
+        }
+      });
+
+      (req.session as any).user = {
+        identityKey: 'dev|staff',
+        tid: 'dev-tenant',
+        upn: 'staff@test.local',
+        name: 'Test Staff',
+        staffId: testStaff.id,
+        role: 'STAFF',
+        employeeNo: 'STAFF001',
+        _staffCachedAt: Date.now()
+      };
+      
+      console.log('Dev staff login - session set:', (req.session as any).user);
+      res.json({ ok: true, user: (req.session as any).user });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create staff user' });
+    }
+  });
 }
 
 if (process.env.NODE_ENV === "test") {

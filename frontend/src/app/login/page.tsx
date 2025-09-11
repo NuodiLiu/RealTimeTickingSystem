@@ -82,6 +82,34 @@ export default function LoginPage() {
     }
   };
 
+  // Handle staff login for testing admin restrictions
+  const handleStaffLogin = async () => {
+    if (process.env.NODE_ENV !== 'development') return;
+    
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const response = await fetch(`${API_BASE}/auth/dev-login-staff`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        window.location.href = '/dashboard';
+      } else {
+        setError('Staff login failed');
+      }
+    } catch (e) {
+      setError('Staff login failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (isCheckingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -153,15 +181,24 @@ export default function LoginPage() {
 
           {process.env.NODE_ENV === 'development' && (
             <div className="mt-6 border-t border-gray-200 pt-6">
-              <button
-                onClick={handleTestLogin}
-                disabled={isLoading}
-                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Development Login (Test Mode)
-              </button>
+              <div className="space-y-3">
+                <button
+                  onClick={handleTestLogin}
+                  disabled={isLoading}
+                  className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Dev Login as ADMIN (Can Export)
+                </button>
+                <button
+                  onClick={handleStaffLogin}
+                  disabled={isLoading}
+                  className="w-full flex justify-center py-2 px-4 border border-orange-300 rounded-md shadow-sm text-sm font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Dev Login as STAFF (Cannot Export)
+                </button>
+              </div>
               <p className="mt-2 text-xs text-gray-500 text-center">
-                This option is only available in development mode
+                Development mode - Test admin vs staff permissions
               </p>
             </div>
           )}

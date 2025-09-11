@@ -1,5 +1,5 @@
 import { CasesController } from "../controllers/cases.controller";
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { requireDevice, requireStaff } from "../middlewares/auth.middleware";
 import { requireAuth } from "../middlewares/azure-auth.middleware";
 import { requireAdmin } from '../middlewares/auth.middleware';
@@ -25,8 +25,8 @@ router.get("/", requireAuth, requireStaff, CasesController.getQueuedCases);
 // Staff: take next case (FIFO)
 router.post("/take-next", requireAuth, requireStaff, CasesController.takeNextCase);
 
-// TODO: add require admin check 
-router.get('/export-cases', async (req, res) => {
+// Admin only: export cases to Excel
+router.get('/export-cases', requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const cases = await prisma.studentCase.findMany({
       where: { status: 'RESOLVED' },  // Adjust the filter as needed
@@ -50,6 +50,7 @@ router.get('/export-cases', async (req, res) => {
         ? (new Date(c.startedAt).getTime() - new Date(c.createdAt).getTime()) / 1000
         : null,  // Waiting time in seconds, returns null if either createdAt or startedAt is null
       staffName: c.staff?.name,
+      escalatedTo: c.escalatedTo,  // Include escalation information
       // rating: (c.feedback && Array.isArray(c.feedback) && c.feedback.length > 0) ? c.feedback[0]?.rating ?? null : null,
       // feedbackComment: (c.feedback && Array.isArray(c.feedback) && c.feedback.length > 0) ? c.feedback[0]?.comment ?? null : null,
     }));

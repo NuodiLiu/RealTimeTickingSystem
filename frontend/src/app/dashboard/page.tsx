@@ -338,150 +338,180 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col">
+    <main className="min-h-screen flex flex-col bg-gray-50">
       <Header online={online} staffName={user?.username ?? "Staff"} onLogout={logout} />
 
-      <div className="flex-1 grid grid-cols-3 gap-6 p-4 overflow-hidden">
-        {/* LEFT COLUMN: Queue */}
-        <section className="flex flex-col min-h-0">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Queue</h2>
-            <button
-              onClick={takeNext}
-              className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50 flex-shrink-0"
-            >
-              TAKE NEXT
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: "calc(100vh - 100px)" }}>
-            {loading && !queued ? (
-              <LoadingSkeleton rows={3} />
-            ) : queued && queued.length > 0 ? (
-              <div className="space-y-3">
-                {queued.map((c) => (
-                  <CaseCard key={c.id} item={c} onTake={take} />
-                ))}
+      <div className="flex-1 p-6 overflow-hidden">
+        <div className="h-full grid grid-cols-3 gap-6">
+          
+          {/* QUEUE SECTION - Dynamic Content */}
+          <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
+            <div className="bg-blue-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Queue</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {queued?.length || 0} cases waiting
+                  </p>
+                </div>
+                <button
+                  onClick={takeNext}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                  TAKE NEXT
+                </button>
               </div>
-            ) : (
-              <EmptyState label="No cases in queue." />
-            )}
-          </div>
-        </section>
-
-        {/* MIDDLE COLUMN: My Active Cases */}
-        <section className="flex flex-col min-h-0">
-          <div className="mb-4 min-h-[2rem] flex items-center">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-              My Active Cases
-            </h2>
-          </div>
-
-          <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: "calc(100vh - 100px)" }}>
-            {loading && !myActive ? (
-              <LoadingSkeleton rows={1} />
-            ) : myActive && myActive.length > 0 ? (
-              <div className="space-y-3">
-                {myActive.map((c) => (
-                  <ActiveCaseRow
-                    key={c.id}
-                    item={c}
-                    onResolve={resolve}
-                    onFeedback={sendFeedbackRequest}
-                    onEscalate={escalate}
-                    feedbackDisabled={!hasAvailableDevices}
-                    feedbackDisabledReason={
-                      !selectedDevice 
-                        ? 'Please select a device for feedback first'
-                        : !selectedDevice.isOnline
-                        ? 'Selected device is offline'
-                        : 'No available devices for feedback'
-                    }
-                  />
-                ))}
-              </div>
-            ) : (
-              <EmptyState label="You have no active cases." />
-            )}
-          </div>
-        </section>
-
-        {/* RIGHT COLUMN: iPad Devices */}
-        <section className="flex flex-col min-h-0">
-          <div className="mb-4 min-h-[2rem] flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-              iPad Devices
-            </h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  openPairModal();
-                  handleGenerateQR("DUAL");
-                }}
-                className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50"
-              >
-                Generate QR
-              </button>
-              <button
-                onClick={handleExportToExcel}
-                className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50"
-              >
-                Export to Excel
-              </button>
             </div>
-          </div>
 
-          <div className="flex-1 overflow-y-auto pr-2 space-y-6" style={{ maxHeight: "calc(100vh - 100px)" }}>
-            {/* FEEDBACK DEVICES */}
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400 mb-3">
-                Feedback Devices
-              </h3>
-              {deviceLoading ? (
-                <LoadingSkeleton rows={2} />
-              ) : feedbackDevices && feedbackDevices.length > 0 ? (
-                <div className="space-y-3">
-                  {feedbackDevices.map((device: any) => (
-                    <DeviceCard
-                      key={device.deviceId}
-                      device={device}
-                      isSelected={device.deviceId === selectedDeviceId}
-                      onSelect={handleSelectDevice}
-                      onUnpair={handleUnpairDevice}
-                      showSelectButton={true}
+            <div className="flex-1 p-6 overflow-y-auto">
+              {loading && !queued ? (
+                <LoadingSkeleton rows={3} />
+              ) : queued && queued.length > 0 ? (
+                <div className="space-y-4">
+                  {queued.map((c) => (
+                    <CaseCard key={c.id} item={c} onTake={take} />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState label="No cases in queue." />
+              )}
+            </div>
+          </section>
+
+          {/* ACTIVE CASES SECTION - Dynamic Content */}
+          <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
+            <div className="bg-green-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">My Active Cases</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {myActive?.length || 0} cases in progress
+                </p>
+              </div>
+            </div>
+
+            <div className="flex-1 p-6 overflow-y-auto">
+              {loading && !myActive ? (
+                <LoadingSkeleton rows={1} />
+              ) : myActive && myActive.length > 0 ? (
+                <div className="space-y-4">
+                  {myActive.map((c) => (
+                    <ActiveCaseRow
+                      key={c.id}
+                      item={c}
+                      onResolve={resolve}
+                      onFeedback={sendFeedbackRequest}
+                      onEscalate={escalate}
+                      feedbackDisabled={!hasAvailableDevices}
+                      feedbackDisabledReason={
+                        !selectedDevice 
+                          ? 'Please select a device for feedback first'
+                          : !selectedDevice.isOnline
+                          ? 'Selected device is offline'
+                          : 'No available devices for feedback'
+                      }
                     />
                   ))}
                 </div>
               ) : (
-                <EmptyState label="No feedback devices available." />
+                <EmptyState label="You have no active cases." />
               )}
+            </div>
+          </section>
+
+          {/* DEVICES SECTION - Mixed Static/Dynamic Content */}
+          <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
+            <div className="bg-purple-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">iPad Devices</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Device management & pairing
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      openPairModal();
+                      handleGenerateQR("DUAL");
+                    }}
+                    className="bg-purple-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-purple-700 transition-colors shadow-sm"
+                  >
+                    Generate QR
+                  </button>
+                  {user?.role === 'ADMIN' && (
+                    <button
+                      onClick={handleExportToExcel}
+                      className="bg-gray-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm"
+                    >
+                      Export to Excel
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* REGISTRATION DEVICES */}
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400 mb-3">
-                Registration Devices
-              </h3>
-              {deviceLoading ? (
-                <LoadingSkeleton rows={2} />
-              ) : registrationDevices && registrationDevices.length > 0 ? (
-                <div className="space-y-3">
-                  {registrationDevices.map((device: any) => (
-                    <DeviceCard
-                      key={`reg-${device.deviceId}`}
-                      device={device}
-                      isSelected={false}
-                      onUnpair={handleUnpairDevice}
-                      showSelectButton={false}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState label="No registration devices available." />
-              )}
+            <div className="flex-1 p-6 overflow-y-auto space-y-6">
+              {/* FEEDBACK DEVICES SUBSECTION */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                  <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                  Feedback Devices
+                  <span className="ml-2 px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">
+                    {feedbackDevices?.length || 0}
+                  </span>
+                </h3>
+                {deviceLoading ? (
+                  <LoadingSkeleton rows={2} />
+                ) : feedbackDevices && feedbackDevices.length > 0 ? (
+                  <div className="space-y-3">
+                    {feedbackDevices.map((device: any) => (
+                      <DeviceCard
+                        key={device.deviceId}
+                        device={device}
+                        isSelected={device.deviceId === selectedDeviceId}
+                        onSelect={handleSelectDevice}
+                        onUnpair={handleUnpairDevice}
+                        showSelectButton={true}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState label="No feedback devices available." />
+                )}
+              </div>
+
+              {/* REGISTRATION DEVICES SUBSECTION */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                  Registration Devices
+                  <span className="ml-2 px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">
+                    {registrationDevices?.length || 0}
+                  </span>
+                </h3>
+                {deviceLoading ? (
+                  <LoadingSkeleton rows={2} />
+                ) : registrationDevices && registrationDevices.length > 0 ? (
+                  <div className="space-y-3">
+                    {registrationDevices.map((device: any) => (
+                      <DeviceCard
+                        key={`reg-${device.deviceId}`}
+                        device={device}
+                        isSelected={false}
+                        onUnpair={handleUnpairDevice}
+                        showSelectButton={false}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState label="No registration devices available." />
+                )}
+              </div>
+
+
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
 
       {/* QR Generation Modal */}
