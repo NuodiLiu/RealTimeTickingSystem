@@ -20,6 +20,9 @@ final class GatewayCenter: ObservableObject, DeviceGatewayDelegate {
     func gatewayDidDisconnect() { isConnected = false }
 
     func gatewayShowFeedback(_ payload: FeedbackShowPayload, raw: [String : Any]) {
+        print("📱 GatewayCenter: gatewayShowFeedback called")
+        print("📱 GatewayCenter: Payload: \(payload)")
+        print("📱 GatewayCenter: Setting showFeedback = payload")
         showFeedback = payload
     }
 

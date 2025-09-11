@@ -11,14 +11,17 @@ struct RootView: View {
                     vm.onPairedSuccessfully(mode: mode)
                 }
             } else {
-                // 已配对：根据 route 展示业务页
-                switch vm.route {
-                case .register:
+                // 已配对：严格根据设备模式展示业务页，避免路由混乱
+                switch vm.currentMode {
+                case .REGISTRATION:
                     RegistrationView(vm: RegistrationViewModel(env: vm.env))
                         .onReceive(vm.env.gatewayCenter.$showFeedback) { p in
-                            if p != nil { vm.route = .feedback }
+                            // REGISTRATION 模式下忽略 showFeedback 事件
+                            if p != nil {
+                                print("📱 RootView: Ignoring showFeedback in REGISTRATION mode")
+                            }
                         }
-                case .feedback:
+                case .FEEDBACK:
                     if let payload = vm.pendingFeedback {
                         FeedbackView(vm: FeedbackViewModel(env: vm.env, caseId: payload.caseId, payload: payload)) {
                             vm.backToModePage()

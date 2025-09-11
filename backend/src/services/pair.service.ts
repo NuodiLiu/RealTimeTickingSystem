@@ -45,21 +45,32 @@ export class PairService {
   static async completePairing(data: {
     pairingToken: string;
     deviceName: string;
-    deviceMode?: DeviceMode;
+    mode?: DeviceMode;
     deviceId?: string; // 可选：重新配对已存在的设备
   }) {
-    const { pairingToken, deviceName, deviceMode = 'REGISTRATION', deviceId } = data;
+    const { pairingToken, deviceName, mode = 'REGISTRATION', deviceId } = data;
 
     if (!pairingToken || !deviceName) {
       throw new MissingFieldError(['pairingToken', 'deviceName']);
     }
 
-    const session = await prisma.pairingSession.findUnique({
+    let session = await prisma.pairingSession.findUnique({
       where: { pairingToken },
     });
 
     // In development, allow test-token-123 to be reused
     const isTestToken = process.env.NODE_ENV === 'development' && pairingToken === 'test-token-123';
+    
+    // Auto-create test token in development if it doesn't exist
+    if (!session && isTestToken) {
+      session = await prisma.pairingSession.create({
+        data: {
+          pairingToken: 'test-token-123',
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1h valid
+          status: 'PENDING',
+        },
+      });
+    }
     
     if (!session) {
       throw new BadRequestError('Invalid or expired pairing token');
@@ -99,7 +110,7 @@ export class PairService {
           data: {
             name: deviceName,
             secretHash,
-            mode: deviceMode,
+            mode: mode,
             lastSeenAt: new Date(),
           },
         });
@@ -121,7 +132,7 @@ export class PairService {
           where: { id: existingDevice.id },
           data: {
             secretHash,
-            mode: deviceMode,
+            mode: mode,
             lastSeenAt: new Date(),
           },
         });
@@ -131,7 +142,7 @@ export class PairService {
           data: {
             name: deviceName,
             secretHash,
-            mode: deviceMode,
+            mode: mode,
             lastSeenAt: new Date(),
           },
         });
@@ -139,7 +150,7 @@ export class PairService {
     }
 
     // Generate WebSocket token for device
-    const wsToken = signDeviceToken(device.id, deviceMode);
+    const wsToken = signDeviceToken(device.id, mode);
 
     // update pairing session (but keep test token reusable in development)
     if (!isTestToken) {
@@ -159,7 +170,7 @@ export class PairService {
       apiKey: `${device.id}:${deviceSecret}`, // Combined for Authorization header
       wsToken, // JWT token for WebSocket authentication
       deviceName: device.name,
-      deviceMode: device.mode,
+      mode: device.mode,
       wsEndpoint: `${process.env.WS_BASE_URL || 'ws://localhost:3000'}/ws`,
     };
   }

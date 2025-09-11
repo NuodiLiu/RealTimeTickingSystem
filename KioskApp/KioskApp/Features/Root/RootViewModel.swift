@@ -23,20 +23,39 @@ final class RootViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] m in
                 guard let self else { return }
+                print("📱 RootViewModel: modeChanged received: \(m.rawValue)")
+                print("📱 RootViewModel: Previous mode was: \(self.currentMode.rawValue)")
+                print("📱 RootViewModel: Previous route was: \(self.route)")
+                
                 self.currentMode = m
                 self.env.modeStore.save(m)
                 // Clear pending feedback when mode changes
                 if m != .FEEDBACK {
+                    print("📱 RootViewModel: Clearing pendingFeedback because mode is not FEEDBACK")
                     self.pendingFeedback = nil
                 }
                 self.route = self.routeFor(m)          // Switch between pages based on mode
+                
+                print("📱 RootViewModel: After modeChanged - mode: \(self.currentMode.rawValue), route: \(self.route)")
             }.store(in: &bag)
 
         env.gatewayCenter.$showFeedback
             .receive(on: DispatchQueue.main)
             .sink { [weak self] p in
-                self?.pendingFeedback = p
-                if p != nil { self?.route = .feedback } // REGISTRATION 模式下也可被临时覆盖
+                guard let self else { return }
+                print("📱 RootViewModel: showFeedback changed to: \(p?.description ?? "nil")")
+                print("📱 RootViewModel: Current mode is: \(self.currentMode.rawValue)")
+                print("📱 RootViewModel: Current route is: \(self.route)")
+                
+                self.pendingFeedback = p
+                
+                // 只有在FEEDBACK模式下才允许切换到feedback路由
+                if p != nil && self.currentMode == .FEEDBACK {
+                    print("📱 RootViewModel: *** SWITCHING TO FEEDBACK ROUTE *** due to showFeedback (mode: \(self.currentMode.rawValue))")
+                    self.route = .feedback
+                } else if p != nil {
+                    print("📱 RootViewModel: *** IGNORING showFeedback *** because mode is \(self.currentMode.rawValue), not FEEDBACK")
+                }
             }.store(in: &bag)
 
         // 监听服务器发送的 unpair 事件
@@ -104,11 +123,17 @@ final class RootViewModel: ObservableObject {
     }
 
     func onPairedSuccessfully(mode: DeviceMode?) {
+        print("📱 RootViewModel: onPairedSuccessfully called with mode: \(mode?.rawValue ?? "nil")")
+        
         isPaired = true
         let finalMode = mode ?? .REGISTRATION
         currentMode = finalMode
         env.modeStore.save(finalMode)
         route = routeFor(finalMode)
+        
+        print("📱 RootViewModel: After pairing - isPaired: \(isPaired), mode: \(currentMode.rawValue), route: \(route)")
+        print("📱 RootViewModel: About to attach socket...")
+        
         attachSocket()
     }
 

@@ -20,6 +20,7 @@ export type DeviceToServer =
   | { type: "DELIVERED"; payload: { sessionId: string } }  // 反馈页已展示
   | { type: "LEASE"; payload: { deviceId: string } }       // 主动续租
   | { type: "STATUS"; payload?: never }
-  | { type: "FEEDBACK_UPDATE"; payload?: any };            // 设备状态变更、日志等
+  | { type: "FEEDBACK_UPDATE"; payload?: any }            // 设备状态变更、日志等
+  | { type: "FEEDBACK_CANCELLED"; payload: { sessionId: string } }; // 用户取消反馈
 
 export type AuthedDevice = { deviceId: string; mode: DeviceMode };

@@ -183,8 +183,11 @@ final class SocketService {
             case "PING": 
                 self.emit(type: "PONG")
             case "SHOW_FEEDBACK":
+                print("📱 SocketService: *** SHOW_FEEDBACK received ***")
+                print("📱 SocketService: Payload: \(payload ?? "nil")")
                 if let raw = payload as? [String: Any],
                    let decoded: FeedbackShowPayload = Self.decode(raw) {
+                    print("📱 SocketService: Successfully decoded SHOW_FEEDBACK, calling delegate")
                     self.delegate?.gatewayShowFeedback(decoded, raw: raw)
                 } else { 
                     print("❌ Failed to decode SHOW_FEEDBACK payload: \(payload ?? "Default")")

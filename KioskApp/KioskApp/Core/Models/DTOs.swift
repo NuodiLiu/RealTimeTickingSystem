@@ -28,9 +28,8 @@ struct PairCompleteResponse: Decodable {
     let apiKey: String?
     let wsToken: String?         // WebSocket JWT 认证 token
     let deviceName: String?
-    let deviceMode: String?      // "FEEDBACK|REGISTRATION"
+    let mode: String?            // "FEEDBACK|REGISTRATION"  
     let wsEndpoint: String?      // WebSocket 端点 URL
-    let mode: DeviceMode?        // 可选，向后兼容
     let success: Bool?
     let message: String?
 }

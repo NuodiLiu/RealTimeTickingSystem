@@ -3,6 +3,92 @@ import type { DeviceToServer, AuthedDevice, ServerToDevice } from "./types";
 import { verifySocketHandshake } from "./auth";
 import { prisma } from "../lib/prisma";
 import { addLeaseSeconds } from "./lease";
+import { DeviceGateway } from "./deviceSocket";
+
+// Handle feedback cancellation when user clicks close on iPad
+async function handleFeedbackCancellation(deviceId: string, sessionId: string) {
+  try {
+    console.log(`Handling feedback cancellation for session ${sessionId} on device ${deviceId}`);
+    
+    const session = await prisma.feedbackSession.findUnique({
+      where: { id: sessionId },
+      select: { id: true, status: true, caseId: true, deviceId: true }
+    });
+    
+    if (!session) {
+      console.log(`Session ${sessionId} not found`);
+      return;
+    }
+    
+    if (session.deviceId !== deviceId) {
+      console.log(`Session ${sessionId} does not belong to device ${deviceId}`);
+      return;
+    }
+    
+    // Only cancel if session is still active
+    if (session.status === 'CREATED' || session.status === 'DELIVERED') {
+      await prisma.$transaction(async (tx) => {
+        // 1. Cancel the feedback session
+        await tx.feedbackSession.update({
+          where: { id: sessionId },
+          data: { status: 'CANCELLED' }
+        });
+        
+        // 2. Find and complete any associated lock
+        const associatedLock = await tx.kioskLock.findFirst({
+          where: {
+            deviceId: deviceId,
+            caseId: session.caseId,
+            status: 'ACTIVE'
+          }
+        });
+        
+        if (associatedLock) {
+          // Complete the lock
+          await tx.kioskLock.update({
+            where: { id: associatedLock.id },
+            data: { 
+              status: 'COMPLETED',
+              releasedAt: new Date(),
+              version: { increment: 1 }
+            }
+          });
+          
+          // Release the device
+          await tx.kioskDevice.update({
+            where: { id: deviceId },
+            data: { currentLockId: null }
+          });
+        }
+        
+        // 3. Resolve the case (since user cancelled feedback, we still resolve it)
+        await tx.studentCase.update({
+          where: { id: session.caseId },
+          data: { 
+            status: 'RESOLVED',
+            resolvedAt: new Date()
+          }
+        });
+      });
+      
+      console.log(`Successfully cancelled feedback session ${sessionId} and released resources`);
+      
+      // Notify dashboard clients
+      DeviceGateway.notifyDashboard({
+        type: "case:updated",
+        payload: { id: session.caseId, status: "RESOLVED" }
+      });
+      DeviceGateway.notifyDashboard({
+        type: "device:updated", 
+        payload: { id: deviceId, isBusy: false }
+      });
+    } else {
+      console.log(`Session ${sessionId} is not in an active state (${session.status}), no action needed`);
+    }
+  } catch (error) {
+    console.error(`Error handling feedback cancellation for session ${sessionId}:`, error);
+  }
+}
 
 // Type for socket data
 type SocketData = {
@@ -200,6 +286,13 @@ export function bindRealtime(io: Server) {
           }
           case "FEEDBACK_UPDATE": {
             // ignore or audit
+            break;
+          }
+          case "FEEDBACK_CANCELLED": {
+            const sessionId = msg?.payload?.sessionId;
+            if (typeof sessionId === "string" && sessionId) {
+              await handleFeedbackCancellation(deviceId, sessionId);
+            }
             break;
           }
           default: {

@@ -96,14 +96,14 @@ export interface FeedbackSubmitReq { sessionId: string; rating: number; comment?
 export interface PairCompleteReq {
   pairingToken: string;
   deviceName: string;
-  deviceMode?: "REGISTRATION" | "FEEDBACK";
+  mode?: "REGISTRATION" | "FEEDBACK";
 }
 
 export interface PairCompleteRes {
   deviceId: string;
   deviceSecret: string;
   deviceName: string;
-  deviceMode: "REGISTRATION" | "FEEDBACK";
+  mode: "REGISTRATION" | "FEEDBACK";
   wsEndpoint: string;
 }
 export interface PairGenerateQrReq { mode: string; deviceLabel?: string }
@@ -259,6 +259,9 @@ export const DeviceAPI = {
   heartbeat: (body: { deviceId?: string }) => post<undefined>("/device/heartbeat", body),
   // GET /device/status (device-auth only) 
   status: () => get<{ ok: boolean; deviceId: string; mode: string; online: boolean }>("/device/status"),
+  // PATCH /device/:id/mode (change device mode)
+  changeMode: (deviceId: string, mode: "REGISTRATION" | "FEEDBACK") => 
+    patch<{ id: string; name: string; mode: string; lastSeenAt: string }>(`/device/${encodeURIComponent(deviceId)}/mode`, { mode }),
   // DELETE /device/:id (unpair device)
   unpair: (deviceId: string) => del<undefined>(`/device/${encodeURIComponent(deviceId)}`),
 };

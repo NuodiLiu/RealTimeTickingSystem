@@ -7,8 +7,8 @@ interface DeviceListProps {
 }
 
 const DEVICE_MODES = [
-  { value: "feedback", label: "Feedback", color: "bg-green-100 text-green-800" },
-  { value: "registration", label: "Registration", color: "bg-purple-100 text-purple-800" }
+  { value: "FEEDBACK", label: "Feedback", color: "bg-green-100 text-green-800" },
+  { value: "REGISTRATION", label: "Registration", color: "bg-purple-100 text-purple-800" }
 ];
 
 function getStatusColor(online: boolean, mode: string) {

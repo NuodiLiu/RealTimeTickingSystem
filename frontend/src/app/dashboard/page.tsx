@@ -273,7 +273,11 @@ export default function DashboardPage() {
           )}
           {showSelectButton && !isAvailable && (
             <p className="text-xs text-red-500 mt-1">
-              {!device.isOnline ? "Device is offline" : "Device mode doesn't support feedback"}
+              {!device.isOnline 
+                ? "Device is offline" 
+                : device.status === 'BUSY'
+                ? "Device is busy"
+                : "Device mode doesn't support feedback"}
             </p>
           )}
         </div>

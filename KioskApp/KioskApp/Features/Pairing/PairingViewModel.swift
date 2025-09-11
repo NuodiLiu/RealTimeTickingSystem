@@ -57,6 +57,9 @@ final class PairingViewModel: ObservableObject {
         errorMessage = nil
         defer { isPairing = false }
         
+        print("📱 PairingViewModel: Starting pairing process...")
+        print("📱 PairingViewModel: Selected mode: \(selectedMode.rawValue)")
+        
         do {
             struct EPResp: Decodable {
                 let deviceId: String
@@ -80,7 +83,15 @@ final class PairingViewModel: ObservableObject {
             
             let resp: EPResp = try await env.apiClient.request(ep, body: body)
             
+            print("📱 PairingViewModel: Received response from server:")
+            print("   Device ID: \(resp.deviceId)")
+            print("   Server returned mode: \(resp.mode?.rawValue ?? "nil")")
+            print("   Has WS Token: \(resp.wsToken != nil)")
+            print("   Has WS Endpoint: \(resp.wsEndpoint != nil)")
+            
             let finalMode = resp.mode ?? selectedMode
+            print("📱 PairingViewModel: Final mode determined: \(finalMode.rawValue)")
+            
             let creds = DeviceCredentials(
                 deviceId: resp.deviceId, 
                 apiKey: resp.apiKey, 
@@ -88,14 +99,20 @@ final class PairingViewModel: ObservableObject {
                 wsEndpoint: resp.wsEndpoint,
                 mode: finalMode
             )
+            
+            print("📱 PairingViewModel: About to store device credentials...")
             try env.authProvider.storeDevice(credentials: creds)
             print("Stored device, id:", creds.deviceId.prefix(6), "mode:", creds.mode.rawValue)
             
+            print("📱 PairingViewModel: About to save mode to store...")
             modeStore.save(finalMode)
             
+            print("📱 PairingViewModel: About to call onPaired callback...")
             onPaired(finalMode)
+            print("📱 PairingViewModel: onPaired callback completed")
             
         } catch {
+            print("❌ PairingViewModel: Pairing failed with error: \(error)")
             errorMessage = error.localizedDescription
         }
     }
