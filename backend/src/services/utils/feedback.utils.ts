@@ -190,3 +190,14 @@ export function overrideActiveSessionsOnDevice(db: DB, deviceId: string, staffId
     data: { status: "OVERRIDDEN", overriddenAt: now},
   });
 }
+
+/** Resolve原始case（当被override时，原case直接resolve，无需feedback） */
+export async function resolveOriginalCase(db: DB, caseId: string, now = new Date()) {
+  return db.studentCase.update({
+    where: { id: caseId },
+    data: { 
+      status: "RESOLVED",
+      resolvedAt: now 
+    },
+  });
+}

@@ -11,6 +11,7 @@ import {
   loadBasics, assertModeAllowsFeedback, assertOnline, findActiveLock, throwBusy,
   computeTimes, createSessionTx, createLockTx, casBindCurrentLock, markCasePendingIfNeeded,
   preconditionFailed, clearDevicePointerToLock, overrideOldLockTx, overrideActiveSessionsOnDevice,
+  resolveOriginalCase,
 } from "./utils/feedback.utils";
 import { DeviceGateway } from "../websocket/deviceSocket";
 
@@ -124,7 +125,7 @@ export class FeedbackService {
       preconditionFailed(currentLock);
     }
 
-    // 3) 事务：清指针 → 旧锁 OVERRIDDEN → 作废旧会话 → 新会话/新锁 → CAS 绑定 → 置 case 等待反馈
+    // 3) 事务：清指针 → 旧锁 OVERRIDDEN → 作废旧会话 → resolve原始case → 新会话/新锁 → CAS 绑定 → 置新case等待反馈
     const { now, leaseExpireAt, sessionExpireAt } = computeTimes();
     const { newSession, newLock } = await prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
@@ -135,6 +136,9 @@ export class FeedbackService {
         await clearDevicePointerToLock(tx, deviceId, expectedLockId);
         await overrideOldLockTx(tx, expectedLockId, expectedVersion, now);
         await overrideActiveSessionsOnDevice(tx, deviceId, staffId, now);
+        
+        // Resolve原始case（被override的case直接resolve，无需feedback）
+        await resolveOriginalCase(tx, currentLock.caseId, now);
 
         const newSession = await createSessionTx(tx, { caseId, staffId, deviceId, expireAt: sessionExpireAt });
         const newLock = await createLockTx(tx, { deviceId, staffId, caseId, leaseExpireAt });
@@ -145,8 +149,12 @@ export class FeedbackService {
       }
     );
 
-    // 4) 推送：先 DISMISS，再 SHOW_FEEDBACK
-    DeviceGateway.publish(deviceId, { type: "DISMISS"});
+    // 4) 推送到设备：override的核心 - 替换设备上的反馈请求
+    // Step 1: DISMISS - 强制关闭iPad上当前的反馈界面（原case）
+    // 注意：DISMISS消息不包含payload，iPad会关闭当前显示的任何反馈界面
+    DeviceGateway.publish(deviceId, { type: "DISMISS" });
+    
+    // Step 2: SHOW_FEEDBACK - 立即在同一iPad上显示新的反馈请求（新case）
     DeviceGateway.publish(deviceId, {
       type: "SHOW_FEEDBACK",
       payload: {
@@ -157,8 +165,24 @@ export class FeedbackService {
       },
     });
 
+    // 5) 通知dashboard：设备仍然忙碌，但处理的是新的case
+    DeviceGateway.notifyDashboard({
+      type: "device:updated",
+      payload: { 
+        id: deviceId, 
+        isBusy: true,
+        currentCaseId: caseId, // 新的case ID
+        overriddenCaseId: currentLock.caseId // 被覆盖的原case ID
+      }
+    });
+
     return {
-      previous: { lockId: expectedLockId, status: "OVERRIDDEN" as const },
+      previous: { 
+        lockId: expectedLockId, 
+        status: "OVERRIDDEN" as const,
+        caseId: currentLock.caseId,
+        caseStatus: "RESOLVED" as const // 原始case被直接resolve
+      },
       session: { id: newSession.id, status: "CREATED" as const, deviceId, caseId, expireAt: sessionExpireAt },
       lock: { id: newLock.id, status: "ACTIVE" as const, version: newLock.version, leaseExpireAt },
     };

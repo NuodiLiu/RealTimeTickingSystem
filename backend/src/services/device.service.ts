@@ -88,6 +88,7 @@ export class DeviceService {
         ? {
             id: device.currentLock.id,
             status: device.currentLock.status,
+            version: device.currentLock.version,
             case: {
               id: device.currentLock.case.id,
               studentName: device.currentLock.case.studentName,
@@ -181,6 +182,7 @@ export class DeviceService {
           ? {
               id: row.currentLock.id,
               status: row.currentLock.status,
+              version: row.currentLock.version,
               case: {
                 id: row.currentLock.case.id,
                 studentName: row.currentLock.case.studentName,
@@ -231,6 +233,7 @@ export class DeviceService {
           ? {
               id: device.currentLock.id,
               status: device.currentLock.status,
+              version: device.currentLock.version,
               case: {
                 id: device.currentLock.case.id,
                 studentName: device.currentLock.case.studentName,

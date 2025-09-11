@@ -113,13 +113,107 @@ export class CasesService {
     static async resolveCase(id: string) {
         try {
             const now = new Date();
-            return await prisma.studentCase.update({
+            
+            // 首先获取case的当前状态
+            const existingCase = await prisma.studentCase.findUnique({
                 where: { id },
-                data: { 
-                    status: 'RESOLVED', 
-                    resolvedAt: now 
-                },
+                select: { id: true, status: true }
             });
+            
+            if (!existingCase) {
+                throw new NotFoundError('Case not found');
+            }
+            
+            // 如果case处于RESOLVED_PENDING_FEEDBACK状态，需要特殊处理
+            if (existingCase.status === 'RESOLVED_PENDING_FEEDBACK') {
+                // 查找相关的活动反馈会话和设备锁
+                const activeFeedbackSession = await prisma.feedbackSession.findFirst({
+                    where: {
+                        caseId: id,
+                        status: { in: ['CREATED', 'DELIVERED'] }
+                    },
+                    select: { 
+                        id: true, 
+                        deviceId: true, 
+                        status: true 
+                    }
+                });
+                
+                if (activeFeedbackSession) {
+                    // 在事务中处理所有更新
+                    return await prisma.$transaction(async (tx) => {
+                        // 1. 更新case状态
+                        const updatedCase = await tx.studentCase.update({
+                            where: { id },
+                            data: { 
+                                status: 'RESOLVED', 
+                                resolvedAt: now 
+                            },
+                        });
+                        
+                        // 2. 取消反馈会话
+                        await tx.feedbackSession.updateMany({
+                            where: {
+                                caseId: id,
+                                status: { in: ['CREATED', 'DELIVERED'] }
+                            },
+                            data: {
+                                status: 'CANCELLED',
+                                cancelledAt: now
+                            }
+                        });
+                        
+                        // 3. 释放设备锁
+                        const activeLock = await tx.kioskLock.findFirst({
+                            where: {
+                                caseId: id,
+                                status: 'ACTIVE'
+                            }
+                        });
+                        
+                        if (activeLock) {
+                            await tx.kioskLock.update({
+                                where: { id: activeLock.id },
+                                data: {
+                                    status: 'COMPLETED',
+                                    releasedAt: now,
+                                    version: { increment: 1 }
+                                }
+                            });
+                            
+                            // 4. 释放设备
+                            await tx.kioskDevice.updateMany({
+                                where: { 
+                                    currentLockId: activeLock.id 
+                                },
+                                data: { 
+                                    currentLockId: null 
+                                }
+                            });
+                        }
+                        
+                        return updatedCase;
+                    });
+                } else {
+                    // 没有活动反馈会话，直接更新case
+                    return await prisma.studentCase.update({
+                        where: { id },
+                        data: { 
+                            status: 'RESOLVED', 
+                            resolvedAt: now 
+                        },
+                    });
+                }
+            } else {
+                // 非pending_feedback状态，正常处理
+                return await prisma.studentCase.update({
+                    where: { id },
+                    data: { 
+                        status: 'RESOLVED', 
+                        resolvedAt: now 
+                    },
+                });
+            }
         } catch (err: any) {
             if (err?.code === 'P2025') throw new NotFoundError('Case not found');
             throw err;

@@ -76,6 +76,7 @@ export interface DevicesListItem {
   currentLock?: {
     id: string;
     status: string;
+    version: number;
     case: {
       id: string;
       studentName: string;

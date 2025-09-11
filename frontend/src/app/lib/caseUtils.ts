@@ -11,6 +11,13 @@ export function isDeviceAvailableForFeedback(device: any): boolean {
          device.status !== 'BUSY';
 }
 
+// New function to check if device can be used for feedback (including busy devices for override)
+export function canUseDeviceForFeedback(device: any): boolean {
+  return device && 
+         (device.mode === 'FEEDBACK') && 
+         device.isOnline;
+}
+
 export function getFeedbackDisabledReason(caseItem: any, selectedDevice: any): string {
   if (isCasePendingFeedback(caseItem)) {
     return 'Case is already pending feedback review';

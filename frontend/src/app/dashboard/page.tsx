@@ -13,6 +13,7 @@ import { DeviceAPI, FeedbackAPI, PairAPI, CasesAPI, HealthAPI } from "../lib/api
 import { 
   isCasePendingFeedback,
   isDeviceAvailableForFeedback,
+  canUseDeviceForFeedback,
   getFeedbackDisabledReason,
   isFeedbackDisabledForCase
 } from "../lib/caseUtils";
@@ -55,10 +56,10 @@ export default function DashboardPage() {
         setFeedbackDevices(feedbackDevs);
         setRegistrationDevices(registrationDevs);
         
-        // If we have a saved selected device, verify it still exists and is available for feedback
+        // If we have a saved selected device, verify it still exists and can be used for feedback
         if (selectedDeviceId) {
           const selectedDevice = feedbackDevs.find((d: any) => d.deviceId === selectedDeviceId);
-          if (!selectedDevice || !isDeviceAvailableForFeedback(selectedDevice)) {
+          if (!selectedDevice || !canUseDeviceForFeedback(selectedDevice)) {
             // Clear invalid selection
             setSelectedDeviceId(null);
             localStorage.removeItem('selected-feedback-device');
@@ -101,10 +102,11 @@ export default function DashboardPage() {
   // Get selected device info
   const selectedDevice = feedbackDevices.find(d => d.deviceId === selectedDeviceId);
 
-  // Check if feedback is available (has selected online device)
-  const hasAvailableDevices = selectedDevice && isDeviceAvailableForFeedback(selectedDevice);
+  // Check if feedback is available (has selected online device that supports feedback)
+  const hasSelectedDevice = selectedDevice && canUseDeviceForFeedback(selectedDevice);
+  const isSelectedDeviceBusy = selectedDevice && selectedDevice.status === 'BUSY';
 
-  // Send feedback request (uses selected device)
+  // Send feedback request (uses selected device, with override if busy)
   async function sendFeedbackRequest(caseId: string) {
     // Find the case to check its status
     const caseItem = myActive?.find(c => c.id === caseId);
@@ -114,20 +116,45 @@ export default function DashboardPage() {
       return;
     }
     
-    if (!hasAvailableDevices || !selectedDevice) {
+    if (!hasSelectedDevice || !selectedDevice) {
       alert("Please select an available device for feedback first.");
       return;
     }
     
     try {
-      await FeedbackAPI.send({
-        caseId: caseId,
-        deviceId: selectedDevice.deviceId
-      });
+      if (isSelectedDeviceBusy && selectedDevice.currentLock) {
+        // Device is busy, use override API
+        const confirmed = window.confirm(
+          `The selected device is currently busy with case "${selectedDevice.currentLock.case.studentName}" (${selectedDevice.currentLock.case.category}). ` +
+          `Do you want to override and send your feedback request to this device?`
+        );
+        
+        if (!confirmed) return;
+        
+        await FeedbackAPI.override({
+          caseId: caseId,
+          deviceId: selectedDevice.deviceId,
+          expectedLockId: selectedDevice.currentLock.id,
+          expectedVersion: selectedDevice.currentLock.version
+        });
+      } else {
+        // Device is available, use normal send API
+        await FeedbackAPI.send({
+          caseId: caseId,
+          deviceId: selectedDevice.deviceId
+        });
+      }
+      
       // Reload queue data to reflect the status change
       reload();
     } catch (e: any) {
-      alert(e?.message ?? "Failed to send feedback request.");
+      if (e?.code === 'busy') {
+        alert(`Device became busy while sending request. Please try again.`);
+      } else if (e?.code === 'precondition_failed') {
+        alert(`Device state changed while sending request. Please refresh and try again.`);
+      } else {
+        alert(e?.message ?? "Failed to send feedback request.");
+      }
     }
   }
 
@@ -163,6 +190,42 @@ export default function DashboardPage() {
       alert(`Device "${deviceName}" has been successfully unpaired.`);
     } catch (e: any) {
       alert(e?.message ?? "Failed to unpair device.");
+    }
+  };
+
+  // Toggle device mode function
+  const handleToggleDeviceMode = async (deviceId: string, deviceName: string, currentMode: string) => {
+    const newMode = currentMode === 'FEEDBACK' ? 'REGISTRATION' : 'FEEDBACK';
+    const confirmed = window.confirm(`Are you sure you want to switch "${deviceName}" from ${currentMode} mode to ${newMode} mode?`);
+    
+    if (!confirmed) return;
+
+    try {
+      await DeviceAPI.changeMode(deviceId, newMode as "REGISTRATION" | "FEEDBACK");
+      
+      // If this was the selected feedback device and we're switching it away from feedback mode, clear selection
+      if (selectedDeviceId === deviceId && newMode !== 'FEEDBACK') {
+        setSelectedDeviceId(null);
+        localStorage.removeItem('selected-feedback-device');
+      }
+      
+      // Reload devices to reflect the change
+      const allDevicesRes = await DeviceAPI.list();
+      const allDevices = allDevicesRes.items || [];
+      
+      const feedbackDevs = allDevices.filter((device: any) => 
+        device.mode === 'FEEDBACK'
+      );
+      const registrationDevs = allDevices.filter((device: any) => 
+        device.mode === 'REGISTRATION'
+      );
+      
+      setFeedbackDevices(feedbackDevs);
+      setRegistrationDevices(registrationDevs);
+      
+      alert(`Device "${deviceName}" has been successfully switched to ${newMode} mode.`);
+    } catch (e: any) {
+      alert(e?.message ?? "Failed to toggle device mode.");
     }
   };
 
@@ -221,15 +284,17 @@ export default function DashboardPage() {
   }, []);
 
   // Device card component to avoid duplication
-  const DeviceCard = ({ device, isSelected, onSelect, onUnpair, showSelectButton = false }: {
+  const DeviceCard = ({ device, isSelected, onSelect, onUnpair, onToggleMode, showSelectButton = false }: {
     device: any;
     isSelected: boolean;
     onSelect?: (deviceId: string) => void;
     onUnpair?: (deviceId: string, deviceName: string) => void;
+    onToggleMode?: (deviceId: string, deviceName: string, currentMode: string) => void;
     showSelectButton?: boolean;
   }) => {
     const isAvailable = showSelectButton ? isDeviceAvailableForFeedback(device) : true;
-    const isClickable = showSelectButton && isAvailable && onSelect;
+    const canBeUsed = showSelectButton ? canUseDeviceForFeedback(device) : true;
+    const isClickable = showSelectButton && canBeUsed && onSelect;
     const deviceDisplayName = device.name || device.deviceLabel || "iPad Device";
     
     return (
@@ -242,7 +307,7 @@ export default function DashboardPage() {
       >
         <div 
           onClick={() => isClickable && onSelect(device.deviceId)}
-          className={`min-w-0 flex-1 ${isClickable ? 'cursor-pointer' : showSelectButton ? 'cursor-not-allowed opacity-60' : ''}`}
+          className={`min-w-0 flex-1 ${isClickable ? 'cursor-pointer' : showSelectButton && !canBeUsed ? 'cursor-not-allowed opacity-60' : ''}`}
         >
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-gray-900 truncate">
@@ -277,19 +342,18 @@ export default function DashboardPage() {
               Last seen: {new Date(device.lastSeenAt).toLocaleTimeString()}
             </p>
           )}
-          {showSelectButton && !isAvailable && (
+          {showSelectButton && !canBeUsed && (
             <p className="text-xs text-red-500 mt-1">
               {!device.isOnline 
                 ? "Device is offline" 
-                : device.status === 'BUSY'
-                ? "Device is busy"
                 : "Device mode doesn't support feedback"}
             </p>
           )}
         </div>
         
-        {/* Unpair button */}
-        <div className="flex-shrink-0 ml-3">
+        {/* Action buttons */}
+        <div className="flex-shrink-0 ml-3 flex flex-col gap-2">
+          {/* Unpair button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -301,6 +365,20 @@ export default function DashboardPage() {
             title="Unpair this device"
           >
             Unpair
+          </button>
+          
+          {/* Toggle Mode button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onToggleMode) {
+                onToggleMode(device.deviceId, deviceDisplayName, device.mode);
+              }
+            }}
+            className="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 hover:border-blue-300 transition-colors"
+            title={`Switch to ${device.mode === 'FEEDBACK' ? 'REGISTRATION' : 'FEEDBACK'} mode`}
+          >
+            Toggle Mode
           </button>
         </div>
       </div>
@@ -413,7 +491,7 @@ export default function DashboardPage() {
                       onResolve={resolve}
                       onFeedback={sendFeedbackRequest}
                       onEscalate={escalate}
-                      feedbackDisabled={isFeedbackDisabledForCase(c, hasAvailableDevices)}
+                      feedbackDisabled={isFeedbackDisabledForCase(c, hasSelectedDevice)}
                       feedbackDisabledReason={getFeedbackDisabledReason(c, selectedDevice)}
                     />
                   ))}
@@ -477,6 +555,7 @@ export default function DashboardPage() {
                         isSelected={device.deviceId === selectedDeviceId}
                         onSelect={handleSelectDevice}
                         onUnpair={handleUnpairDevice}
+                        onToggleMode={handleToggleDeviceMode}
                         showSelectButton={true}
                       />
                     ))}
@@ -505,6 +584,7 @@ export default function DashboardPage() {
                         device={device}
                         isSelected={false}
                         onUnpair={handleUnpairDevice}
+                        onToggleMode={handleToggleDeviceMode}
                         showSelectButton={false}
                       />
                     ))}
