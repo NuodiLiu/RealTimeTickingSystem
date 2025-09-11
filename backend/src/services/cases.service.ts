@@ -125,4 +125,16 @@ export class CasesService {
             throw err;
         }
     }
+
+    static async escalateCase(id: string, department: string) {
+        try {
+            return await prisma.studentCase.update({
+                where: { id },
+                data: { escalatedTo: department },
+            });
+        } catch (err: any) {
+            if (err?.code === 'P2025') throw new NotFoundError('Case not found');
+            throw err;
+        }
+    }
 }

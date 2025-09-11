@@ -1,20 +1,41 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { CaseItem } from "../lib/api";
+import ConfirmationModal from "./ConfirmationModal";
+
+const ESCALATION_DEPARTMENTS = [
+  "IT Support",
+  "Academic Services", 
+  "Student Services",
+  "Financial Aid",
+  "Admissions",
+  "Registrar",
+  "Housing",
+  "Health Services",
+  "Counseling",
+  "Security"
+];
 
 export default function ActiveCaseRow({
   item,
   onResolve,
   onFeedback,
+  onEscalate,
   feedbackDisabled = false,
   feedbackDisabledReason = 'No devices available for feedback',
 }: {
   item: CaseItem;
   onResolve: (id: string) => void;
   onFeedback: (id: string) => void;
+  onEscalate: (id: string, department: string) => void;
   feedbackDisabled?: boolean;
   feedbackDisabledReason?: string;
 }) {
   const [elapsedTime, setElapsedTime] = useState("");
+  const [showEscalationDropdown, setShowEscalationDropdown] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [isEscalating, setIsEscalating] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const student = item.payload?.studentName ?? (item as any).studentName ?? "Student";
   const category = item.payload?.category ?? (item as any).category ?? "General";
@@ -62,13 +83,59 @@ export default function ActiveCaseRow({
     return () => clearInterval(interval);
   }, [startTime]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowEscalationDropdown(false);
+      }
+    };
+
+    if (showEscalationDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEscalationDropdown]);
+
+  const handleEscalateClick = (department: string) => {
+    setSelectedDepartment(department);
+    setShowEscalationDropdown(false);
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmEscalation = async () => {
+    setIsEscalating(true);
+    try {
+      await onEscalate(item.id, selectedDepartment);
+      setShowConfirmation(false);
+      setSelectedDepartment("");
+    } catch (error) {
+      console.error("Failed to escalate case:", error);
+    } finally {
+      setIsEscalating(false);
+    }
+  };
+
+  const handleCancelEscalation = () => {
+    setShowConfirmation(false);
+    setSelectedDepartment("");
+  };
+
   return (
     <div className="rounded-lg border p-4">
       <div className="mb-2 font-medium">{student}</div>
       <div className="mb-3 text-xs text-zinc-500">
         {category} • Started {elapsedTime}
+        {item.escalatedTo && (
+          <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
+            Escalated to {item.escalatedTo}
+          </span>
+        )}
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <button 
           onClick={() => onResolve(item.id)} 
           className="rounded-md bg-black px-3 py-1.5 text-sm text-white hover:bg-gray-800"
@@ -87,7 +154,53 @@ export default function ActiveCaseRow({
         >
           FEEDBACK
         </button>
+        
+        {/* Escalate Button with Dropdown */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setShowEscalationDropdown(!showEscalationDropdown)}
+            className="rounded-md border border-orange-300 bg-orange-50 px-3 py-1.5 text-sm text-orange-700 hover:bg-orange-100"
+          >
+            ESCALATE ▼
+          </button>
+          
+          {showEscalationDropdown && (
+            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-48">
+              <div className="py-1">
+                {ESCALATION_DEPARTMENTS.map((dept) => (
+                  <button
+                    key={dept}
+                    onClick={() => handleEscalateClick(dept)}
+                    className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
+                  >
+                    {dept}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmation}
+        onClose={handleCancelEscalation}
+        onConfirm={handleConfirmEscalation}
+        title="Confirm Escalation"
+        message={
+          <div>
+            Are you sure you want to escalate this case to <strong>{selectedDepartment}</strong>?
+            <br />
+            <br />
+            <em>Student:</em> {student}
+            <br />
+            <em>Category:</em> {category}
+          </div>
+        }
+        confirmText="Escalate"
+        isLoading={isEscalating}
+      />
     </div>
   );
 }

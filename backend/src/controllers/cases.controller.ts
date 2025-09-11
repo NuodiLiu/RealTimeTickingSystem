@@ -63,4 +63,17 @@ export class CasesController {
     }
   }
 
+  static async escalateCase(req: any, res: any, next: any) {
+    try {
+      const { department } = req.body;
+      if (!department) {
+        throw new BadRequestError('Department is required for escalation');
+      }
+      const updated = await CasesService.escalateCase(req.params.id, department);
+      res.status(200).json(updated);
+    } catch (err) {
+      next(err);
+    }
+  }
+
 }

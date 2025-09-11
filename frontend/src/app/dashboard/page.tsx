@@ -14,7 +14,7 @@ import * as XLSX from 'xlsx';
 
 export default function DashboardPage() {
   const { user, booting, logout } = useAuth();
-  const { queued, myActive, loading, take, takeNext, resolve, reload } = useQueue(user?.id);
+  const { queued, myActive, loading, take, takeNext, resolve, escalate, reload } = useQueue(user?.id);
 
   // Devices state - separate for feedback and registration
   const [feedbackDevices, setFeedbackDevices] = useState<any[]>([]);
@@ -388,6 +388,7 @@ export default function DashboardPage() {
                     item={c}
                     onResolve={resolve}
                     onFeedback={sendFeedbackRequest}
+                    onEscalate={escalate}
                     feedbackDisabled={!hasAvailableDevices}
                     feedbackDisabledReason={
                       !selectedDevice 

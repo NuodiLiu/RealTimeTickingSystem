@@ -40,6 +40,7 @@ router.get('/export-cases', async (req, res) => {
     const result = cases.map((c) => ({
       studentName: c.studentName,
       category: c.category,
+      escalatedTo: c.escalatedTo || null,
       createTime: c.createdAt,
       takeTime: c.startedAt,
       resolveTime: c.resolvedAt,
@@ -68,5 +69,8 @@ router.post("/:id/take", requireAuth, requireStaff, CasesController.takeCase);
 
 // Staff: resolve a case
 router.post("/:id/resolve", requireAuth, requireStaff, CasesController.resolveCase);
+
+// Staff: escalate a case
+router.post("/:id/escalate", requireAuth, requireStaff, CasesController.escalateCase);
 
 export default router;
