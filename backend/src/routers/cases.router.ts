@@ -40,7 +40,6 @@ router.get('/export-cases', async (req, res) => {
     const result = cases.map((c) => ({
       studentName: c.studentName,
       category: c.category,
-      escalatedTo: c.escalatedTo || null,
       createTime: c.createdAt,
       takeTime: c.startedAt,
       resolveTime: c.resolvedAt,
