@@ -10,14 +10,15 @@ import LoadingSkeleton from "../components/LoadingSkeleton";
 import useAuth from "../hooks/useAuth";
 import useQueue from "../hooks/useQueue";
 import { DeviceAPI, FeedbackAPI, PairAPI, CasesAPI, HealthAPI } from "../lib/api";
-import * as XLSX from 'xlsx'; // Import XLSX library for exporting Excel
+import * as XLSX from 'xlsx';
 
 export default function DashboardPage() {
   const { user, booting, logout } = useAuth();
   const { queued, myActive, loading, take, takeNext, resolve, reload } = useQueue(user?.id);
 
-  // Devices state
-  const [devices, setDevices] = useState<any[]>([]);
+  // Devices state - separate for feedback and registration
+  const [feedbackDevices, setFeedbackDevices] = useState<any[]>([]);
+  const [registrationDevices, setRegistrationDevices] = useState<any[]>([]);
   const [deviceLoading, setDeviceLoading] = useState(true);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
 
@@ -33,12 +34,24 @@ export default function DashboardPage() {
     const loadDevices = async () => {
       setDeviceLoading(true);
       try {
-        const res = await DeviceAPI.list();
-        setDevices(res.items || []);
+        // Load all devices first
+        const allDevicesRes = await DeviceAPI.list();
+        const allDevices = allDevicesRes.items || [];
         
-        // If we have a saved selected device, verify it still exists and is available
+        // Filter devices by mode
+        const feedbackDevs = allDevices.filter((device: any) => 
+          device.mode === 'FEEDBACK' || device.mode === 'DUAL'
+        );
+        const registrationDevs = allDevices.filter((device: any) => 
+          device.mode === 'REGISTRATION' || device.mode === 'DUAL'
+        );
+        
+        setFeedbackDevices(feedbackDevs);
+        setRegistrationDevices(registrationDevs);
+        
+        // If we have a saved selected device, verify it still exists and is available for feedback
         if (selectedDeviceId) {
-          const selectedDevice = (res.items || []).find((d: any) => d.deviceId === selectedDeviceId);
+          const selectedDevice = feedbackDevs.find((d: any) => d.deviceId === selectedDeviceId);
           if (!selectedDevice || !isDeviceAvailableForFeedback(selectedDevice)) {
             // Clear invalid selection
             setSelectedDeviceId(null);
@@ -86,7 +99,7 @@ export default function DashboardPage() {
   };
 
   // Get selected device info
-  const selectedDevice = devices.find(d => d.deviceId === selectedDeviceId);
+  const selectedDevice = feedbackDevices.find(d => d.deviceId === selectedDeviceId);
 
   // Check if feedback is available (has selected online device)
   const hasAvailableDevices = selectedDevice && isDeviceAvailableForFeedback(selectedDevice);
@@ -110,6 +123,41 @@ export default function DashboardPage() {
     }
   }
 
+  // Unpair device function
+  const handleUnpairDevice = async (deviceId: string, deviceName: string) => {
+    const confirmed = window.confirm(`Are you sure you want to unpair the device "${deviceName}"? This action cannot be undone.`);
+    
+    if (!confirmed) return;
+
+    try {
+      await DeviceAPI.unpair(deviceId);
+      
+      // If this was the selected device, clear the selection
+      if (selectedDeviceId === deviceId) {
+        setSelectedDeviceId(null);
+        localStorage.removeItem('selected-feedback-device');
+      }
+      
+      // Reload devices to reflect the change
+      const allDevicesRes = await DeviceAPI.list();
+      const allDevices = allDevicesRes.items || [];
+      
+      const feedbackDevs = allDevices.filter((device: any) => 
+        device.mode === 'FEEDBACK' || device.mode === 'DUAL'
+      );
+      const registrationDevs = allDevices.filter((device: any) => 
+        device.mode === 'REGISTRATION' || device.mode === 'DUAL'
+      );
+      
+      setFeedbackDevices(feedbackDevs);
+      setRegistrationDevices(registrationDevs);
+      
+      alert(`Device "${deviceName}" has been successfully unpaired.`);
+    } catch (e: any) {
+      alert(e?.message ?? "Failed to unpair device.");
+    }
+  };
+
   // QR generation logic
   const [pairGenerating, setPairGenerating] = useState(false);
   const [pairError, setPairError] = useState<string | null>(null);
@@ -124,8 +172,8 @@ export default function DashboardPage() {
       const res = await PairAPI.generateQR({ mode });
 
       // Generate the QR code using the URL
-      const dataUrl = await QRCode.toDataURL(res.qrUrl); // qrUrl from backend
-      setPairQrDataUrl(dataUrl);  // Set the QR data URL for displaying the image
+      const dataUrl = await QRCode.toDataURL(res.qrUrl);
+      setPairQrDataUrl(dataUrl);
     } catch (e: any) {
       setPairError(e?.message ?? "Failed to generate QR.");
     } finally {
@@ -141,10 +189,8 @@ export default function DashboardPage() {
         return;
       }
   
-      // Call the API to fetch the cases for export
-      const data = await CasesAPI.exportCases();  // Use the new exportCases API helper
+      const data = await CasesAPI.exportCases();
   
-      // Export the data to Excel using XLSX
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Cases');
@@ -155,17 +201,99 @@ export default function DashboardPage() {
     }
   };
 
-
   // Modal control state
-  const [pairOpen, setPairOpen] = useState(false); // Modal initially closed
+  const [pairOpen, setPairOpen] = useState(false);
 
   const openPairModal = useCallback(() => {
-    setPairOpen(true); // Open the modal when QR generation is triggered
+    setPairOpen(true);
   }, []);
 
   const closePairModal = useCallback(() => {
-    setPairOpen(false); // Close modal when clicked
+    setPairOpen(false);
   }, []);
+
+  // Device card component to avoid duplication
+  const DeviceCard = ({ device, isSelected, onSelect, onUnpair, showSelectButton = false }: {
+    device: any;
+    isSelected: boolean;
+    onSelect?: (deviceId: string) => void;
+    onUnpair?: (deviceId: string, deviceName: string) => void;
+    showSelectButton?: boolean;
+  }) => {
+    const isAvailable = showSelectButton ? isDeviceAvailableForFeedback(device) : true;
+    const isClickable = showSelectButton && isAvailable && onSelect;
+    const deviceDisplayName = device.name || device.deviceLabel || "iPad Device";
+    
+    return (
+      <div
+        className={`
+          flex justify-between p-4 border rounded-md shadow-sm transition-all
+          ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}
+          ${isSelected ? 'ring-2 ring-blue-200' : ''}
+        `}
+      >
+        <div 
+          onClick={() => isClickable && onSelect(device.deviceId)}
+          className={`min-w-0 flex-1 ${isClickable ? 'cursor-pointer' : showSelectButton ? 'cursor-not-allowed opacity-60' : ''}`}
+        >
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900 truncate">
+              {deviceDisplayName}
+            </h3>
+            {isSelected && showSelectButton && (
+              <span className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full">
+                Selected
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-zinc-500 mt-1">
+            Mode: <span className="font-medium">{device.mode}</span>
+          </p>
+          <div className="flex items-center mt-2">
+            <div
+              className={`w-2 h-2 rounded-full mr-2 ${
+                device.isOnline ? "bg-green-500" : "bg-red-500"
+              }`}
+            />
+            <span className="text-sm text-zinc-600">
+              {device.isOnline ? "Online" : "Offline"}
+            </span>
+            {device.status && (
+              <span className="ml-2 px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
+                {device.status}
+              </span>
+            )}
+          </div>
+          {device.lastSeenAt && (
+            <p className="text-xs text-zinc-400 mt-1">
+              Last seen: {new Date(device.lastSeenAt).toLocaleTimeString()}
+            </p>
+          )}
+          {showSelectButton && !isAvailable && (
+            <p className="text-xs text-red-500 mt-1">
+              {!device.isOnline ? "Device is offline" : "Device mode doesn't support feedback"}
+            </p>
+          )}
+        </div>
+        
+        {/* Unpair button */}
+        <div className="flex-shrink-0 ml-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onUnpair) {
+                onUnpair(device.deviceId, deviceDisplayName);
+              }
+            }}
+            className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 hover:border-red-300 transition-colors"
+            title="Unpair this device"
+          >
+            Unpair
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   if (booting) {
     return (
@@ -287,7 +415,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => {
                   openPairModal();
-                  handleGenerateQR("DUAL"); // Automatically generates QR on click
+                  handleGenerateQR("DUAL");
                 }}
                 className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50"
               >
@@ -302,74 +430,55 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: "calc(100vh - 100px)" }}>
-            {deviceLoading ? (
-              <LoadingSkeleton rows={3} />
-            ) : devices && devices.length > 0 ? (
-              <div className="space-y-3">
-                {devices.map((device: any) => {
-                  const isSelected = device.deviceId === selectedDeviceId;
-                  const isAvailable = isDeviceAvailableForFeedback(device);
-                  const isClickable = isAvailable;
-                  
-                  return (
-                    <div
+          <div className="flex-1 overflow-y-auto pr-2 space-y-6" style={{ maxHeight: "calc(100vh - 100px)" }}>
+            {/* FEEDBACK DEVICES */}
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400 mb-3">
+                Feedback Devices
+              </h3>
+              {deviceLoading ? (
+                <LoadingSkeleton rows={2} />
+              ) : feedbackDevices && feedbackDevices.length > 0 ? (
+                <div className="space-y-3">
+                  {feedbackDevices.map((device: any) => (
+                    <DeviceCard
                       key={device.deviceId}
-                      onClick={() => isClickable && handleSelectDevice(device.deviceId)}
-                      className={`
-                        flex justify-between p-4 border rounded-md shadow-sm transition-all
-                        ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}
-                        ${isClickable ? 'cursor-pointer hover:shadow-md' : 'cursor-not-allowed opacity-60'}
-                        ${isSelected ? 'ring-2 ring-blue-200' : ''}
-                      `}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-gray-900 truncate">
-                            {device.name || device.deviceLabel || "iPad Device"}
-                          </h3>
-                          {isSelected && (
-                            <span className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full">
-                              Selected
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-zinc-500 mt-1">
-                          Mode: <span className="font-medium">{device.mode}</span>
-                        </p>
-                        <div className="flex items-center mt-2">
-                          <div
-                            className={`w-2 h-2 rounded-full mr-2 ${
-                              device.isOnline ? "bg-green-500" : "bg-red-500"
-                            }`}
-                          />
-                          <span className="text-sm text-zinc-600">
-                            {device.isOnline ? "Online" : "Offline"}
-                          </span>
-                          {device.status && (
-                            <span className="ml-2 px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
-                              {device.status}
-                            </span>
-                          )}
-                        </div>
-                        {device.lastSeenAt && (
-                          <p className="text-xs text-zinc-400 mt-1">
-                            Last seen: {new Date(device.lastSeenAt).toLocaleTimeString()}
-                          </p>
-                        )}
-                        {!isAvailable && (
-                          <p className="text-xs text-red-500 mt-1">
-                            {!device.isOnline ? "Device is offline" : "Device mode doesn't support feedback"}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <EmptyState label="No devices available." />
-            )}
+                      device={device}
+                      isSelected={device.deviceId === selectedDeviceId}
+                      onSelect={handleSelectDevice}
+                      onUnpair={handleUnpairDevice}
+                      showSelectButton={true}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState label="No feedback devices available." />
+              )}
+            </div>
+
+            {/* REGISTRATION DEVICES */}
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400 mb-3">
+                Registration Devices
+              </h3>
+              {deviceLoading ? (
+                <LoadingSkeleton rows={2} />
+              ) : registrationDevices && registrationDevices.length > 0 ? (
+                <div className="space-y-3">
+                  {registrationDevices.map((device: any) => (
+                    <DeviceCard
+                      key={`reg-${device.deviceId}`}
+                      device={device}
+                      isSelected={false}
+                      onUnpair={handleUnpairDevice}
+                      showSelectButton={false}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState label="No registration devices available." />
+              )}
+            </div>
           </div>
         </section>
       </div>
@@ -383,7 +492,7 @@ export default function DashboardPage() {
               <h3 className="text-base font-semibold">Pair iPad</h3>
               <button
                 className="rounded-md border px-2 py-1 text-sm hover:bg-zinc-50"
-                onClick={closePairModal} // Close the modal
+                onClick={closePairModal}
               >
                 Close
               </button>
@@ -417,7 +526,7 @@ export default function DashboardPage() {
 
               {!pairQrDataUrl && !pairGenerating && (
                 <div className="mt-2 rounded-md border p-3 text-sm text-zinc-500">
-                  Press “Generate QR” to create a one-time pairing code. It expires in ~5 minutes.
+                  Press "Generate QR" to create a one-time pairing code. It expires in ~5 minutes.
                 </div>
               )}
             </div>

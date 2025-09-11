@@ -113,6 +113,9 @@ export interface PairGenerateQrRes {
   expiresAt: string;
 }
 
+export interface UnpairDeviceReq { deviceId: string; }
+export interface UnpairDeviceRes { ok: boolean; message: string; }
+
 export interface HealthPing {
   status: 'ok' | 'error';
   version?: string;
@@ -253,6 +256,8 @@ export const DeviceAPI = {
   heartbeat: (body: { deviceId?: string }) => post<undefined>("/device/heartbeat", body),
   // GET /device/status (device-auth only) 
   status: () => get<{ ok: boolean; deviceId: string; mode: string; online: boolean }>("/device/status"),
+  // DELETE /device/:id (unpair device)
+  unpair: (deviceId: string) => del<undefined>(`/device/${encodeURIComponent(deviceId)}`),
 };
 
 export const FeedbackAPI = {
@@ -285,5 +290,3 @@ export const HealthAPI = {
 };
 
 // src/lib/api.ts
-
-
