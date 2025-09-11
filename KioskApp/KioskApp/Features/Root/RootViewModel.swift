@@ -43,9 +43,6 @@ final class RootViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] p in
                 guard let self else { return }
-                print("📱 RootViewModel: showFeedback changed to: \(p?.description ?? "nil")")
-                print("📱 RootViewModel: Current mode is: \(self.currentMode.rawValue)")
-                print("📱 RootViewModel: Current route is: \(self.route)")
                 
                 self.pendingFeedback = p
                 

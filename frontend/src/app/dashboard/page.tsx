@@ -10,6 +10,12 @@ import LoadingSkeleton from "../components/LoadingSkeleton";
 import useAuth from "../hooks/useAuth";
 import useQueue from "../hooks/useQueue";
 import { DeviceAPI, FeedbackAPI, PairAPI, CasesAPI, HealthAPI } from "../lib/api";
+import { 
+  isCasePendingFeedback,
+  isDeviceAvailableForFeedback,
+  getFeedbackDisabledReason,
+  isFeedbackDisabledForCase
+} from "../lib/caseUtils";
 import * as XLSX from 'xlsx';
 
 export default function DashboardPage() {
@@ -86,14 +92,6 @@ export default function DashboardPage() {
     if (!booting && !user) window.location.href = "/login";
   }, [booting, user]);
 
-  // Helper function to check if device is available for feedback
-  function isDeviceAvailableForFeedback(device: any) {
-    return device && 
-           (device.mode === 'FEEDBACK') && 
-           device.isOnline && 
-           device.status !== 'BUSY';
-  }
-
   // Handle device selection
   const handleSelectDevice = (deviceId: string) => {
     setSelectedDeviceId(deviceId);
@@ -108,6 +106,14 @@ export default function DashboardPage() {
 
   // Send feedback request (uses selected device)
   async function sendFeedbackRequest(caseId: string) {
+    // Find the case to check its status
+    const caseItem = myActive?.find(c => c.id === caseId);
+    
+    if (caseItem && isCasePendingFeedback(caseItem)) {
+      alert("This case is already pending feedback review.");
+      return;
+    }
+    
     if (!hasAvailableDevices || !selectedDevice) {
       alert("Please select an available device for feedback first.");
       return;
@@ -407,14 +413,8 @@ export default function DashboardPage() {
                       onResolve={resolve}
                       onFeedback={sendFeedbackRequest}
                       onEscalate={escalate}
-                      feedbackDisabled={!hasAvailableDevices}
-                      feedbackDisabledReason={
-                        !selectedDevice 
-                          ? 'Please select a device for feedback first'
-                          : !selectedDevice.isOnline
-                          ? 'Selected device is offline'
-                          : 'No available devices for feedback'
-                      }
+                      feedbackDisabled={isFeedbackDisabledForCase(c, hasAvailableDevices)}
+                      feedbackDisabledReason={getFeedbackDisabledReason(c, selectedDevice)}
                     />
                   ))}
                 </div>

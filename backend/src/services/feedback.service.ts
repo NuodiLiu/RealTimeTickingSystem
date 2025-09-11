@@ -36,6 +36,28 @@ export class FeedbackService {
     const activeLock = await findActiveLock(prisma, deviceId);
     if (activeLock) throwBusy(activeLock);
 
+    // 2.5) 检查是否已有其他设备正在处理这个case的feedback
+    const existingActiveFeedback = await prisma.feedbackSession.findFirst({
+      where: {
+        caseId,
+        status: { in: ['CREATED', 'DELIVERED'] },
+        deviceId: { not: deviceId } // 不是当前设备
+      },
+      select: {
+        id: true,
+        deviceId: true,
+        device: {
+          select: { name: true }
+        }
+      }
+    });
+
+    if (existingActiveFeedback) {
+      const err = new ConflictError(`This case already has an active feedback session on device "${existingActiveFeedback.device.name}"`);
+      (err as any).code = "feedback_in_progress";
+      throw err;
+    }
+
     // 3) 事务：创建 session + 锁 + CAS 绑定 + 置 case 等待反馈
     const { now, leaseExpireAt, sessionExpireAt } = computeTimes();
     const { session, lock } = await prisma.$transaction(

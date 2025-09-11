@@ -23,15 +23,13 @@ struct PairCompleteRequest: Encodable {
     let mode: String?
 }
 struct PairCompleteResponse: Decodable {
-    let deviceId: String?
-    let deviceSecret: String?
-    let apiKey: String?
+    let deviceId: String
+    let deviceSecret: String
+    let apiKey: String
     let wsToken: String?         // WebSocket JWT 认证 token
-    let deviceName: String?
-    let mode: String?            // "FEEDBACK|REGISTRATION"  
+    let deviceName: String
+    let mode: DeviceMode         // 统一使用DeviceMode枚举类型
     let wsEndpoint: String?      // WebSocket 端点 URL
-    let success: Bool?
-    let message: String?
 }
 
 // /cases

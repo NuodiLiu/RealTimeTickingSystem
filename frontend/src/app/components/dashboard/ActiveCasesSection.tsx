@@ -1,6 +1,10 @@
 import ActiveCaseRow from "../ActiveCaseRow";
 import EmptyState from "../EmptyState";
 import LoadingSkeleton from "../LoadingSkeleton";
+import { 
+  getFeedbackDisabledReason,
+  isFeedbackDisabledForCase
+} from "../../lib/caseUtils";
 
 interface ActiveCasesSectionProps {
   myActive: any[] | null;
@@ -44,14 +48,8 @@ export default function ActiveCasesSection({
                 onResolve={resolve}
                 onFeedback={sendFeedbackRequest}
                 onEscalate={escalate}
-                feedbackDisabled={!hasAvailableDevices}
-                feedbackDisabledReason={
-                  !selectedDevice 
-                    ? 'Please select a device for feedback first'
-                    : !selectedDevice.isOnline
-                    ? 'Selected device is offline'
-                    : 'No available devices for feedback'
-                }
+                feedbackDisabled={isFeedbackDisabledForCase(c, hasAvailableDevices)}
+                feedbackDisabledReason={getFeedbackDisabledReason(c, selectedDevice)}
               />
             ))}
           </div>
