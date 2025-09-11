@@ -50,6 +50,11 @@ export class DeviceGateway {
     DeviceGateway.io().to(`device:${deviceId}`).emit("message", message);
   }
 
+  // 通知所有dashboard连接的客户端
+  static notifyDashboard(event: { type: string; payload: any }) {
+    DeviceGateway.io().emit("event", event);
+  }
+
   // 方便你按你 ws 版命名调用（等价封装）
   static notifyFeedback(deviceId: string, payload: FeedbackShowPayload) {
     DeviceGateway.publish(deviceId, { type: "SHOW_FEEDBACK", payload });

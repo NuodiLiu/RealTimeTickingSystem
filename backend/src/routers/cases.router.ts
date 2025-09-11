@@ -50,8 +50,8 @@ router.get('/export-cases', async (req, res) => {
         ? (new Date(c.startedAt).getTime() - new Date(c.createdAt).getTime()) / 1000
         : null,  // Waiting time in seconds, returns null if either createdAt or startedAt is null
       staffName: c.staff?.name,
-      rating: c.feedback?.[0]?.rating,  // Assuming the first feedback is the one needed
-      feedbackComment: c.feedback?.[0]?.comment,
+      // rating: (c.feedback && Array.isArray(c.feedback) && c.feedback.length > 0) ? c.feedback[0]?.rating ?? null : null,
+      // feedbackComment: (c.feedback && Array.isArray(c.feedback) && c.feedback.length > 0) ? c.feedback[0]?.comment ?? null : null,
     }));
 
     res.json(result);

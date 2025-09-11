@@ -52,7 +52,6 @@ export class FeedbackService {
 
         return { session, lock };
       }
-      // , { isolationLevel: Prisma.TransactionIsolationLevel.Serializable } // 可选
     );
 
     // 4) 推送设备
@@ -66,7 +65,13 @@ export class FeedbackService {
       },
     });
 
-    // 5) 返回
+    // 5) 通知portal/dashboard：设备现在忙碌
+    DeviceGateway.notifyDashboard({
+      type: "device:updated",
+      payload: { id: deviceId, isBusy: true }
+    });
+
+    // 6) 返回
     return {
       session: { id: session.id, status: "CREATED", deviceId, caseId, expireAt: sessionExpireAt },
       lock: { id: lock.id, status: "ACTIVE", version: lock.version, leaseExpireAt },
@@ -219,6 +224,21 @@ export class FeedbackService {
       });
 
       return { feedbackId };
+    });
+
+    // 6) 通知设备端：提交成功，可以回到空闲状态
+    DeviceGateway.publish(session.deviceId, {
+      type: "DISMISS", // 或者可以用其他消息类型
+    });
+
+    // 7) 通知portal/dashboard：案例已解决，设备已空闲
+    DeviceGateway.notifyDashboard({
+      type: "case:updated",
+      payload: { id: session.caseId, status: "RESOLVED" }
+    });
+    DeviceGateway.notifyDashboard({
+      type: "device:updated", 
+      payload: { id: session.deviceId, isBusy: false }
     });
 
     return {

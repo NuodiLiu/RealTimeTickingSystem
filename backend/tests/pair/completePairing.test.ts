@@ -101,24 +101,24 @@ describe('PairService.completePairing', () => {
         });
     });
 
-    it('should use default FEEDBACK mode when deviceMode is not provided', async () => {
+    it('should use default REGISTRATION mode when deviceMode is not provided', async () => {
         const dataWithoutMode = {
             pairingToken: 'valid-token-123',
             deviceName: 'Test Kiosk Device'
         };
 
         prisma.pairingSession.findUnique.mockResolvedValue(mockValidSession);
-        prisma.kioskDevice.create.mockResolvedValue({ ...mockDevice, mode: 'FEEDBACK' });
+        prisma.kioskDevice.create.mockResolvedValue({ ...mockDevice, mode: 'REGISTRATION' });
         prisma.pairingSession.update.mockResolvedValue({});
 
         const result = await PairService.completePairing(dataWithoutMode);
 
         expect(prisma.kioskDevice.create).toHaveBeenCalledWith({
             data: expect.objectContaining({
-                mode: 'FEEDBACK'
+                mode: 'REGISTRATION'
             })
         });
-        expect(result.deviceMode).toBe('FEEDBACK');
+        expect(result.deviceMode).toBe('REGISTRATION');
     });
 
     it('should throw MissingFieldError when pairingToken is missing', async () => {

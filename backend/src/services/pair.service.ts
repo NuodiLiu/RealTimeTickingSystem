@@ -48,7 +48,7 @@ export class PairService {
     deviceMode?: DeviceMode;
     deviceId?: string; // 可选：重新配对已存在的设备
   }) {
-    const { pairingToken, deviceName, deviceMode = 'FEEDBACK', deviceId } = data;
+    const { pairingToken, deviceName, deviceMode = 'REGISTRATION', deviceId } = data;
 
     if (!pairingToken || !deviceName) {
       throw new MissingFieldError(['pairingToken', 'deviceName']);
