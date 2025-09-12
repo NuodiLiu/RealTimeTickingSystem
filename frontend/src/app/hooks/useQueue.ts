@@ -34,6 +34,9 @@ function normalizeCases(res: unknown): CaseItem[] {
 
     return {
       id: c.id,
+      zID: c.zID,
+      studentName: c.studentName,
+      category: c.category,
       status: frontendStatus,
       createdAt: c.createdAt ?? new Date().toISOString(),
       updatedAt: c.updatedAt ?? c.createdAt ?? new Date().toISOString(),
@@ -42,11 +45,6 @@ function normalizeCases(res: unknown): CaseItem[] {
       escalatedTo: c.escalatedTo, // Add escalatedTo field
       deviceId: c.deviceId,
       staffId: c.staffId,
-      // put studentName/category into payload so existing components show them
-      payload: {
-        studentName: c.studentName ?? c?.payload?.studentName,
-        category: c.category ?? c?.payload?.category,
-      },
     } as CaseItem;
   });
 }

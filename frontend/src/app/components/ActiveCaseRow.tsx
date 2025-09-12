@@ -37,8 +37,9 @@ export default function ActiveCaseRow({
   const [isEscalating, setIsEscalating] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const student = item.payload?.studentName ?? (item as any).studentName ?? "Student";
-  const category = item.payload?.category ?? (item as any).category ?? "General";
+  const student = item.studentName ?? "Student";
+  const category = item.category ?? "General";
+  const zID = item.zID ?? "";
   
   // Only use startedAt if it exists, otherwise show "Just started"
   const startTime = item.startedAt;
@@ -128,7 +129,7 @@ export default function ActiveCaseRow({
     <div className="rounded-lg border p-4">
       <div className="mb-2 font-medium">{student}</div>
       <div className="mb-3 text-xs text-zinc-500">
-        {category} • Started {elapsedTime}
+        zID: {zID} • {category} • Started {elapsedTime}
         {item.escalatedTo && (
           <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
             Escalated to {item.escalatedTo}

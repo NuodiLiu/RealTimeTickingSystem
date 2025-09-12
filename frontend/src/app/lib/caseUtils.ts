@@ -1,10 +1,11 @@
 // Utility functions for case management
+import { CaseItem, DevicesListItem } from './api';
 
-export function isCasePendingFeedback(caseItem: any): boolean {
+export function isCasePendingFeedback(caseItem: CaseItem): boolean {
   return caseItem.status === 'resolved_pending_feedback';
 }
 
-export function isDeviceAvailableForFeedback(device: any): boolean {
+export function isDeviceAvailableForFeedback(device: DevicesListItem): boolean {
   return device && 
          (device.mode === 'FEEDBACK') && 
          device.isOnline && 
@@ -12,13 +13,13 @@ export function isDeviceAvailableForFeedback(device: any): boolean {
 }
 
 // New function to check if device can be used for feedback (including busy devices for override)
-export function canUseDeviceForFeedback(device: any): boolean {
+export function canUseDeviceForFeedback(device: DevicesListItem): boolean {
   return device && 
          (device.mode === 'FEEDBACK') && 
          device.isOnline;
 }
 
-export function getFeedbackDisabledReason(caseItem: any, selectedDevice: any): string {
+export function getFeedbackDisabledReason(caseItem: CaseItem, selectedDevice: DevicesListItem | null): string {
   if (isCasePendingFeedback(caseItem)) {
     return 'Case is already pending feedback review';
   }
@@ -34,6 +35,6 @@ export function getFeedbackDisabledReason(caseItem: any, selectedDevice: any): s
   return 'No available devices for feedback';
 }
 
-export function isFeedbackDisabledForCase(caseItem: any, hasAvailableDevices: boolean): boolean {
+export function isFeedbackDisabledForCase(caseItem: CaseItem, hasAvailableDevices: boolean): boolean {
   return isCasePendingFeedback(caseItem) || !hasAvailableDevices;
 }

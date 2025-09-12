@@ -125,7 +125,7 @@ export default function DashboardPage() {
       if (isSelectedDeviceBusy && selectedDevice.currentLock) {
         // Device is busy, use override API
         const confirmed = window.confirm(
-          `The selected device is currently busy with case "${selectedDevice.currentLock.case.studentName}" (${selectedDevice.currentLock.case.category}). ` +
+          `The selected device is currently busy with case "${selectedDevice.currentLock.case.studentName}" (zID: ${selectedDevice.currentLock.case.zID}, ${selectedDevice.currentLock.case.category}). ` +
           `Do you want to override and send your feedback request to this device?`
         );
         

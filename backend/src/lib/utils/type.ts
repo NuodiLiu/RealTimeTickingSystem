@@ -18,7 +18,7 @@ export type DeviceWithStatus = {
     id: string;
     status: string;
     version: number;
-    case: { id: string; studentName: string; category: string; status: string };
+    case: { id: string; zID: string; studentName: string; category: string; status: string };
     staffName: string;
     leaseExpireAt: Date;
   } | null;

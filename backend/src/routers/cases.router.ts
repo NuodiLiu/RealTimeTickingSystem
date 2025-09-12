@@ -38,6 +38,7 @@ router.get('/export-cases', requireAuth, requireAdmin, async (req: Request, res:
 
     // Format the data for export
     const result = cases.map((c) => ({
+      zID: c.zID,
       studentName: c.studentName,
       category: c.category,
       createTime: c.createdAt,

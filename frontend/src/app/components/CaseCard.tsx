@@ -10,8 +10,9 @@ export default function CaseCard({
 }) {
   const [waitingTime, setWaitingTime] = useState("");
 
-  const student = item.payload?.studentName ?? (item as any).studentName ?? "Student";
-  const category = item.payload?.category ?? (item as any).category ?? "General";
+  const student = item.studentName ?? "Student";
+  const category = item.category ?? "General";
+  const zID = item.zID ?? "";
   
   // Use createdAt to calculate waiting time
   const createdTime = item.createdAt;
@@ -61,7 +62,7 @@ export default function CaseCard({
       <div>
         <div className="font-medium">{student}</div>
         <div className="text-xs text-zinc-500">
-          {category} • Waiting {waitingTime}
+          zID: {zID} • {category} • Waiting {waitingTime}
         </div>
       </div>
       <button

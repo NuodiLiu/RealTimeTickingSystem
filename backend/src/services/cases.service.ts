@@ -17,12 +17,12 @@ export class CasesService {
         });
     }
 
-    static async postCase(data: { studentName?: string; category?: string }) {
-        const { studentName, category } = data ?? {};
-        if (!studentName || !category) {
-            throw new MissingFieldError(["studentName", "category"]);
+    static async postCase(data: { studentName?: string; category?: string; zID?: string }) {
+        const { studentName, category, zID } = data ?? {};
+        if (!studentName || !category || !zID) {
+            throw new MissingFieldError(["studentName", "category", "zID"]);
         }
-        return prisma.studentCase.create({ data: { studentName, category } });
+        return prisma.studentCase.create({ data: { studentName, category, zID } });
     }
 
     static async takeCase(id: string, staffId: string) {

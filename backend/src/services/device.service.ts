@@ -185,6 +185,7 @@ export class DeviceService {
               version: row.currentLock.version,
               case: {
                 id: row.currentLock.case.id,
+                zID: row.currentLock.case.zID,
                 studentName: row.currentLock.case.studentName,
                 category: row.currentLock.case.category,
                 status: row.currentLock.case.status,
