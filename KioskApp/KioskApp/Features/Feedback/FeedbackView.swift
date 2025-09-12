@@ -113,7 +113,14 @@ struct FeedbackView: View {
             .padding(.top, 8)
         }
         .devResetGesture() // 添加开发者重置手势
-        .kioskDragBlock() // 禁用拖动手势
+        // 添加点击手势来取消键盘焦点
+        .simultaneousGesture(
+            TapGesture()
+                .onEnded { _ in
+                    // 点击任何地方都取消文本编辑器焦点
+                    textFocused = false
+                }
+        )
     }
 }
 

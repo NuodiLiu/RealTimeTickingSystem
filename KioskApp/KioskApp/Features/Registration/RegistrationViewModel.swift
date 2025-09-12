@@ -14,27 +14,42 @@ public struct CategoryItem: Identifiable, Hashable, Decodable {
 /// 负责登记表单（姓名、分类）提交流程（不从后端拉分类，分类由外部注入）
 final class RegistrationViewModel: ObservableObject {
     // 输入
+    @Published var zID: String = ""
     @Published var name: String = ""
     @Published var categoryId: String = ""
 
     // 数据源（下拉）
     @Published private(set) var categories: [CategoryItem] = [
-        CategoryItem(id: "general", name: "General"),
-        CategoryItem(id: "tech", name: "Technical Support"),
-        CategoryItem(id: "id", name: "Feedback"),
-        CategoryItem(id: "admin", name: "Administration"),
-        CategoryItem(id: "COE", name: "Other")
+        CategoryItem(id: "activities", name: "Activities and Volunteering"),
+        CategoryItem(id: "academic_support", name: "Academic Support and Academic Standing"),
+        CategoryItem(id: "accommodation", name: "Accommodation Support"),
+        CategoryItem(id: "new_student_orientation", name: "New Student Orientation / Getting Set Up, Z-ID account activation"),
+        CategoryItem(id: "admissions", name: "Admissions (you have not started your course and want to change your enrolment)"),
+        CategoryItem(id: "complaints", name: "Complaints"),
+        CategoryItem(id: "domestic_diploma", name: "Domestic Diploma Enquiries"),
+        CategoryItem(id: "enrolment", name: "Enrolment (you have started your course and want to change your enrolment)"),
+        CategoryItem(id: "exams", name: "Exams, Assessments and Results"),
+        CategoryItem(id: "fees", name: "Fees and Refunds"),
+        CategoryItem(id: "it_help", name: "IT help"),
+        CategoryItem(id: "moodle", name: "Moodle"),
+        CategoryItem(id: "student_support", name: "Student Support (Personal issues, health & wellbeing)"),
+        CategoryItem(id: "timetable", name: "Timetable"),
+        CategoryItem(id: "under_18", name: "Under 18 Student"),
+        CategoryItem(id: "other", name: "Other Issues")
     ]
 
     // 状态
     @Published private(set) var isSubmitting = false
     @Published private(set) var lastCreatedCaseId: String?
     @Published var errorMessage: String?
+    @Published var zIDError: Bool = false
 
     private let env: AppEnvironment
 
     init(env: AppEnvironment) {
         self.env = env
+        // 默认选择第一个分类
+        self.categoryId = categories.first?.id ?? ""
     }
 
     // MARK: - 分类注入（无网络）
@@ -62,10 +77,37 @@ final class RegistrationViewModel: ObservableObject {
     private var normalizedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
+    
+    private var normalizedZID: String {
+        let trimmed = zID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        
+        // 如果输入是7位数字，自动补全z前缀
+        if trimmed.count == 7, trimmed.allSatisfy(\.isNumber) {
+            return "z\(trimmed)"
+        }
+        
+        // 如果输入是z or Z 开头+7位数字，直接返回
+        if trimmed.count == 8, trimmed.hasPrefix("z") {
+            let digits = String(trimmed.dropFirst())
+            if digits.count == 7, digits.allSatisfy(\.isNumber) {
+                return trimmed
+            }
+        }
+        
+        return trimmed // 其他情况返回原值，交由canSubmit判断
+    }
+    
+    private var isValidZID: Bool {
+        let normalized = normalizedZID
+        return normalized.count == 8 && 
+               normalized.hasPrefix("z") && 
+               String(normalized.dropFirst()).allSatisfy(\.isNumber)
+    }
 
     var canSubmit: Bool {
         !normalizedName.isEmpty &&
         !categoryId.isEmpty &&
+        isValidZID &&
         categories.contains(where: { $0.id == categoryId }) &&
         !isSubmitting
     }
@@ -74,9 +116,19 @@ final class RegistrationViewModel: ObservableObject {
     /// 提交后可选择是否清空表单（默认不清空，便于继续提交相似记录）
     @MainActor
     func submit(clearOnSuccess: Bool = true) async {
+        // 重置错误状态
+        zIDError = false
+        
+        // 检查 zID 格式
+        if !isValidZID {
+            zIDError = true
+            errorMessage = "Please double check your zID is correct"
+            return
+        }
+        
         // 避免重复点击/竞态
         guard canSubmit else {
-            self.errorMessage = "请填写姓名并选择分类"
+            errorMessage = "Please double check your zID is correct"
             return
         }
 
@@ -87,12 +139,14 @@ final class RegistrationViewModel: ObservableObject {
 
         do {
             _ = try await env.casesAPI.createCase(
+                zID: normalizedZID,
                 name: normalizedName,
                 categoryId: categoryId
             )
             lastCreatedCaseId = "Successful" // 简化成功消息
             
             if clearOnSuccess {
+                zID = ""
                 name = ""
                 // 保留分类选择，便于连续同类录入
             }
@@ -108,7 +162,8 @@ final class RegistrationViewModel: ObservableObject {
 
     // MARK: - 便捷方法
     /// 外部可预填姓名（如扫码/缓存命中）
-    func prefill(name: String?, categoryId: String? = nil) {
+    func prefill(zID: String? = nil, name: String?, categoryId: String? = nil) {
+        if let z = zID { self.zID = z }
         if let n = name { self.name = n }
         if let cid = categoryId, categories.contains(where: { $0.id == cid }) {
             self.categoryId = cid

@@ -40,8 +40,7 @@ struct RootView: View {
                 Color.clear
                     .devResetGesture() // 添加统一的开发者重置手势
             }
-        }
-        .kioskDragBlock() // 禁用拖动手势
+        }// 禁用拖动手势
         .allowsHitTesting(true)
     }
 }

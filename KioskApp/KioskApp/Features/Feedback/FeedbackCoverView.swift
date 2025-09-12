@@ -25,7 +25,6 @@ struct FeedbackCoverView: View {
         }
         .navigationBarHidden(true)
         .navigationBarBackButtonHidden(true)
-        .kioskDragBlock() // Disable drag gestures
         .allowsHitTesting(true) // Allow basic touch interactions but no complex gestures
     }
 }

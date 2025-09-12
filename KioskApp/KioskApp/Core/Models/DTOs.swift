@@ -41,11 +41,13 @@ enum CaseStatus: String, Codable {
 }
 
 struct CreateCaseRequest: Encodable {
+    let zID: String
     let studentName: String
     let category: String
     
     // 便捷初始化器，接受原来的参数名
-    init(name: String, categoryId: String) {
+    init(zID: String, name: String, categoryId: String) {
+        self.zID = zID
         self.studentName = name
         self.category = categoryId
     }

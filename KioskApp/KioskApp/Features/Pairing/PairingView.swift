@@ -64,7 +64,6 @@ struct PairingView: View {
             .padding(32)
         }
         .devResetGesture() // 添加开发者重置手势
-        .kioskDragBlock() // 禁用拖动手势
         // 全屏相机
         .fullScreenCover(isPresented: $vm.isScanning) {
             ZStack {
