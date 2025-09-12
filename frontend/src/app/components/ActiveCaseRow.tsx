@@ -131,7 +131,7 @@ export default function ActiveCaseRow({
 
   return (
     <div className="rounded-lg border p-4">
-      <div className="mb-2 font-medium truncate" title={student}>
+      <div className="mb-2 font-medium truncate cursor-help" title={student}>
         {truncatedStudentName}
       </div>
       <div className="text-xs text-gray-500 font-normal mb-3">{zID}</div>

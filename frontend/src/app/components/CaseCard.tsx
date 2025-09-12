@@ -64,7 +64,7 @@ export default function CaseCard({
   return (
     <div className="flex items-start justify-between rounded-lg border p-4">
       <div className="flex-1 min-w-0 pr-4">
-        <div className="font-medium truncate" title={student}>
+        <div className="font-medium truncate cursor-help" title={student}>
           {truncatedStudentName}
         </div>
         <div className="text-xs text-gray-500 font-normal">{zID}</div>
