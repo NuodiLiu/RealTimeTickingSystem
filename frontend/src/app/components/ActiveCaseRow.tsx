@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { CaseItem } from "../lib/api";
 import ConfirmationModal from "./ConfirmationModal";
+import { getCategoryName, getTruncatedCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
 
 const ESCALATION_DEPARTMENTS = [
   "IT Support",
@@ -38,7 +39,10 @@ export default function ActiveCaseRow({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const student = item.studentName ?? "Student";
-  const category = item.category ?? "General";
+  const truncatedStudentName = getTruncatedStudentName(student);
+  const categoryId = item.category ?? "other";
+  const categoryName = getCategoryName(categoryId);
+  const truncatedCategoryName = getTruncatedCategoryName(categoryId);
   const zID = item.zID ?? "";
   
   // Only use startedAt if it exists, otherwise show "Just started"
@@ -127,14 +131,27 @@ export default function ActiveCaseRow({
 
   return (
     <div className="rounded-lg border p-4">
-      <div className="mb-2 font-medium">{student}</div>
-      <div className="mb-3 text-xs text-zinc-500">
-        zID: {zID} • {category} • Started {elapsedTime}
-        {item.escalatedTo && (
-          <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
-            Escalated to {item.escalatedTo}
+      <div className="mb-2 font-medium truncate" title={student}>
+        {truncatedStudentName}
+      </div>
+      <div className="text-xs text-gray-500 font-normal mb-3">{zID}</div>
+      <div className="mb-3 space-y-1">
+        <div className="text-xs text-zinc-500">
+          <span 
+            title={categoryName}
+            className="cursor-help"
+          >
+            {truncatedCategoryName}
           </span>
-        )}
+        </div>
+        <div className="text-xs text-zinc-500">
+          Started {elapsedTime}
+          {item.escalatedTo && (
+            <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
+              Escalated to {item.escalatedTo}
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex gap-2 flex-wrap">
         <button 
@@ -196,7 +213,7 @@ export default function ActiveCaseRow({
             <br />
             <em>Student:</em> {student}
             <br />
-            <em>Category:</em> {category}
+            <em>Category:</em> {categoryName}
           </div>
         }
         confirmText="Escalate"

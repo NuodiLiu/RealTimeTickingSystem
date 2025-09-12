@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { CaseItem } from "../lib/api";
+import { getCategoryName, getTruncatedCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
 
 export default function CaseCard({
   item,
@@ -11,7 +12,10 @@ export default function CaseCard({
   const [waitingTime, setWaitingTime] = useState("");
 
   const student = item.studentName ?? "Student";
-  const category = item.category ?? "General";
+  const truncatedStudentName = getTruncatedStudentName(student);
+  const categoryId = item.category ?? "other";
+  const categoryName = getCategoryName(categoryId);
+  const truncatedCategoryName = getTruncatedCategoryName(categoryId);
   const zID = item.zID ?? "";
   
   // Use createdAt to calculate waiting time
@@ -58,16 +62,29 @@ export default function CaseCard({
   }, [createdTime]);
 
   return (
-    <div className="flex items-center justify-between rounded-lg border p-4">
-      <div>
-        <div className="font-medium">{student}</div>
-        <div className="text-xs text-zinc-500">
-          zID: {zID} • {category} • Waiting {waitingTime}
+    <div className="flex items-start justify-between rounded-lg border p-4">
+      <div className="flex-1 min-w-0 pr-4">
+        <div className="font-medium truncate" title={student}>
+          {truncatedStudentName}
+        </div>
+        <div className="text-xs text-gray-500 font-normal">{zID}</div>
+        <div className="space-y-1">
+          <div className="text-xs text-zinc-500">
+            <span 
+              title={categoryName}
+              className="cursor-help"
+            >
+              {truncatedCategoryName}
+            </span>
+          </div>
+          <div className="text-xs text-zinc-500">
+            Waiting {waitingTime}
+          </div>
         </div>
       </div>
       <button
         onClick={() => onTake(item.id)}
-        className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50"
+        className="flex-shrink-0 rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50"
       >
         TAKE
       </button>
