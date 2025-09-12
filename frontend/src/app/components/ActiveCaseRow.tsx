@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from "react";
 import { CaseItem } from "../lib/api";
-import ConfirmationModal from "./ConfirmationModal";
 import { getCategoryName, getTruncatedCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
 
 const ESCALATION_DEPARTMENTS = [
@@ -200,25 +199,38 @@ export default function ActiveCaseRow({
         </div>
       </div>
 
-      {/* Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showConfirmation}
-        onClose={handleCancelEscalation}
-        onConfirm={handleConfirmEscalation}
-        title="Confirm Escalation"
-        message={
-          <div>
-            Are you sure you want to escalate this case to <strong>{selectedDepartment}</strong>?
-            <br />
-            <br />
-            <em>Student:</em> {student}
-            <br />
-            <em>Category:</em> {categoryName}
+      {/* Escalation Confirmation Modal with Blurred Background */}
+      {showConfirmation && (
+        <div className="fixed inset-0 bg-white/10 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl border border-orange-200">
+            <h3 className="text-lg font-semibold mb-4 text-orange-800">Confirm Escalation</h3>
+            <div className="mb-6 text-gray-600">
+              Are you sure you want to escalate this case to <strong>{selectedDepartment}</strong>?
+              <br />
+              <br />
+              <em>Student:</em> {student}
+              <br />
+              <em>Category:</em> {categoryName}
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleCancelEscalation}
+                disabled={isEscalating}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmEscalation}
+                disabled={isEscalating}
+                className="px-4 py-2 text-sm bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:opacity-50"
+              >
+                {isEscalating ? "Escalating..." : "Escalate"}
+              </button>
+            </div>
           </div>
-        }
-        confirmText="Escalate"
-        isLoading={isEscalating}
-      />
+        </div>
+      )}
     </div>
   );
 }
