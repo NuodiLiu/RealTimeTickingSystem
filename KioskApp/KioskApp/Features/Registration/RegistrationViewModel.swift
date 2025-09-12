@@ -42,14 +42,46 @@ final class RegistrationViewModel: ObservableObject {
     @Published private(set) var isSubmitting = false
     @Published private(set) var lastCreatedCaseId: String?
     @Published var errorMessage: String?
-    @Published var zIDError: Bool = false
+    @Published var showZIDValidation: Bool = false // 是否显示验证状态
 
     private let env: AppEnvironment
+    private var validationTimer: Timer?
 
     init(env: AppEnvironment) {
         self.env = env
         // 默认选择第一个分类
         self.categoryId = categories.first?.id ?? ""
+        
+        // 监听 zID 输入变化
+        setupZIDValidation()
+    }
+    
+    private func setupZIDValidation() {
+        $zID
+            .sink { [weak self] newValue in
+                self?.handleZIDInput(newValue)
+            }
+            .store(in: &cancellables)
+    }
+    
+    private var cancellables = Set<AnyCancellable>()
+    
+    private func handleZIDInput(_ input: String) {
+        // 取消之前的定时器
+        validationTimer?.invalidate()
+        
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // 如果输入少于3个字符，不显示验证
+        if trimmed.count < 3 {
+            showZIDValidation = false
+            return
+        }
+        
+        // 输入3个字符以上时，延迟500ms显示验证状态
+        validationTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+            self?.showZIDValidation = true
+        }
     }
 
     // MARK: - 分类注入（无网络）
@@ -111,24 +143,20 @@ final class RegistrationViewModel: ObservableObject {
         categories.contains(where: { $0.id == categoryId }) &&
         !isSubmitting
     }
+    
+    // MARK: - UI 验证状态
+    /// 是否应该显示红色边框（用户输入了但格式不对）
+    var shouldShowZIDError: Bool {
+        showZIDValidation && !normalizedZID.isEmpty && !isValidZID
+    }
 
     // MARK: - 提交
     /// 提交后可选择是否清空表单（默认不清空，便于继续提交相似记录）
     @MainActor
     func submit(clearOnSuccess: Bool = true) async {
-        // 重置错误状态
-        zIDError = false
-        
-        // 检查 zID 格式
-        if !isValidZID {
-            zIDError = true
-            errorMessage = "Please double check your zID is correct"
-            return
-        }
-        
         // 避免重复点击/竞态
         guard canSubmit else {
-            errorMessage = "Please double check your zID is correct"
+            errorMessage = "Please check all fields and try again"
             return
         }
 
@@ -150,9 +178,9 @@ final class RegistrationViewModel: ObservableObject {
                 name = ""
                 // 保留分类选择，便于连续同类录入
             }
-            
-            // 3秒后自动清除成功提示
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+
+            // 2.5秒后自动清除成功提示
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                 self.lastCreatedCaseId = nil
             }
         } catch {

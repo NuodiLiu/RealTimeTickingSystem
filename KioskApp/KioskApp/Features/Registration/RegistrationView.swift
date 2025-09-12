@@ -69,15 +69,12 @@ struct RegistrationView: View {
                                     placeholder: "Please enter your zID",
                                     text: $vm.zID,
                                     isFirstResponder: $zidFocused,
-                                    hasError: vm.zIDError,
+                                    hasError: vm.shouldShowZIDError,
                                     activeDropdown: $active
                                 )
                                 .onSubmit { 
                                     zidFocused = false
                                     nameFocused = true
-                                }
-                                .onChange(of: vm.zID) { _, _ in
-                                    vm.zIDError = false
                                 }
                             }
                         )
@@ -220,7 +217,6 @@ struct RegistrationView: View {
             }
         }
         .onAppear {
-            zidFocused = true
             if vm.categoryId.isEmpty, let first = vm.categories.first {
                 vm.categoryId = first.id
             }
@@ -286,7 +282,7 @@ private struct UNSWHeader: View {
                         .font(.system(size: 36, weight: .heavy, design: .rounded))
                         .foregroundColor(Color(red: 0.0, green: 0.2, blue: 0.4))
                 
-                    Text("Please complete all required fields below")
+                    Text("Please complete this form to join the queue")
                         .font(.system(size: 20, weight: .medium))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
