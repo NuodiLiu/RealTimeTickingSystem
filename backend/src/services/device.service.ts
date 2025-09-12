@@ -1,4 +1,4 @@
-import type { KioskDevice } from '../../generated/prisma';
+import type { KioskDevice } from '@prisma/client';
 import { ConflictError, NotFoundError } from '../error';
 import { prisma } from "../lib/prisma";
 import { DeviceMode, DeviceStatus, DeviceWithStatus, ListFilters } from '../lib/utils/type';
