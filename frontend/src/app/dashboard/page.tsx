@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const [registrationDevices, setRegistrationDevices] = useState<any[]>([]);
   const [deviceLoading, setDeviceLoading] = useState(true);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [showRegistrationDevices, setShowRegistrationDevices] = useState(true);
 
   // Load selected device from localStorage on mount
   useEffect(() => {
@@ -564,30 +565,52 @@ export default function DashboardPage() {
 
               {/* REGISTRATION DEVICES SUBSECTION */}
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                  Registration Devices
-                  <span className="ml-2 px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">
-                    {registrationDevices?.length || 0}
-                  </span>
-                </h3>
-                {deviceLoading ? (
-                  <LoadingSkeleton rows={2} />
-                ) : registrationDevices && registrationDevices.length > 0 ? (
-                  <div className="space-y-3">
-                    {registrationDevices.map((device: any) => (
-                      <DeviceCard
-                        key={`reg-${device.deviceId}`}
-                        device={device}
-                        isSelected={false}
-                        onUnpair={handleUnpairDevice}
-                        onToggleMode={handleToggleDeviceMode}
-                        showSelectButton={false}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState label="No registration devices available." />
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700 flex items-center">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                    Registration Devices
+                    <span className="ml-2 px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">
+                      {registrationDevices?.length || 0}
+                    </span>
+                  </h3>
+                  <button
+                    onClick={() => setShowRegistrationDevices(!showRegistrationDevices)}
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                    title={showRegistrationDevices ? "Hide registration devices" : "Show registration devices"}
+                  >
+                    <svg 
+                      className={`w-4 h-4 transition-transform ${showRegistrationDevices ? 'rotate-180' : ''}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    {showRegistrationDevices ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                
+                {showRegistrationDevices && (
+                  <>
+                    {deviceLoading ? (
+                      <LoadingSkeleton rows={2} />
+                    ) : registrationDevices && registrationDevices.length > 0 ? (
+                      <div className="space-y-3">
+                        {registrationDevices.map((device: any) => (
+                          <DeviceCard
+                            key={`reg-${device.deviceId}`}
+                            device={device}
+                            isSelected={false}
+                            onUnpair={handleUnpairDevice}
+                            onToggleMode={handleToggleDeviceMode}
+                            showSelectButton={false}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <EmptyState label="No registration devices available." />
+                    )}
+                  </>
                 )}
               </div>
 
