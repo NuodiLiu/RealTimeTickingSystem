@@ -18,6 +18,7 @@ import {
   isFeedbackDisabledForCase
 } from "../lib/caseUtils";
 import * as XLSX from 'xlsx';
+import { Toaster, toast } from 'react-hot-toast'
 
 export default function DashboardPage() {
   const { user, booting, logout } = useAuth();
@@ -112,12 +113,12 @@ export default function DashboardPage() {
     const caseItem = myActive?.find(c => c.id === caseId);
     
     if (caseItem && isCasePendingFeedback(caseItem)) {
-      alert("This case is already pending feedback review.");
+      toast.error("This case is already pending feedback review.")
       return;
     }
     
     if (!hasSelectedDevice || !selectedDevice) {
-      alert("Please select an available device for feedback first.");
+      toast.error("Please select an available device for feedback first.");
       return;
     }
     
@@ -148,13 +149,7 @@ export default function DashboardPage() {
       // Reload queue data to reflect the status change
       reload();
     } catch (e: any) {
-      if (e?.code === 'busy') {
-        alert(`Device became busy while sending request. Please try again.`);
-      } else if (e?.code === 'precondition_failed') {
-        alert(`Device state changed while sending request. Please refresh and try again.`);
-      } else {
-        alert(e?.message ?? "Failed to send feedback request.");
-      }
+      toast.error(e?.message ?? "Failed to send feedback request.");
     }
   }
 
@@ -187,9 +182,9 @@ export default function DashboardPage() {
       setFeedbackDevices(feedbackDevs);
       setRegistrationDevices(registrationDevs);
       
-      alert(`Device "${deviceName}" has been successfully unpaired.`);
+      toast.success(`Device "${deviceName}" has been successfully unpaired.`);
     } catch (e: any) {
-      alert(e?.message ?? "Failed to unpair device.");
+      toast.error(e?.message ?? "Failed to unpair device.");
     }
   };
 
@@ -222,10 +217,10 @@ export default function DashboardPage() {
       
       setFeedbackDevices(feedbackDevs);
       setRegistrationDevices(registrationDevs);
-      
-      alert(`Device "${deviceName}" has been successfully switched to ${newMode} mode.`);
+
+      toast.success(`Device "${deviceName}" has been successfully switched to ${newMode} mode.`);
     } catch (e: any) {
-      alert(e?.message ?? "Failed to toggle device mode.");
+      toast.error(e?.message ?? "Failed to toggle device mode.");
     }
   };
 
@@ -256,7 +251,7 @@ export default function DashboardPage() {
   const handleExportToExcel = async () => {
     try {
       if (user?.role !== 'ADMIN') {
-        alert('You do not have permission to export this data.');
+        toast.error('You do not have permission to export this data.');
         return;
       }
   
@@ -266,9 +261,11 @@ export default function DashboardPage() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Cases');
       XLSX.writeFile(wb, 'cases_export.xlsx');
+
+      toast.success('Records exported to Excel successfully.');
     } catch (error) {
       console.error('Error exporting to Excel:', error);
-      alert('An error occurred while exporting the data.');
+      toast.error('An error occurred while exporting the data.');
     }
   };
 
@@ -388,7 +385,7 @@ export default function DashboardPage() {
   if (booting) {
     return (
       <main>
-        <Header online={true} staffName="…" onLogout={() => {}} />
+        <Header staffName="…" onLogout={() => {}} />
         <div className="h-screen flex flex-col">
           <div className="flex-1 grid grid-cols-3 gap-6 p-4 overflow-hidden">
             <section className="flex flex-col min-h-0">
@@ -429,7 +426,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen flex flex-col bg-gray-50">
-      <Header online={online} staffName={user?.username ?? "Staff"} onLogout={logout} />
+      <Header staffName={user?.username ?? "Staff"} onLogout={logout} />
 
       <div className="flex-1 p-6 overflow-hidden">
         <div className="h-full grid grid-cols-3 gap-6">
