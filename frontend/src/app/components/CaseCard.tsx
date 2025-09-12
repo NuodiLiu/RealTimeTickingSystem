@@ -62,9 +62,9 @@ export default function CaseCard({
   }, [createdTime]);
 
   return (
-    <div className="flex items-start justify-between rounded-lg border p-4">
+    <div className="flex items-start justify-between rounded-md border border-gray-200 shadow-sm p-4 bg-white">
       <div className="flex-1 min-w-0 pr-4">
-        <div className="font-medium truncate cursor-help" title={student}>
+        <div className="font-semibold truncate cursor-help" title={student}>
           {truncatedStudentName}
         </div>
         <div className="text-xs text-gray-500 font-normal">{zID}</div>
@@ -84,7 +84,7 @@ export default function CaseCard({
       </div>
       <button
         onClick={() => onTake(item.id)}
-        className="flex-shrink-0 rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50"
+        className="flex-shrink-0 rounded-md bg-[#ffd600] px-3 py-1.5 text-sm text-black hover:bg-[#003366] hover:text-white transition-colors"
       >
         TAKE
       </button>
