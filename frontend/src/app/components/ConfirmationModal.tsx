@@ -41,7 +41,7 @@ export default function ConfirmationModal({
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+            className="px-4 py-2 text-sm bg-[#D03E16] text-white rounded-md hover:bg-[#D03E16]/80 disabled:opacity-50"
           >
             {isLoading ? "Processing..." : confirmText}
           </button>

@@ -299,8 +299,8 @@ export default function DashboardPage() {
       <div
         className={`
           flex justify-between p-4 border rounded-md shadow-sm transition-all
-          ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}
-          ${isSelected ? 'ring-2 ring-blue-200' : ''}
+          ${isSelected ? 'border-[#ffd600] bg-white' : 'border-gray-200 bg-white'}
+          ${isSelected ? 'ring-2 ring-[#ffd600]/30' : ''}
         `}
       >
         <div 
@@ -311,11 +311,6 @@ export default function DashboardPage() {
             <h3 className="font-semibold text-gray-900 truncate">
               {deviceDisplayName}
             </h3>
-            {isSelected && showSelectButton && (
-              <span className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full">
-                Selected
-              </span>
-            )}
           </div>
           <p className="text-sm text-zinc-500 mt-1">
             Mode: <span className="font-medium">{device.mode}</span>
@@ -326,11 +321,8 @@ export default function DashboardPage() {
                 device.isOnline ? "bg-green-500" : "bg-red-500"
               }`}
             />
-            <span className="text-sm text-zinc-600">
-              {device.isOnline ? "Online" : "Offline"}
-            </span>
             {device.status && (
-              <span className="ml-2 px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
+              <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
                 {device.status}
               </span>
             )}
@@ -341,7 +333,7 @@ export default function DashboardPage() {
             </p>
           )}
           {showSelectButton && !canBeUsed && (
-            <p className="text-xs text-red-500 mt-1">
+            <p className="text-xs text-[#D03E16] mt-1">
               {!device.isOnline 
                 ? "Device is offline" 
                 : "Device mode doesn't support feedback"}
@@ -359,13 +351,13 @@ export default function DashboardPage() {
                 onUnpair(device.deviceId, deviceDisplayName);
               }
             }}
-            className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 hover:border-red-300 transition-colors"
+            className="px-2 py-1 text-xs text-black border border-[#ffd600] rounded hover:bg-[#ffd600] hover:text-black transition-colors"
             title="Unpair this device"
           >
             Unpair
           </button>
           
-          {/* Toggle Mode button */}
+          {/* Switch Mode button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -373,10 +365,10 @@ export default function DashboardPage() {
                 onToggleMode(device.deviceId, deviceDisplayName, device.mode);
               }
             }}
-            className="px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 hover:border-blue-300 transition-colors"
+            className="px-2 py-1 text-xs text-black border border-[#ffd600] rounded hover:bg-[#ffd600] hover:text-black transition-colors"
             title={`Switch to ${device.mode === 'FEEDBACK' ? 'REGISTRATION' : 'FEEDBACK'} mode`}
           >
-            Toggle Mode
+            Switch Mode
           </button>
         </div>
       </div>
@@ -426,7 +418,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col bg-gray-50">
+    <main className="min-h-screen flex flex-col bg-white">
       <Header staffName={user?.username ?? "Staff"} onLogout={logout} />
 
       <div className="flex-1 p-6 overflow-hidden">
@@ -434,7 +426,7 @@ export default function DashboardPage() {
           
           {/* QUEUE SECTION - Dynamic Content */}
           <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
-            <div className="bg-blue-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+            <div className="px-6 py-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Queue</h2>
@@ -444,7 +436,7 @@ export default function DashboardPage() {
                 </div>
                 <button
                   onClick={takeNext}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                  className="bg-[#ffd600] text-black px-4 py-2 rounded-md text-sm font-medium hover:bg-[#003366] hover:text-white transition-colors shadow-sm"
                 >
                   TAKE NEXT
                 </button>
@@ -468,7 +460,7 @@ export default function DashboardPage() {
 
           {/* ACTIVE CASES SECTION - Dynamic Content */}
           <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
-            <div className="bg-green-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+            <div className="px-6 py-4">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">My Active Cases</h2>
                 <p className="text-sm text-gray-600 mt-1">
@@ -502,7 +494,7 @@ export default function DashboardPage() {
 
           {/* DEVICES SECTION - Mixed Static/Dynamic Content */}
           <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
-            <div className="bg-purple-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+            <div className="px-6 py-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">iPad Devices</h2>
@@ -516,14 +508,14 @@ export default function DashboardPage() {
                       openPairModal();
                       handleGenerateQR("DUAL");
                     }}
-                    className="bg-purple-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-purple-700 transition-colors shadow-sm"
+                    className="bg-[#ffd600] text-black px-3 py-2 rounded-md text-sm font-medium hover:bg-[#003366] hover:text-white transition-colors shadow-sm"
                   >
                     Generate QR
                   </button>
                   {user?.role === 'ADMIN' && (
                     <button
                       onClick={handleExportToExcel}
-                      className="bg-gray-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm"
+                      className="bg-[#ffd600] text-black px-3 py-2 rounded-md text-sm font-medium hover:bg-[#003366] hover:text-white transition-colors shadow-sm"
                     >
                       Export to Excel
                     </button>
@@ -534,85 +526,83 @@ export default function DashboardPage() {
 
             <div className="flex-1 p-6 overflow-y-auto space-y-6">
               {/* FEEDBACK DEVICES SUBSECTION */}
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                  <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                  Feedback Devices
-                  <span className="ml-2 px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">
-                    {feedbackDevices?.length || 0}
-                  </span>
-                </h3>
-                {deviceLoading ? (
-                  <LoadingSkeleton rows={2} />
-                ) : feedbackDevices && feedbackDevices.length > 0 ? (
-                  <div className="space-y-3">
-                    {feedbackDevices.map((device: any) => (
-                      <DeviceCard
-                        key={device.deviceId}
-                        device={device}
-                        isSelected={device.deviceId === selectedDeviceId}
-                        onSelect={handleSelectDevice}
-                        onUnpair={handleUnpairDevice}
-                        onToggleMode={handleToggleDeviceMode}
-                        showSelectButton={true}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState label="No feedback devices available." />
-                )}
-              </div>
-
-              {/* REGISTRATION DEVICES SUBSECTION */}
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-700 flex items-center">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                    Registration Devices
-                    <span className="ml-2 px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">
-                      {registrationDevices?.length || 0}
+              <div className="bg-white rounded-lg p-4 border border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                    Feedback Devices
+                    <span className="ml-2 px-2 py-1 bg-white text-gray-600 text-xs rounded-full">
+                      {feedbackDevices?.length || 0}
                     </span>
                   </h3>
-                  <button
-                    onClick={() => setShowRegistrationDevices(!showRegistrationDevices)}
-                    className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
-                    title={showRegistrationDevices ? "Hide registration devices" : "Show registration devices"}
-                  >
-                    <svg 
-                      className={`w-4 h-4 transition-transform ${showRegistrationDevices ? 'rotate-180' : ''}`}
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    {showRegistrationDevices ? 'Hide' : 'Show'}
-                  </button>
+                  {deviceLoading ? (
+                    <LoadingSkeleton rows={2} />
+                  ) : feedbackDevices && feedbackDevices.length > 0 ? (
+                    <div className="space-y-3">
+                      {feedbackDevices.map((device: any) => (
+                        <DeviceCard
+                          key={device.deviceId}
+                          device={device}
+                          isSelected={device.deviceId === selectedDeviceId}
+                          onSelect={handleSelectDevice}
+                          onUnpair={handleUnpairDevice}
+                          onToggleMode={handleToggleDeviceMode}
+                          showSelectButton={true}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyState label="No feedback devices available." />
+                  )}
                 </div>
-                
-                {showRegistrationDevices && (
-                  <>
-                    {deviceLoading ? (
-                      <LoadingSkeleton rows={2} />
-                    ) : registrationDevices && registrationDevices.length > 0 ? (
-                      <div className="space-y-3">
-                        {registrationDevices.map((device: any) => (
-                          <DeviceCard
-                            key={`reg-${device.deviceId}`}
-                            device={device}
-                            isSelected={false}
-                            onUnpair={handleUnpairDevice}
-                            onToggleMode={handleToggleDeviceMode}
-                            showSelectButton={false}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <EmptyState label="No registration devices available." />
-                    )}
-                  </>
-                )}
-              </div>
+
+                {/* REGISTRATION DEVICES SUBSECTION */}
+                <div className="bg-white rounded-lg p-4 border border-gray-100">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-700 flex items-center">
+                      Registration Devices
+                      <span className="ml-2 px-2 py-1 bg-white text-gray-600 text-xs rounded-full">
+                        {registrationDevices?.length || 0}
+                      </span>
+                    </h3>
+                    <button
+                      onClick={() => setShowRegistrationDevices(!showRegistrationDevices)}
+                      className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                      title={showRegistrationDevices ? "Hide registration devices" : "Show registration devices"}
+                    >
+                      <svg 
+                        className={`w-4 h-4 transition-transform ${showRegistrationDevices ? 'rotate-180' : ''}`}
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      {showRegistrationDevices ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  
+                  {showRegistrationDevices && (
+                    <>
+                      {deviceLoading ? (
+                        <LoadingSkeleton rows={2} />
+                      ) : registrationDevices && registrationDevices.length > 0 ? (
+                        <div className="space-y-3">
+                          {registrationDevices.map((device: any) => (
+                            <DeviceCard
+                              key={`reg-${device.deviceId}`}
+                              device={device}
+                              isSelected={false}
+                              onUnpair={handleUnpairDevice}
+                              onToggleMode={handleToggleDeviceMode}
+                              showSelectButton={false}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <EmptyState label="No registration devices available." />
+                      )}
+                    </>
+                  )}
+                </div>
 
 
             </div>
@@ -649,7 +639,7 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              {pairError && <p className="text-sm text-red-600">{pairError}</p>}
+              {pairError && <p className="text-sm text-[#D03E16]">{pairError}</p>}
 
               {pairQrDataUrl && (
                 <div className="mt-3 flex items-center justify-center">

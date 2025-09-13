@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from "react";
 import { CaseItem } from "../lib/api";
-import ConfirmationModal from "./ConfirmationModal";
 import { getCategoryName, getTruncatedCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
 
 const ESCALATION_DEPARTMENTS = [
@@ -130,8 +129,8 @@ export default function ActiveCaseRow({
   };
 
   return (
-    <div className="rounded-lg border p-4">
-      <div className="mb-2 font-medium truncate cursor-help" title={student}>
+    <div className="rounded-md border border-gray-200 shadow-sm p-4 bg-white">
+      <div className="mb-2 font-semibold truncate cursor-help" title={student}>
         {truncatedStudentName}
       </div>
       <div className="text-xs text-gray-500 font-normal mb-3">{zID}</div>
@@ -156,7 +155,7 @@ export default function ActiveCaseRow({
       <div className="flex gap-2 flex-wrap">
         <button 
           onClick={() => onResolve(item.id)} 
-          className="rounded-md bg-black px-3 py-1.5 text-sm text-white hover:bg-gray-800"
+          className="rounded-md bg-[#ffd600] px-3 py-1.5 text-sm text-black hover:bg-[#003366] hover:text-white transition-colors"
         >
           RESOLVE
         </button>
@@ -166,8 +165,8 @@ export default function ActiveCaseRow({
           className={`rounded-md border px-3 py-1.5 text-sm ${
             feedbackDisabled 
               ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-              : 'hover:bg-gray-50'
-          }`}
+              : 'border-[#003366] text-[#003366] hover:bg-[#003366] hover:text-white'
+          } transition-colors`}
           title={feedbackDisabled ? feedbackDisabledReason : 'Send feedback request'}
         >
           FEEDBACK
@@ -177,7 +176,7 @@ export default function ActiveCaseRow({
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowEscalationDropdown(!showEscalationDropdown)}
-            className="rounded-md border border-orange-300 bg-orange-50 px-3 py-1.5 text-sm text-orange-700 hover:bg-orange-100"
+            className="rounded-md border border-[#003366] bg-[#003366]/10 px-3 py-1.5 text-sm text-[#003366] hover:bg-[#003366] hover:text-white transition-colors"
           >
             ESCALATE ▼
           </button>
@@ -189,7 +188,7 @@ export default function ActiveCaseRow({
                   <button
                     key={dept}
                     onClick={() => handleEscalateClick(dept)}
-                    className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
+                    className="block w-full px-4 py-2 text-left text-sm hover:bg-[#ffd600] hover:text-black transition-colors"
                   >
                     {dept}
                   </button>
@@ -200,25 +199,38 @@ export default function ActiveCaseRow({
         </div>
       </div>
 
-      {/* Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showConfirmation}
-        onClose={handleCancelEscalation}
-        onConfirm={handleConfirmEscalation}
-        title="Confirm Escalation"
-        message={
-          <div>
-            Are you sure you want to escalate this case to <strong>{selectedDepartment}</strong>?
-            <br />
-            <br />
-            <em>Student:</em> {student}
-            <br />
-            <em>Category:</em> {categoryName}
+      {/* Escalation Confirmation Modal with Blurred Background */}
+      {showConfirmation && (
+        <div className="fixed inset-0 bg-white/10 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl border border-[#003366]/30">
+            <h3 className="text-lg font-semibold mb-4 text-[#003366]">Confirm Escalation</h3>
+            <div className="mb-6 text-gray-600">
+              Are you sure you want to escalate this case to <strong>{selectedDepartment}</strong>?
+              <br />
+              <br />
+              <em>Student:</em> {student}
+              <br />
+              <em>Category:</em> {categoryName}
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleCancelEscalation}
+                disabled={isEscalating}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmEscalation}
+                disabled={isEscalating}
+                className="px-4 py-2 text-sm bg-[#003366] text-white rounded-md hover:bg-[#002244] disabled:opacity-50 transition-colors"
+              >
+                {isEscalating ? "Escalating..." : "Escalate"}
+              </button>
+            </div>
           </div>
-        }
-        confirmText="Escalate"
-        isLoading={isEscalating}
-      />
+        </div>
+      )}
     </div>
   );
 }

@@ -67,7 +67,7 @@ export default function DeviceCard({
           </p>
         )}
         {showSelectButton && !isAvailable && (
-          <p className="text-xs text-red-500 mt-1">
+          <p className="text-xs text-[#D03E16] mt-1">
             {!device.isOnline ? "Device is offline" : "Device mode doesn't support feedback"}
           </p>
         )}
@@ -82,7 +82,7 @@ export default function DeviceCard({
               onUnpair(device.deviceId, deviceDisplayName);
             }
           }}
-          className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 hover:border-red-300 transition-colors"
+          className="px-2 py-1 text-xs text-white bg-[#D03E16] border border-[#D03E16] rounded hover:bg-[#D03E16]/80 transition-colors"
           title="Unpair this device"
         >
           Unpair
