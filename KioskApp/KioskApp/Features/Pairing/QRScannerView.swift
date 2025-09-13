@@ -16,7 +16,7 @@ struct QRScannerView: UIViewRepresentable {
         view.onCodeScanned = onFound
         view.onError = { error in
             print("QR Scanner Error: \(error)")
-            onFound("ERROR: \(error)")
+            // 不再直接返回错误字符串，让主视图处理错误
         }
         return view
     }
@@ -67,7 +67,8 @@ final class CameraPreviewView: UIView {
                 if granted {
                     self?.initializeCamera()
                 } else {
-                    self?.onError?("Camera permission denied")
+                    // 权限被拒绝时，不初始化相机，让上层UI处理
+                    print("📱 Camera permission denied - camera will not be initialized")
                 }
             }
         }
@@ -85,7 +86,8 @@ final class CameraPreviewView: UIView {
                 completion(granted)
             }
         case .denied, .restricted:
-            print("📱 Camera permission: Denied/Restricted")
+            print("📱 Camera permission: Denied/Restricted - will not initialize camera")
+            // 权限被拒绝时，不要调用 onError，让上层处理
             completion(false)
         @unknown default:
             print("📱 Camera permission: Unknown")

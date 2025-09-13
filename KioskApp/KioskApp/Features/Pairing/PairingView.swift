@@ -3,6 +3,11 @@ import SwiftUI
 struct PairingView: View {
     @StateObject var vm: PairingViewModel
     
+    // UNSW 主题色
+    private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
+    private let unswDarkBlue = Color(red: 0.0, green: 0.2, blue: 0.4)
+    private let unswLightGray = Color(red: 0.95, green: 0.95, blue: 0.95)
+    
     init(env: AppEnvironment,
          modeStore: DeviceModeStore,
          onPaired: @escaping (DeviceMode?) -> Void) {
@@ -13,56 +18,77 @@ struct PairingView: View {
     
     var body: some View {
         ZStack {
-            Color(.systemGroupedBackground).ignoresSafeArea()
+            // UNSW 主题背景：渐变从浅黄到白色
+            LinearGradient(
+                gradient: Gradient(colors: [unswYellow.opacity(0.1), Color.white]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
             
-            VStack(spacing: 28) {
-                Text("Select Mode")
-                    .font(.system(size: 34, weight: .bold))
-                
-                // Mode 切换（Registration / Feedback），符合前台大触控
-                Picker("", selection: $vm.selectedMode) {
-                    Text("Registration").tag(DeviceMode.REGISTRATION)
-                    Text("Feedback").tag(DeviceMode.FEEDBACK)
+            // UNSW Logo 水印背景
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Image(systemName: "graduationcap.fill")
+                        .font(.system(size: 200))
+                        .foregroundColor(unswYellow.opacity(0.05))
+                        .rotationEffect(.degrees(15))
+                    Spacer()
                 }
-                .pickerStyle(.segmented)
-                .font(.system(size: 20))
-                .frame(maxWidth: 500)
+                Spacer()
+            }
+            .ignoresSafeArea()
+            
+            // 主体内容
+            VStack(spacing: 0) {
+                // UNSW 顶部标题区域
+                UNSWPairingHeader()
                 
-                Text("Choose a working mode, then scan a QR code to pair this device.")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 600)
-                
-                Spacer(minLength: 20)
-                
-                Button {
-                    vm.startScan()
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "qrcode.viewfinder")
-                            .font(.system(size: 24, weight: .semibold))
-                        Text(vm.isPairing ? "Pairing…" : "Scan QR to Pair")
-                            .fontWeight(.semibold)
-                            .font(.system(size: 20))
+                // 主要内容区域
+                VStack(spacing: 40) {
+                    // Mode 选择区域
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("Choose Device Mode")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(Color(red: 0.0, green: 0.2, blue: 0.4))
+                        
+                        UNSWSegmentedPicker(selection: $vm.selectedMode)
                     }
-                    .frame(height: 56)
-                    .frame(maxWidth: 360)
+                    
+                    // 描述文本
+                    Text("Select a working mode above, then scan a QR code to pair this device.")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 600)
+                        .padding(.horizontal, 20)
+                    
+                    Spacer(minLength: 40)
+                    
+                    // 扫描按钮
+                    UNSWPairButton(
+                        isPairing: vm.isPairing,
+                        cameraPermissionDenied: vm.cameraPermissionDenied,
+                        onScanTapped: { vm.startScan() },
+                        onSettingsTapped: { vm.openCameraSettings() }
+                    )
+                    
+                    Spacer(minLength: 100)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.purple)
-                .disabled(vm.isPairing)
-                
-                if let e = vm.errorMessage {
-                    Label(e, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                        .padding(.top, 8)
-                }
+                .padding(32)
+                .frame(maxWidth: 800)
+                .frame(maxWidth: .infinity, alignment: .center)
                 
                 Spacer()
             }
-            .padding(32)
+            .padding(.top, 20)
         }
+        .onAppear {
+            vm.checkCameraPermissionStatus()
+        }
+        .showToast(message: $vm.errorMessage, style: .error, duration: 4.0)
         .devResetGesture() // 添加开发者重置手势
         // 全屏相机
         .fullScreenCover(isPresented: $vm.isScanning) {
@@ -92,14 +118,8 @@ struct PairingView: View {
                             Task { await vm.handleScanned(token: simulatedToken) }
                         }
                         .buttonStyle(.borderedProminent)
-                        
-                        Button("Simulate QR Scan (Random Token)") {
-                            // 生成随机令牌来测试错误处理
-                            let randomToken = "pair_\(UUID().uuidString.prefix(8))"
-                            print("🧪 Simulating scan with random token: \(randomToken)")
-                            Task { await vm.handleScanned(token: randomToken) }
-                        }
-                        .buttonStyle(.bordered)
+                        .tint(unswYellow)
+                        .foregroundColor(unswDarkBlue)
                     }
                 }
                 #else
@@ -107,27 +127,250 @@ struct PairingView: View {
                     Task { await vm.handleScanned(token: value) }
                 }
                 #endif
+                
+                // 顶部关闭按钮
+                Spacer(minLength: 50)
                 VStack {
                     HStack {
                         Button {
                             vm.isScanning = false
                         } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 28, weight: .semibold))
-                                .symbolRenderingMode(.hierarchical)
+                            ZStack {
+                                Circle()
+                                    .fill(.black.opacity(0.6))
+                                    .frame(width: 44, height: 44)
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(.white)
+                            }
                         }
-                        .tint(.white)
                         .padding()
                         Spacer()
                     }
                     Spacer()
-                    Text("Align the QR code within the frame")
-                        .foregroundColor(.white)
-                        .font(.headline)
-                        .padding(.bottom, 40)
+                    
+                    // 底部指导文本
+                    VStack(spacing: 12) {
+                        Text("Align the QR code within the frame")
+                            .foregroundColor(.white)
+                            .font(.headline)
+                        
+                        Text("Make sure the QR code is clearly visible and well-lit")
+                            .foregroundColor(.white.opacity(0.8))
+                            .font(.subheadline)
+                    }
+                    .padding(.bottom, 40)
                 }
             }
             .ignoresSafeArea()
+        }
+    }
+}
+
+// MARK: - UNSW 主题组件
+
+/// UNSW 风格的配对页面标题
+private struct UNSWPairingHeader: View {
+    var body: some View {
+        VStack(spacing: 24) {
+            // UNSW College Logo
+            Image("UnswCollegeLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(maxWidth: 400, maxHeight: 200)
+                .padding(.horizontal, 24)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 20)
+    }
+}
+
+/// UNSW 风格的表单字段容器
+private struct UNSWFormField<Content: View>: View {
+    let title: String
+    let required: Bool
+    let content: () -> Content
+    
+    init(title: String, required: Bool = false, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.required = required
+        self.content = content
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(title)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(Color(red: 0.0, green: 0.2, blue: 0.4))
+                
+                if required {
+                    Text("*")
+                        .foregroundColor(.red)
+                        .font(.system(size: 18, weight: .bold))
+                }
+            }
+            
+            content()
+        }
+    }
+}
+
+/// UNSW 风格的分段选择器 - 重新设计为更大更显眼的卡片式
+private struct UNSWSegmentedPicker: View {
+    @Binding var selection: DeviceMode
+    private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
+    private let unswDarkBlue = Color(red: 0.0, green: 0.2, blue: 0.4)
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            // Registration 卡片
+            ModeCard(
+                mode: .REGISTRATION,
+                title: "Registration",
+                subtitle: "Student check-in and queue management",
+                icon: "person.badge.plus.fill",
+                isSelected: selection == .REGISTRATION,
+                unswYellow: unswYellow,
+                unswDarkBlue: unswDarkBlue
+            ) {
+                selection = .REGISTRATION
+            }
+            
+            // Feedback 卡片
+            ModeCard(
+                mode: .FEEDBACK,
+                title: "Feedback",
+                subtitle: "Collect student feedback and ratings",
+                icon: "star.fill",
+                isSelected: selection == .FEEDBACK,
+                unswYellow: unswYellow,
+                unswDarkBlue: unswDarkBlue
+            ) {
+                selection = .FEEDBACK
+            }
+        }
+        .frame(maxWidth: 700)
+    }
+}
+
+/// 模式选择卡片
+private struct ModeCard: View {
+    let mode: DeviceMode
+    let title: String
+    let subtitle: String
+    let icon: String
+    let isSelected: Bool
+    let unswYellow: Color
+    let unswDarkBlue: Color
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 16) {
+                // 图标
+                Image(systemName: icon)
+                    .font(.system(size: 36, weight: .semibold))
+                    .foregroundColor(isSelected ? unswDarkBlue : .secondary)
+                
+                // 标题和副标题
+                VStack(spacing: 6) {
+                    Text(title)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(isSelected ? unswDarkBlue : .primary)
+                    
+                    Text(subtitle)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 140)
+            .padding(.vertical, 20)
+            .padding(.horizontal, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(isSelected ? unswYellow.opacity(0.15) : Color.white)
+                    .shadow(color: Color.black.opacity(isSelected ? 0.13 : 0.07), radius: isSelected ? 12 : 8, x: 0, y: isSelected ? 4 : 2)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(isSelected ? unswYellow : Color.clear, lineWidth: 3)
+            )
+            .scaleEffect(isSelected ? 1.02 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// UNSW 风格的配对按钮
+private struct UNSWPairButton: View {
+    let isPairing: Bool
+    let cameraPermissionDenied: Bool
+    let onScanTapped: () -> Void
+    let onSettingsTapped: () -> Void
+    
+    private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
+    private let unswDarkBlue = Color(red: 0.0, green: 0.2, blue: 0.4)
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            if cameraPermissionDenied {
+                // 相机权限被拒绝时显示设置按钮
+                VStack(spacing: 12) {
+                    Button {
+                        onSettingsTapped()
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: 20, weight: .semibold))
+                            Text("Open Camera Settings")
+                                .fontWeight(.bold)
+                                .font(.system(size: 20))
+                        }
+                        .frame(height: 60)
+                        .frame(maxWidth: 400)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(unswDarkBlue)
+                    .foregroundColor(.white)
+                    .controlSize(.large)
+                    
+                    Text("Camera access is required to scan QR codes")
+                        .font(.system(size: 16))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+            } else {
+                // 正常扫描按钮
+                Button {
+                    onScanTapped()
+                } label: {
+                    HStack(spacing: 12) {
+                        if isPairing {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: unswDarkBlue))
+                                .scaleEffect(0.9)
+                        } else {
+                            Image(systemName: "qrcode.viewfinder")
+                                .font(.system(size: 24, weight: .semibold))
+                        }
+                        Text(isPairing ? "Pairing Device..." : "Scan QR Code to Pair")
+                            .fontWeight(.bold)
+                            .font(.system(size: 20))
+                    }
+                    .frame(height: 60)
+                    .frame(maxWidth: 400)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(unswYellow)
+                .foregroundColor(unswDarkBlue)
+                .controlSize(.large)
+                .disabled(isPairing)
+            }
         }
     }
 }

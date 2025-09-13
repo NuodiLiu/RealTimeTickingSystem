@@ -16,6 +16,7 @@ final class PairingViewModel: ObservableObject {
     @Published var isScanning = false
     @Published var isPairing = false
     @Published var errorMessage: String?
+    @Published var cameraPermissionDenied = false
 
     private let env: AppEnvironment
     private let modeStore: DeviceModeStore
@@ -29,16 +30,67 @@ final class PairingViewModel: ObservableObject {
         self.onPaired = onPaired
     }
     
+    /// 检查相机权限状态
+    func checkCameraPermissionStatus() {
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        DispatchQueue.main.async { [weak self] in
+            self?.cameraPermissionDenied = (status == .denied || status == .restricted)
+        }
+    }
+    
     func startScan() {
-        // 检查相机权限（最简版本）
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized: isScanning = true
+        errorMessage = nil
+        
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        
+        switch status {
+        case .authorized:
+            print("📱 Camera authorized, starting scan")
+            cameraPermissionDenied = false
+            isScanning = true
+            
         case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .video) { [weak self] ok in
-                DispatchQueue.main.async { if ok { self?.isScanning = true } else { self?.errorMessage = "Camera access denied" } }
+            print("📱 Requesting camera permission")
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        print("📱 Camera permission granted")
+                        self?.cameraPermissionDenied = false
+                        self?.isScanning = true
+                    } else {
+                        print("📱 Camera permission denied by user")
+                        self?.cameraPermissionDenied = true
+                        self?.errorMessage = "Camera access is required to scan QR codes"
+                    }
+                }
             }
-        default:
-            errorMessage = "Camera access denied"
+            
+        case .denied, .restricted:
+            print("📱 Camera permission previously denied or restricted")
+            cameraPermissionDenied = true
+            errorMessage = "Camera access has been denied. Please enable it in Settings to scan QR codes."
+            
+        @unknown default:
+            print("📱 Unknown camera permission status")
+            cameraPermissionDenied = true
+            errorMessage = "Unable to access camera"
+        }
+    }
+    
+    /// 打开系统设置页面
+    func openCameraSettings() {
+        guard let settingsUrl = URL(string: UIApplication.openSettingsURLString),
+              UIApplication.shared.canOpenURL(settingsUrl) else {
+            errorMessage = "Unable to open Settings"
+            return
+        }
+        
+        UIApplication.shared.open(settingsUrl) { [weak self] success in
+            if !success {
+                DispatchQueue.main.async {
+                    self?.errorMessage = "Failed to open Settings"
+                }
+            }
         }
     }
     
