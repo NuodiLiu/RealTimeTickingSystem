@@ -7,7 +7,7 @@ import Foundation
 
 enum HTTPMethod: String { case GET, POST, PUT, PATCH, DELETE }
 
-public struct EmptyResponse: Decodable { public init() {} }
+public struct EmptyResponse: Codable { public init() {} }
 
 struct Endpoint<Response: Decodable> {
     let path: String
@@ -114,6 +114,11 @@ final class ApiClient {
         }
         throw lastError ?? ApiError.unknown(nil)
     }
+    
+    // Convenience method for requests without body
+    func request<Response: Decodable>(_ endpoint: Endpoint<Response>) async throws -> Response {
+        return try await request(endpoint, body: nil as EmptyResponse?)
+    }
 
     private struct ErrorBox: Decodable { let error: String? }
     
@@ -151,4 +156,19 @@ final class ApiClient {
             throw ApiError.decoding(String(describing: error))
         }
     }
+    
+    /// Check if a device is still paired/valid on the server
+    func checkPairingStatus(deviceId: String) async throws -> Bool {
+        let endpoint = Endpoint<PairingStatusResponse>(
+            path: "/device/pairing-status/\(deviceId)",
+            method: .GET,
+            needsDeviceAuth: false
+        )
+        let response: PairingStatusResponse = try await request(endpoint)
+        return response.isPaired
+    }
+}
+
+struct PairingStatusResponse: Decodable {
+    let isPaired: Bool
 }

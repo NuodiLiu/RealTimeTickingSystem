@@ -9,6 +9,7 @@ import Foundation
 
 
 protocol AuthProviding {
+    var deviceId: String? { get }
     var deviceApiKey: String? { get }
     var wsToken: String? { get }
     var wsEndpoint: String? { get }
@@ -29,7 +30,11 @@ final class DeviceAuthProvider: AuthProviding {
 
     init(keychain: KeychainStore) { self.keychain = keychain }
 
-
+    var deviceId: String? { 
+        let id = try? keychain.get(Keys.deviceId)
+        print("📱 AuthProvider: deviceId requested, found: \(id ?? "nil")")
+        return id
+    }
     var deviceApiKey: String? { 
         let key = try? keychain.get(Keys.apiKey)
         print("📱 AuthProvider: deviceApiKey requested, found: \(key?.prefix(20) ?? "nil")")

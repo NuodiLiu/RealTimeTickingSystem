@@ -42,7 +42,7 @@ final class AppEnvironment {
         self.casesAPI = CasesAPI(client: apiClient)
         self.feedbackAPI = FeedbackAPI(client: apiClient)
 
-        self.socketService = SocketService(wsBaseURL: wsURL, authProvider: auth)
+        self.socketService = SocketService(wsBaseURL: wsURL, authProvider: auth, apiClient: apiClient)
         
     }
 }

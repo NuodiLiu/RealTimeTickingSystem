@@ -8,14 +8,16 @@ final class SocketService {
     private var socket: SocketIOClient?
     private let wsBaseURL: URL
     private let authProvider: AuthProviding
+    private let apiClient: ApiClient
     private var isIntentionallyDisconnected = false
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
 
     weak var delegate: DeviceGatewayDelegate?
 
-    init(wsBaseURL: URL, authProvider: AuthProviding) {
+    init(wsBaseURL: URL, authProvider: AuthProviding, apiClient: ApiClient) {
         self.wsBaseURL = wsBaseURL
         self.authProvider = authProvider
+        self.apiClient = apiClient
         setupApplicationLifecycleNotifications()
     }
     
@@ -58,7 +60,7 @@ final class SocketService {
         endBackgroundTask()
         
         // 如果有有效的认证信息且不是故意断开的，尝试重连
-        if authProvider.wsToken != nil && !isIntentionallyDisconnected {
+        if authProvider.wsToken != nil && authProvider.deviceId != nil && !isIntentionallyDisconnected {
             if socket?.status != .connected {
                 print("📱 SocketService: Auto-reconnecting on foreground...")
                 connect()
@@ -95,13 +97,45 @@ final class SocketService {
 
     /// 根据"当前"wsToken 动态创建 manager/socket 并连接
     func connect() {
+        Task {
+            await performConnect()
+        }
+    }
+    
+    @MainActor
+    private func performConnect() async {
         // 检查是否有 WebSocket token，如果没有则跳过连接
-        guard let wsToken = authProvider.wsToken else {
-            print("📱 SocketService.connect() skipped: no WebSocket token available")
+        guard let wsToken = authProvider.wsToken,
+              let deviceId = authProvider.deviceId else {
+            print("📱 SocketService.connect() skipped: no WebSocket token or device ID available")
             return
         }
 
         print("📱 SocketService.connect() starting with wsToken: \(String(wsToken.prefix(20)))...")
+        print("📱 SocketService: Checking pairing status for device: \(String(deviceId.prefix(8)))...")
+        
+        // 在连接WebSocket之前检查设备是否仍然被配对
+        do {
+            let isPaired = try await apiClient.checkPairingStatus(deviceId: deviceId)
+            if !isPaired {
+                print("📱 SocketService: ❌ Device is no longer paired on server, clearing credentials...")
+                
+                // 设备已被unpair，清除本地凭证并通知delegate
+                do {
+                    try authProvider.clearDevice()
+                } catch {
+                    print("📱 SocketService: ⚠️ Failed to clear device credentials: \(error)")
+                }
+                delegate?.gatewayDeviceUnpaired()
+                return
+            }
+            print("📱 SocketService: ✅ Device pairing status confirmed, proceeding with connection...")
+        } catch {
+            print("📱 SocketService: ⚠️ Failed to check pairing status: \(error)")
+            print("📱 SocketService: Proceeding with connection anyway...")
+            // 如果检查失败，继续尝试连接（可能是网络问题）
+        }
+        
         isIntentionallyDisconnected = false
 
         // 如果已有连接，先断开并销毁（避免旧 header）
@@ -228,10 +262,10 @@ final class SocketService {
     
     func reconnect() {
         print("📱 SocketService: Manual reconnect requested")
-        if authProvider.wsToken != nil {
+        if authProvider.wsToken != nil && authProvider.deviceId != nil {
             connect()
         } else {
-            print("📱 SocketService: Cannot reconnect - no WebSocket token")
+            print("📱 SocketService: Cannot reconnect - no WebSocket token or device ID")
         }
     }
 
