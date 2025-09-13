@@ -52,6 +52,7 @@ struct RegistrationView: View {
                 }
                 Spacer()
             }
+            .ignoresSafeArea(.keyboard)
             
             // 主体内容 - 使用固定布局，禁用滚动
             VStack(spacing: 32) {
@@ -165,9 +166,9 @@ struct RegistrationView: View {
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "arrow.clockwise")
-                                Text("Clear Form")
+                                Text("Clear")
                             }
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.system(size: 22, weight: .semibold))
                             .frame(height: 60)
                             .frame(maxWidth: 180)
                         }
@@ -200,7 +201,7 @@ struct RegistrationView: View {
                                     Image(systemName: "arrow.right.circle.fill")
                                 }
                             }
-                            .font(.system(size: 18))
+                            .font(.system(size: 22))
                             .frame(height: 60)
                             .frame(maxWidth: .infinity)
                         }
@@ -241,13 +242,14 @@ struct RegistrationView: View {
         // 中心成功提示弹框
         .overlay {
             if vm.lastCreatedCaseId != nil {
-                UNSWSuccessModal()
+                UNSWSuccessModal(vm: vm)
                     .transition(.asymmetric(
                         insertion: .opacity.combined(with: .scale(scale: 0.8)).combined(with: .move(edge: .top)),
                         removal: .opacity.combined(with: .scale(scale: 0.9))
                     ))
                     .zIndex(1000)
                     .animation(.spring(response: 0.6, dampingFraction: 0.8), value: vm.lastCreatedCaseId)
+                    .ignoresSafeArea(.keyboard)
             }
         }
         // 错误提示保持在顶部
@@ -536,14 +538,18 @@ private extension View {
 
 /// UNSW 风格的成功弹框
 private struct UNSWSuccessModal: View {
+    let vm: RegistrationViewModel
     private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
     private let unswDarkBlue = Color(red: 0.0, green: 0.2, blue: 0.4)
     
     var body: some View {
         ZStack {
-            // 半透明背景
+            // 半透明背景 - 添加点击手势
             Color.black.opacity(0.4)
                 .ignoresSafeArea()
+                .onTapGesture {
+                    vm.clearSuccess()
+                }
             
             // 成功提示卡片
             VStack(spacing: 32) {
@@ -601,6 +607,9 @@ private struct UNSWSuccessModal: View {
             )
             .frame(maxWidth: 500)
             .padding(.horizontal, 32)
+            .onTapGesture {
+                // 阻止点击成功卡片时触发背景的清除手势
+            }
         }
     }
 }

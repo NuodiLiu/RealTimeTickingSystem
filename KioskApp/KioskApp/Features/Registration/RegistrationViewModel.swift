@@ -188,6 +188,12 @@ final class RegistrationViewModel: ObservableObject {
         }
     }
 
+    // MARK: - 清除成功状态
+    /// 清除成功提示状态
+    func clearSuccess() {
+        lastCreatedCaseId = nil
+    }
+
     // MARK: - 便捷方法
     /// 外部可预填姓名（如扫码/缓存命中）
     func prefill(zID: String? = nil, name: String?, categoryId: String? = nil) {
