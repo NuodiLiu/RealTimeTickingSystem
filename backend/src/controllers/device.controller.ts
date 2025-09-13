@@ -114,4 +114,16 @@ export class DeviceController {
       next(err);
     }
   }
+
+  static async checkPairingStatus(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      if (!id) throw new BadRequestError('Device ID required');
+      
+      const isPaired = await DeviceService.checkPairingStatus(id);
+      res.status(200).json({ isPaired });
+    } catch (err) {
+      next(err);
+    }
+  }
 }

@@ -331,4 +331,14 @@ export class DeviceService {
       // ignore
     };
   }
+
+  static async checkPairingStatus(deviceId: string): Promise<boolean> {
+    const device = await prisma.kioskDevice.findUnique({
+      where: { id: deviceId },
+      select: { id: true, deletedAt: true },
+    });
+    
+    // Device is paired if it exists and hasn't been deleted/unpaired
+    return !!(device && !device.deletedAt);
+  }
 }

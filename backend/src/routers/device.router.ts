@@ -9,6 +9,7 @@ const router = Router();
 // called from（iPad/kiosk)
 router.post("/heartbeat", requireDevice, DeviceController.handleHeartbeat);
 router.get("/status", requireDevice, DeviceController.getDeviceStatus);
+router.get("/pairing-status/:id", DeviceController.checkPairingStatus);
 
 // called from portal by staff
 router.get("/", requireAuth, requireStaff, DeviceController.listDevices);
