@@ -19,6 +19,7 @@ import {
   isFeedbackDisabledForCase
 } from "../lib/caseUtils";
 import { toast, Toaster } from 'react-hot-toast'
+import { showConfirmation, showToastPromise, handleError } from "../lib/toaster";
 
 export default function DashboardPage() {
   const { user, booting, logout } = useAuth();
@@ -124,22 +125,36 @@ export default function DashboardPage() {
       const { CasesAPI } = await import("../lib/api");
       const XLSX = await import('xlsx');
       
-      const data = await CasesAPI.exportCases();
-  
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Cases');
-      XLSX.writeFile(wb, 'cases_export.xlsx');
-
-      toast.success('Records exported to Excel successfully.');
+      await showToastPromise(
+        (async () => {
+          const data = await CasesAPI.exportCases();
+          const ws = XLSX.utils.json_to_sheet(data);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, 'Cases');
+          XLSX.writeFile(wb, 'cases_export.xlsx');
+          return data;
+        })(),
+        {
+          loading: 'Exporting cases to Excel...',
+          success: 'Records exported to Excel successfully.',
+          error: 'An error occurred while exporting the data.'
+        }
+      );
     } catch (error) {
       console.error('Error exporting to Excel:', error);
-      toast.error('An error occurred while exporting the data.');
+      handleError(error);
     }
   };
 
   // Send feedback request (uses selected device, with override if busy)
+  const [isProcessingFeedback, setIsProcessingFeedback] = useState(false);
+  
   async function sendFeedbackRequest(caseId: string) {
+    // Prevent multiple simultaneous requests
+    if (isProcessingFeedback) {
+      return;
+    }
+    
     // Find the case to check its status
     const caseItem = myActive?.find(c => c.id === caseId);
     
@@ -159,33 +174,59 @@ export default function DashboardPage() {
     }
     
     try {
+      setIsProcessingFeedback(true);
+      
       if (isSelectedDeviceBusy && selectedDevice.currentLock) {
-        // Device is busy, use override API
-        const confirmed = window.confirm(
-          `The selected device is currently busy with case "${selectedDevice.currentLock.case.studentName}" (zID: ${selectedDevice.currentLock.case.zID}, ${selectedDevice.currentLock.case.category}). ` +
-          `Do you want to override and send your feedback request to this device?`
+        // Device is busy, ask for confirmation to override
+        const confirmed = await showConfirmation(
+          `The selected device is currently busy with **${selectedDevice.currentLock.case.studentName}** (**${selectedDevice.currentLock.case.zID}**). \nOverride and send feedback request to this device?`,
+          {
+            confirmText: 'Override Device',
+            cancelText: 'Cancel',
+            destructive: true
+          }
         );
         
-        if (!confirmed) return;
+        if (!confirmed) {
+          setIsProcessingFeedback(false);
+          return;
+        }
         
-        await FeedbackAPI.override({
-          caseId: caseId,
-          deviceId: selectedDevice.deviceId,
-          expectedLockId: selectedDevice.currentLock.id,
-          expectedVersion: selectedDevice.currentLock.version
-        });
+        await showToastPromise(
+          FeedbackAPI.override({
+            caseId: caseId,
+            deviceId: selectedDevice.deviceId,
+            expectedLockId: selectedDevice.currentLock.id,
+            expectedVersion: selectedDevice.currentLock.version
+          }),
+          {
+            loading: 'Overriding device and sending feedback request...',
+            success: 'Feedback request sent successfully.',
+            error: 'Failed to send feedback request.'
+          }
+        );
       } else {
         // Device is available, use normal send API
-        await FeedbackAPI.send({
-          caseId: caseId,
-          deviceId: selectedDevice.deviceId
-        });
+        await showToastPromise(
+          FeedbackAPI.send({
+            caseId: caseId,
+            deviceId: selectedDevice.deviceId
+          }),
+          {
+            loading: 'Sending feedback request...',
+            success: 'Feedback request sent successfully.',
+            error: 'Failed to send feedback request.'
+          }
+        );
       }
       
       // Reload queue data to reflect the status change
       reload();
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to send feedback request.");
+      // Don't call handleError here since showToastPromise already handled the error display
+      console.error('Feedback request error:', e);
+    } finally {
+      setIsProcessingFeedback(false);
     }
   }
 
