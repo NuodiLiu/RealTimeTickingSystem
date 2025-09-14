@@ -144,7 +144,13 @@ export default function useQueue(userId?: string) {
       }
     });
     
-    return Array.from(activeCasesMap.values());
+    // Convert to array and sort by startedAt to preserve original order
+    // regardless of status change (in_progress -> resolved_pending_feedback)
+    return Array.from(activeCasesMap.values()).sort((a, b) => {
+      const aStarted = a.startedAt ? new Date(a.startedAt).getTime() : 0;
+      const bStarted = b.startedAt ? new Date(b.startedAt).getTime() : 0;
+      return aStarted - bStarted; // ascending order (oldest first)
+    });
   }, [inProgress, pendingFeedback, userId]);
 
   async function take(id: string) {
