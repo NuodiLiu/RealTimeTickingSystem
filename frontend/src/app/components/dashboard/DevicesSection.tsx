@@ -11,13 +11,19 @@ interface DevicesSectionProps {
   selectedDeviceId: string | null;
   onSelectDevice: (deviceId: string) => void;
   onDeviceUpdate?: () => void;
+  showPairButton?: boolean;
+  onPairDevice?: () => void;
+  showHeader?: boolean;
 }
 
 export default function DevicesSection({ 
   user, 
   selectedDeviceId, 
   onSelectDevice, 
-  onDeviceUpdate 
+  onDeviceUpdate,
+  showPairButton = true,
+  onPairDevice,
+  showHeader = true
 }: DevicesSectionProps) {
   // Devices state - separate for feedback and registration
   const [feedbackDevices, setFeedbackDevices] = useState<any[]>([]);
@@ -161,25 +167,29 @@ export default function DevicesSection({
   return (
     <>
       {/* DEVICES SECTION - Mixed Static/Dynamic Content */}
-  <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full min-h-0 overflow-hidden">
-        <div className="px-6 py-4 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">iPad Devices</h2>
-              {/* <p className="text-sm text-gray-600 mt-1">
-                Device management & pairing
-              </p> */}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={openPairModal}
-                className="bg-[#ffd600] text-black px-3 py-2 rounded-md text-sm font-medium hover:bg-[#003366] hover:text-white transition-colors shadow-sm"
-              >
-                Pair Device
-              </button>
+      <section className="bg-white rounded-none lg:rounded-lg shadow-sm border border-gray-200 flex flex-col h-full min-h-0 overflow-hidden">
+        {showHeader && (
+          <div className="px-6 py-4 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">iPad Devices</h2>
+                {/* <p className="text-sm text-gray-600 mt-1">
+                  Device management & pairing
+                </p> */}
+              </div>
+              {showPairButton && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={onPairDevice || openPairModal}
+                    className="bg-[#ffd600] text-black px-3 py-2 rounded-md text-sm font-medium hover:bg-[#003366] hover:text-white transition-colors shadow-sm"
+                  >
+                    Pair Device
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        )}
 
         <div className="flex-1 p-6 overflow-y-auto space-y-6 min-h-0">
           {/* FEEDBACK DEVICES SUBSECTION */}
@@ -210,11 +220,13 @@ export default function DevicesSection({
         </div>
       </section>
 
-      <QRGeneratorModal 
-        isOpen={pairOpen}
-        onClose={closePairModal}
-        defaultMode="DUAL"
-      />
+      {showPairButton && (
+        <QRGeneratorModal 
+          isOpen={pairOpen}
+          onClose={closePairModal}
+          defaultMode="DUAL"
+        />
+      )}
     </>
   );
 }

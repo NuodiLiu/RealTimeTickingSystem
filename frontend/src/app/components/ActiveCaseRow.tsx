@@ -124,7 +124,7 @@ export default function ActiveCaseRow({
 
   return (
     <div className="rounded-md border border-gray-200 shadow-sm p-4 bg-white">
-      <div className="mb-2 font-semibold truncate">
+      <div className="mb-2 font-semibold text-gray-900 truncate">
         {truncatedStudentName}
       </div>
       <ZIDWithCopy zID={zID} />
@@ -187,12 +187,12 @@ export default function ActiveCaseRow({
           
           {showEscalationDropdown && (
             <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-48">
-              <div className="py-1">
+              <div>
                 {ESCALATION_DEPARTMENTS.map((dept) => (
                   <button
                     key={dept}
                     onClick={() => handleEscalateClick(dept)}
-                    className="block w-full px-4 py-2 text-left text-sm hover:bg-[#ffd600] hover:text-black transition-colors"
+                    className="block w-full px-4 py-2 text-left text-sm text-gray-900 hover:bg-[#ffd600] hover:text-black transition-colors"
                   >
                     {dept}
                   </button>

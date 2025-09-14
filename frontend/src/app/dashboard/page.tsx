@@ -7,6 +7,8 @@ import LoadingSkeleton from "../components/LoadingSkeleton";
 import DevicesSection from "../components/dashboard/DevicesSection";
 import QueueSection from "../components/dashboard/QueueSection";
 import ActiveCasesSection from "../components/dashboard/ActiveCasesSection";
+import ResponsiveLayout from "../components/layout/ResponsiveLayout";
+import QRGeneratorModal from "../components/QRGeneratorModal";
 import useAuth from "../hooks/useAuth";
 import useQueue from "../hooks/useQueue";
 import { DeviceAPI, FeedbackAPI, HealthAPI } from "../lib/api";
@@ -25,6 +27,7 @@ export default function DashboardPage() {
   // Devices state for feedback functionality
   const [feedbackDevices, setFeedbackDevices] = useState<any[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [pairModalOpen, setPairModalOpen] = useState<boolean>(false);
 
   // Load selected device from localStorage on mount
   useEffect(() => {
@@ -90,6 +93,16 @@ export default function DashboardPage() {
   const handleSelectDevice = (deviceId: string) => {
     setSelectedDeviceId(deviceId);
     localStorage.setItem('selected-feedback-device', deviceId);
+  };
+
+  // Handle opening pair device modal
+  const handleOpenPairModal = () => {
+    setPairModalOpen(true);
+  };
+
+  // Handle closing pair device modal
+  const handleClosePairModal = () => {
+    setPairModalOpen(false);
   };
 
   // Get selected device info
@@ -228,61 +241,70 @@ export default function DashboardPage() {
       />
 
       <div className="flex-1 p-6 min-h-0">
-        <div className="h-full grid grid-cols-3 gap-6 min-h-0">
-          
-          {/* QUEUE SECTION - Dynamic Content */}
-          <QueueSection 
-            queued={queued}
-            loading={loading}
-            takeNext={takeNext}
-            take={take}
-          />
-
-          {/* ACTIVE CASES SECTION - Dynamic Content */}
-          <ActiveCasesSection 
-            myActive={myActive}
-            loading={loading}
-            resolve={resolve}
-            sendFeedbackRequest={sendFeedbackRequest}
-            escalate={escalate}
-            hasSelectedDevice={hasSelectedDevice}
-            selectedDevice={selectedDevice}
-            isSelectedDeviceOnline={isSelectedDeviceOnline}
-            isFeedbackDisabledForCase={isFeedbackDisabledForCase}
-            getFeedbackDisabledReason={getFeedbackDisabledReason}
-          />
-
-          {/* DEVICES SECTION */}
-          <DevicesSection 
-            user={user}
-            selectedDeviceId={selectedDeviceId}
-            onSelectDevice={handleSelectDevice}
-            onDeviceUpdate={() => {
-              // Reload devices when they are updated
-              const loadDevices = async () => {
-                try {
-                  const allDevicesRes = await DeviceAPI.list();
-                  const allDevices = allDevicesRes.items || [];
-                  
-                  const feedbackDevs = allDevices
-                    .filter((device: any) => device.mode === 'FEEDBACK')
-                    .sort((a: any, b: any) => {
-                      const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
-                      const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
-                      return nameA.localeCompare(nameB);
-                    });
-                  
-                  setFeedbackDevices(feedbackDevs);
-                } catch (e) {
-                  console.error("Failed to reload devices:", e);
-                }
-              };
-              loadDevices();
-            }}
-          />
-        </div>
+        <ResponsiveLayout
+          selectedDevice={selectedDevice}
+          onPairDevice={handleOpenPairModal}
+          queueSection={
+            <QueueSection 
+              queued={queued}
+              loading={loading}
+              takeNext={takeNext}
+              take={take}
+            />
+          }
+          activeCasesSection={
+            <ActiveCasesSection 
+              myActive={myActive}
+              loading={loading}
+              resolve={resolve}
+              sendFeedbackRequest={sendFeedbackRequest}
+              escalate={escalate}
+              hasSelectedDevice={hasSelectedDevice}
+              selectedDevice={selectedDevice}
+              isSelectedDeviceOnline={isSelectedDeviceOnline}
+              isFeedbackDisabledForCase={isFeedbackDisabledForCase}
+              getFeedbackDisabledReason={getFeedbackDisabledReason}
+            />
+          }
+          devicesSection={
+            <DevicesSection 
+              user={user}
+              selectedDeviceId={selectedDeviceId}
+              onSelectDevice={handleSelectDevice}
+              onDeviceUpdate={() => {
+                // Reload devices when they are updated
+                const loadDevices = async () => {
+                  try {
+                    const allDevicesRes = await DeviceAPI.list();
+                    const allDevices = allDevicesRes.items || [];
+                    
+                    const feedbackDevs = allDevices
+                      .filter((device: any) => device.mode === 'FEEDBACK')
+                      .sort((a: any, b: any) => {
+                        const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
+                        const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
+                        return nameA.localeCompare(nameB);
+                      });
+                    
+                    setFeedbackDevices(feedbackDevs);
+                  } catch (e) {
+                    console.error("Failed to reload devices:", e);
+                  }
+                };
+                loadDevices();
+              }}
+            />
+          }
+        />
       </div>
       <Toaster />
+      
+      {/* QR Generator Modal for Pair Device */}
+      <QRGeneratorModal 
+        isOpen={pairModalOpen}
+        onClose={handleClosePairModal}
+        defaultMode="DUAL"
+      />
     </main>
   );
 }

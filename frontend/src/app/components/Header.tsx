@@ -88,7 +88,7 @@ export default function Header({
             onClick={() => setShowUserDropdown(!showUserDropdown)}
             className="flex items-center gap-1 px-3 py-2 rounded-md text-sm hover:bg-gray-100 transition-colors cursor-pointer"
           >
-            <span>Hello, <b>{staffName}</b></span>
+            <span className="text-gray-900">Hello, <b>{staffName}</b></span>
             <svg 
               className={`w-4 h-4 text-gray-500 transition-transform ${showUserDropdown ? 'rotate-180' : ''}`}
               fill="none" 

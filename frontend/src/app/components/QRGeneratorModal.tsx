@@ -59,7 +59,7 @@ export default function QRGeneratorModal({
       <div className="absolute inset-0 bg-black/40" onClick={handleClose} />
       <div className="relative z-10 w-full max-w-lg rounded-xl bg-white shadow-2xl p-6">
         <button
-          className="absolute top-4 right-4 rounded-md border px-3 py-1.5 text-sm hover:bg-gray-200 transition-colors"
+          className="absolute top-4 right-4 rounded-md border px-3 py-1.5 text-sm text-gray-900 hover:bg-gray-200 transition-colors"
           onClick={handleClose}
         >
           Close
