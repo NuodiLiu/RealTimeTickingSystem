@@ -197,7 +197,7 @@ struct FeedbackView: View {
                     .padding(.top, 12)
             }
         }
-        .devResetGesture() // 添加开发者重置手势
+        // .devResetGesture() // 添加开发者重置手势 - DISABLED
         // 添加点击手势来取消键盘焦点
         .onTapGesture {
             textFocused = false

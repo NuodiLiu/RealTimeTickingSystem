@@ -252,14 +252,16 @@ export default function useQueue(userId?: string) {
 
   async function escalate(id: string, department: string) {
     try { 
-      await showToastPromise(
-        CasesAPI.escalate(id, department),
-        {
-          loading: `Escalating case to ${department}...`,
-          success: `Case escalated to ${department} successfully.`,
-          error: `Failed to escalate case to ${department}.`
-        }
-      );
+      // Disabled toast messages for escalation
+      // await showToastPromise(
+      //   CasesAPI.escalate(id, department),
+      //   {
+      //     loading: `Escalating case to ${department}...`,
+      //     success: `Case escalated to ${department} successfully.`,
+      //     error: `Failed to escalate case to ${department}.`
+      //   }
+      // );
+      await CasesAPI.escalate(id, department);
       await load(); 
     }
     catch (e: any) { 

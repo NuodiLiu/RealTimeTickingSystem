@@ -89,7 +89,7 @@ struct PairingView: View {
             vm.checkCameraPermissionStatus()
         }
         .showToast(message: $vm.errorMessage, style: .error, duration: 4.0)
-        .devResetGesture() // 添加开发者重置手势
+        // .devResetGesture() // 添加开发者重置手势 - DISABLED
         // 全屏相机
         .fullScreenCover(isPresented: $vm.isScanning) {
             ZStack {

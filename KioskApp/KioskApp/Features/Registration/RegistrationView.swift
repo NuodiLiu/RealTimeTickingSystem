@@ -259,7 +259,7 @@ struct RegistrationView: View {
                     .padding(.top, 12)
             }
         }
-        .devResetGesture()
+        // .devResetGesture() // DISABLED
         .onTapGesture {
             // 只用于收起键盘焦点
             zidFocused = false
