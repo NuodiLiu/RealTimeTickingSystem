@@ -58,14 +58,12 @@ export default function QRGeneratorModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={handleClose} />
       <div className="relative z-10 w-full max-w-lg rounded-xl bg-white shadow-2xl p-6">
-        <div className="flex justify-end mb-4">
-          <button
-            className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50"
-            onClick={handleClose}
-          >
-            Close
-          </button>
-        </div>
+        <button
+          className="absolute top-4 right-4 rounded-md border px-3 py-1.5 text-sm hover:bg-gray-200 transition-colors"
+          onClick={handleClose}
+        >
+          Close
+        </button>
 
         <div className="space-y-4">
           <p className="text-sm text-zinc-600 text-center">

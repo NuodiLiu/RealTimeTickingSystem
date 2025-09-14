@@ -121,15 +121,15 @@ export default function ActiveCaseRow({
 
   return (
     <div className="rounded-md border border-gray-200 shadow-sm p-4 bg-white">
-      <div className="mb-2 font-semibold truncate cursor-help" title={student}>
+      <div className="mb-2 font-semibold truncate">
         {truncatedStudentName}
       </div>
       <div className="text-xs text-gray-500 font-normal mb-3">{zID}</div>
       <div className="mb-3 space-y-1">
         <div className="text-xs text-zinc-500">
           <span 
-            title={categoryName}
-            className="cursor-help"
+            data-tooltip={categoryName}
+            className={truncatedCategoryName.includes('...') ? 'cursor-help fast-tooltip' : ''}
           >
             {truncatedCategoryName}
           </span>
@@ -173,6 +173,57 @@ export default function ActiveCaseRow({
               box-shadow: 0 0 0 rgba(0,0,0,0);
             }
           }
+          
+          /* Fast tooltip implementation - smaller, single-line */
+          .fast-tooltip {
+            position: relative;
+          }
+          
+          .fast-tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 6px;
+            padding: 3px 6px;
+            background: #6b7280;
+            color: white;
+            font-size: 11px;
+            border-radius: 3px;
+            white-space: nowrap;
+            z-index: 1000;
+            opacity: 0;
+            animation: tooltip-appear 0.15s ease-out 0.5s forwards;
+            pointer-events: none;
+            border: 1px solid #4b5563;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+          }
+          
+          .fast-tooltip:hover::before {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 0px;
+            border: 3px solid transparent;
+            border-bottom-color: #6b7280;
+            z-index: 1000;
+            opacity: 0;
+            animation: tooltip-appear 0.15s ease-out 0.5s forwards;
+          }
+          
+          @keyframes tooltip-appear {
+            from {
+              opacity: 0;
+              transform: translateX(-50%) translateY(2px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(-50%) translateY(0);
+            }
+          }
         `}</style>
       </div>
       <div className="flex gap-2 flex-wrap">
@@ -185,12 +236,12 @@ export default function ActiveCaseRow({
         <button 
           onClick={() => onFeedback(item.id)} 
           disabled={feedbackDisabled}
-          className={`rounded-md border px-3 py-1.5 text-sm ${
+          className={`rounded-md border px-3 py-1.5 text-sm fast-tooltip ${
             feedbackDisabled 
               ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
               : 'border-[#003366] text-[#003366] hover:bg-[#003366] hover:text-white'
           } transition-colors`}
-          title={feedbackDisabled ? feedbackDisabledReason : 'Send feedback form to iPad'}
+          data-tooltip={feedbackDisabled ? feedbackDisabledReason : 'Send feedback form to iPad'}
         >
           FEEDBACK
         </button>
