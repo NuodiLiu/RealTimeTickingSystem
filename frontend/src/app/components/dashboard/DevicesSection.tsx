@@ -32,13 +32,22 @@ export default function DevicesSection({
         const allDevicesRes = await DeviceAPI.list();
         const allDevices = allDevicesRes.items || [];
         
-        // Filter devices by mode
-        const feedbackDevs = allDevices.filter((device: any) => 
-          device.mode === 'FEEDBACK'
-        );
-        const registrationDevs = allDevices.filter((device: any) => 
-          device.mode === 'REGISTRATION'
-        );
+        // Filter devices by mode and sort by name
+        const feedbackDevs = allDevices
+          .filter((device: any) => device.mode === 'FEEDBACK')
+          .sort((a: any, b: any) => {
+            const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
+            const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
+            return nameA.localeCompare(nameB);
+          });
+        
+        const registrationDevs = allDevices
+          .filter((device: any) => device.mode === 'REGISTRATION')
+          .sort((a: any, b: any) => {
+            const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
+            const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
+            return nameA.localeCompare(nameB);
+          });
         
         setFeedbackDevices(feedbackDevs);
         setRegistrationDevices(registrationDevs);
@@ -64,12 +73,21 @@ export default function DevicesSection({
       const allDevicesRes = await DeviceAPI.list();
       const allDevices = allDevicesRes.items || [];
       
-      const feedbackDevs = allDevices.filter((device: any) => 
-        device.mode === 'FEEDBACK'
-      );
-      const registrationDevs = allDevices.filter((device: any) => 
-        device.mode === 'REGISTRATION'
-      );
+      const feedbackDevs = allDevices
+        .filter((device: any) => device.mode === 'FEEDBACK')
+        .sort((a: any, b: any) => {
+          const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
+          const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+      
+      const registrationDevs = allDevices
+        .filter((device: any) => device.mode === 'REGISTRATION')
+        .sort((a: any, b: any) => {
+          const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
+          const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
       
       setFeedbackDevices(feedbackDevs);
       setRegistrationDevices(registrationDevs);
@@ -99,12 +117,21 @@ export default function DevicesSection({
       const allDevicesRes = await DeviceAPI.list();
       const allDevices = allDevicesRes.items || [];
       
-      const feedbackDevs = allDevices.filter((device: any) => 
-        device.mode === 'FEEDBACK'
-      );
-      const registrationDevs = allDevices.filter((device: any) => 
-        device.mode === 'REGISTRATION'
-      );
+      const feedbackDevs = allDevices
+        .filter((device: any) => device.mode === 'FEEDBACK')
+        .sort((a: any, b: any) => {
+          const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
+          const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+      
+      const registrationDevs = allDevices
+        .filter((device: any) => device.mode === 'REGISTRATION')
+        .sort((a: any, b: any) => {
+          const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
+          const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
       
       setFeedbackDevices(feedbackDevs);
       setRegistrationDevices(registrationDevs);
@@ -117,31 +144,6 @@ export default function DevicesSection({
       }
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to toggle device mode.");
-    }
-  };
-
-  // Export to Excel functionality
-  const handleExportToExcel = async () => {
-    try {
-      if (user?.role !== 'ADMIN') {
-        toast.error('You do not have permission to export this data.');
-        return;
-      }
-  
-      const { CasesAPI } = await import("../../lib/api");
-      const XLSX = await import('xlsx');
-      
-      const data = await CasesAPI.exportCases();
-  
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Cases');
-      XLSX.writeFile(wb, 'cases_export.xlsx');
-
-      toast.success('Records exported to Excel successfully.');
-    } catch (error) {
-      console.error('Error exporting to Excel:', error);
-      toast.error('An error occurred while exporting the data.');
     }
   };
 
@@ -164,9 +166,9 @@ export default function DevicesSection({
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">iPad Devices</h2>
-              <p className="text-sm text-gray-600 mt-1">
+              {/* <p className="text-sm text-gray-600 mt-1">
                 Device management & pairing
-              </p>
+              </p> */}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -175,14 +177,6 @@ export default function DevicesSection({
               >
                 Pair Device
               </button>
-              {user?.role === 'ADMIN' && (
-                <button
-                  onClick={handleExportToExcel}
-                  className="bg-[#ffd600] text-black px-3 py-2 rounded-md text-sm font-medium hover:bg-[#003366] hover:text-white transition-colors shadow-sm"
-                >
-                  Export to Excel
-                </button>
-              )}
             </div>
           </div>
         </div>

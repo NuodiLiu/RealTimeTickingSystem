@@ -98,6 +98,31 @@ export default function DashboardPage() {
   const hasSelectedDevice = selectedDevice && canUseDeviceForFeedback(selectedDevice);
   const isSelectedDeviceBusy = selectedDevice && selectedDevice.status === 'BUSY';
 
+  // Export to Excel functionality
+  const handleExportToExcel = async () => {
+    try {
+      if (user?.role !== 'ADMIN') {
+        toast.error('You do not have permission to export this data.');
+        return;
+      }
+  
+      const { CasesAPI } = await import("../lib/api");
+      const XLSX = await import('xlsx');
+      
+      const data = await CasesAPI.exportCases();
+  
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Cases');
+      XLSX.writeFile(wb, 'cases_export.xlsx');
+
+      toast.success('Records exported to Excel successfully.');
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast.error('An error occurred while exporting the data.');
+    }
+  };
+
   // Send feedback request (uses selected device, with override if busy)
   async function sendFeedbackRequest(caseId: string) {
     // Find the case to check its status
@@ -188,7 +213,12 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen flex flex-col bg-white">
-      <Header staffName={user?.username ?? "Staff"} onLogout={logout} />
+      <Header 
+        staffName={user?.username ?? "Staff"} 
+        onLogout={logout}
+        showExportButton={user?.role === 'ADMIN'}
+        onExportToExcel={handleExportToExcel}
+      />
 
       <div className="flex-1 p-6 overflow-hidden">
         <div className="h-full grid grid-cols-3 gap-6">
@@ -226,9 +256,13 @@ export default function DashboardPage() {
                   const allDevicesRes = await DeviceAPI.list();
                   const allDevices = allDevicesRes.items || [];
                   
-                  const feedbackDevs = allDevices.filter((device: any) => 
-                    device.mode === 'FEEDBACK'
-                  );
+                  const feedbackDevs = allDevices
+                    .filter((device: any) => device.mode === 'FEEDBACK')
+                    .sort((a: any, b: any) => {
+                      const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
+                      const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
+                      return nameA.localeCompare(nameB);
+                    });
                   
                   setFeedbackDevices(feedbackDevs);
                 } catch (e) {
