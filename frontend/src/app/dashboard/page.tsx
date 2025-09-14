@@ -219,7 +219,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col bg-white">
+    <main className="h-screen flex flex-col bg-white overflow-hidden">
       <Header 
         staffName={user?.username ?? "Staff"} 
         onLogout={logout}
@@ -227,8 +227,8 @@ export default function DashboardPage() {
         onExportToExcel={handleExportToExcel}
       />
 
-      <div className="flex-1 p-6 overflow-hidden">
-        <div className="h-full grid grid-cols-3 gap-6">
+      <div className="flex-1 p-6 min-h-0">
+        <div className="h-full grid grid-cols-3 gap-6 min-h-0">
           
           {/* QUEUE SECTION - Dynamic Content */}
           <QueueSection 

@@ -18,8 +18,8 @@ export default function QueueSection({
   take 
 }: QueueSectionProps) {
   return (
-    <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
-      <div className="px-6 py-4">
+    <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full min-h-0 overflow-hidden">
+      <div className="px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Queue</h2>
@@ -36,7 +36,7 @@ export default function QueueSection({
         </div>
       </div>
 
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="flex-1 p-6 overflow-y-auto min-h-0">
         {loading && !queued ? (
           <LoadingSkeleton rows={3} />
         ) : queued && queued.length > 0 ? (

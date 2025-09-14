@@ -161,8 +161,8 @@ export default function DevicesSection({
   return (
     <>
       {/* DEVICES SECTION - Mixed Static/Dynamic Content */}
-      <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
-        <div className="px-6 py-4">
+  <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full min-h-0 overflow-hidden">
+        <div className="px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">iPad Devices</h2>
@@ -181,7 +181,7 @@ export default function DevicesSection({
           </div>
         </div>
 
-        <div className="flex-1 p-6 overflow-y-auto space-y-6">
+        <div className="flex-1 p-6 overflow-y-auto space-y-6 min-h-0">
           {/* FEEDBACK DEVICES SUBSECTION */}
           <DeviceList
             title="Feedback Devices"

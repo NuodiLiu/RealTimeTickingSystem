@@ -30,8 +30,8 @@ export default function ActiveCasesSection({
   getFeedbackDisabledReason
 }: ActiveCasesSectionProps) {
   return (
-    <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
-      <div className="px-6 py-4">
+    <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full min-h-0 overflow-hidden">
+      <div className="px-6 py-4 flex-shrink-0">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">My Active Cases</h2>
           <p className="text-sm text-gray-600 mt-1">
@@ -40,7 +40,7 @@ export default function ActiveCasesSection({
         </div>
       </div>
 
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="flex-1 p-6 overflow-y-auto min-h-0">
         {loading && !myActive ? (
           <LoadingSkeleton rows={1} />
         ) : myActive && myActive.length > 0 ? (
