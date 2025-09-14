@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { CaseItem } from "../lib/api";
-import { getCategoryName, getTruncatedCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
+import { getCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
 import Tooltip from "./Tooltip";
 import ZIDWithCopy from "./ZIDWithCopy";
 
@@ -12,16 +12,92 @@ export default function CaseCard({
   onTake: (id: string) => void;
 }) {
   const [waitingTime, setWaitingTime] = useState("");
+  const [truncatedCategory, setTruncatedCategory] = useState("");
+  const [isTruncated, setIsTruncated] = useState(false);
+  const categoryRef = useRef<HTMLDivElement>(null);
 
   const student = item.studentName ?? "Student";
   const truncatedStudentName = getTruncatedStudentName(student);
   const categoryId = item.category ?? "other";
   const categoryName = getCategoryName(categoryId);
-  const truncatedCategoryName = getTruncatedCategoryName(categoryId);
   const zID = item.zID ?? "";
   
   // Use createdAt to calculate waiting time
   const createdTime = item.createdAt;
+
+  // Function to truncate text by whole words
+  const truncateByWords = (text: string, maxWidth: number) => {
+    if (!categoryRef.current) return { text, isTruncated: false };
+    
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return { text, isTruncated: false };
+    
+    // Get computed styles from the element
+    const styles = window.getComputedStyle(categoryRef.current);
+    context.font = `${styles.fontSize} ${styles.fontFamily}`;
+    
+    // Check if full text fits
+    if (context.measureText(text).width <= maxWidth) {
+      return { text, isTruncated: false };
+    }
+    
+    const words = text.split(' ');
+    let truncated = '';
+    
+    for (let i = 0; i < words.length; i++) {
+      const testText = truncated + (truncated ? ' ' : '') + words[i];
+      const testWithEllipsis = testText + '...';
+      
+      if (context.measureText(testWithEllipsis).width > maxWidth) {
+        return { 
+          text: truncated + (truncated ? '...' : ''), 
+          isTruncated: true 
+        };
+      }
+      
+      truncated = testText;
+    }
+    
+    return { text: truncated, isTruncated: false };
+  };
+
+  // Update truncated category when component mounts or categoryName changes
+  useEffect(() => {
+    const updateTruncation = () => {
+      if (categoryRef.current && categoryName) {
+        // Get the actual available width for text (excluding padding)
+        const containerWidth = categoryRef.current.clientWidth;
+        if (containerWidth > 0) { // Ensure the element is rendered
+          const result = truncateByWords(categoryName, containerWidth);
+          setTruncatedCategory(result.text);
+          setIsTruncated(result.isTruncated);
+        }
+      }
+    };
+
+    // Use a small delay to ensure the element is fully rendered
+    const timeoutId = setTimeout(updateTruncation, 0);
+    return () => clearTimeout(timeoutId);
+  }, [categoryName]);
+
+  // Handle resize events
+  useEffect(() => {
+    const handleResize = () => {
+      if (categoryRef.current && categoryName) {
+        // Get the actual available width for text (excluding padding)
+        const containerWidth = categoryRef.current.clientWidth;
+        if (containerWidth > 0) {
+          const result = truncateByWords(categoryName, containerWidth);
+          setTruncatedCategory(result.text);
+          setIsTruncated(result.isTruncated);
+        }
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [categoryName]);
 
   useEffect(() => {
     if (!createdTime) {
@@ -74,13 +150,13 @@ export default function CaseCard({
         <ZIDWithCopy zID={zID} />
         
         <div className="mb-1 space-y-1">
-          <div className="text-xs text-zinc-500">
-            {truncatedCategoryName.includes('...') ? (
+          <div ref={categoryRef} className="text-xs text-zinc-500 w-[78%]">
+            {isTruncated ? (
               <Tooltip content={categoryName}>
-                <span>{truncatedCategoryName}</span>
+                <span className="block">{truncatedCategory}</span>
               </Tooltip>
             ) : (
-              <span>{truncatedCategoryName}</span>
+              <span className="block">{truncatedCategory || categoryName}</span>
             )}
           </div>
           <div className="text-xs text-zinc-500">

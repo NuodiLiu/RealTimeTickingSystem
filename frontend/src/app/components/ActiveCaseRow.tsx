@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { CaseItem } from "../lib/api";
-import { getCategoryName, getTruncatedCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
+import { getCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
 import TooltipStyles from "./TooltipStyles";
 import Tooltip from "./Tooltip";
 import ZIDWithCopy from "./ZIDWithCopy";
@@ -43,7 +43,6 @@ export default function ActiveCaseRow({
   const truncatedStudentName = getTruncatedStudentName(student);
   const categoryId = item.category ?? "other";
   const categoryName = getCategoryName(categoryId);
-  const truncatedCategoryName = getTruncatedCategoryName(categoryId);
   const zID = item.zID ?? "";
   
   // Only use startedAt if it exists, otherwise show "Just started"
@@ -130,13 +129,11 @@ export default function ActiveCaseRow({
       <ZIDWithCopy zID={zID} />
       <div className="mb-3 space-y-1">
         <div className="text-xs text-zinc-500">
-          {truncatedCategoryName.includes('...') ? (
+          <div className="w-3/4 truncate">
             <Tooltip content={categoryName}>
-              <span>{truncatedCategoryName}</span>
+              <span>{categoryName}</span>
             </Tooltip>
-          ) : (
-            <span>{truncatedCategoryName}</span>
-          )}
+          </div>
         </div>
         <div className="text-xs text-zinc-500">
           Started {elapsedTime}
