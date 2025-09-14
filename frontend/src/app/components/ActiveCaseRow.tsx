@@ -32,9 +32,8 @@ export default function ActiveCaseRow({
 }) {
   const [elapsedTime, setElapsedTime] = useState("");
   const [showEscalationDropdown, setShowEscalationDropdown] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [isEscalating, setIsEscalating] = useState(false);
+  const [showPopAnimation, setShowPopAnimation] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const student = item.studentName ?? "Student";
@@ -104,28 +103,20 @@ export default function ActiveCaseRow({
     };
   }, [showEscalationDropdown]);
 
-  const handleEscalateClick = (department: string) => {
-    setSelectedDepartment(department);
+  const handleEscalateClick = async (department: string) => {
     setShowEscalationDropdown(false);
-    setShowConfirmation(true);
-  };
-
-  const handleConfirmEscalation = async () => {
     setIsEscalating(true);
+    
     try {
-      await onEscalate(item.id, selectedDepartment);
-      setShowConfirmation(false);
-      setSelectedDepartment("");
+      await onEscalate(item.id, department);
+      // Trigger smooth pop animation for the escalated badge
+      setShowPopAnimation(true);
+      setTimeout(() => setShowPopAnimation(false), 800);
     } catch (error) {
       console.error("Failed to escalate case:", error);
     } finally {
       setIsEscalating(false);
     }
-  };
-
-  const handleCancelEscalation = () => {
-    setShowConfirmation(false);
-    setSelectedDepartment("");
   };
 
   return (
@@ -146,11 +137,43 @@ export default function ActiveCaseRow({
         <div className="text-xs text-zinc-500">
           Started {elapsedTime}
           {item.escalatedTo && (
-            <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
+            <span 
+              className={`ml-2 px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800 ${
+                showPopAnimation 
+                  ? 'animate-pulse-smooth' 
+                  : ''
+              }`}
+              style={{
+                animation: showPopAnimation ? 'smooth-pop 0.8s ease-out' : undefined
+              }}
+            >
               Escalated to {item.escalatedTo}
             </span>
           )}
         </div>
+        
+        <style jsx>{`
+          @keyframes smooth-pop {
+            0% {
+              transform: scale(1);
+              background-color: rgb(254 215 170);
+              color: rgb(154 52 18);
+              box-shadow: 0 0 0 rgba(0,0,0,0);
+            }
+            50% {
+              transform: scale(1.15);
+              background-color: rgb(253 186 116);
+              color: rgb(124 45 18);
+              box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            }
+            100% {
+              transform: scale(1);
+              background-color: rgb(254 215 170);
+              color: rgb(154 52 18);
+              box-shadow: 0 0 0 rgba(0,0,0,0);
+            }
+          }
+        `}</style>
       </div>
       <div className="flex gap-2 flex-wrap">
         <button 
@@ -167,7 +190,7 @@ export default function ActiveCaseRow({
               ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
               : 'border-[#003366] text-[#003366] hover:bg-[#003366] hover:text-white'
           } transition-colors`}
-          title={feedbackDisabled ? feedbackDisabledReason : 'Send feedback request'}
+          title={feedbackDisabled ? feedbackDisabledReason : 'Send feedback form to iPad'}
         >
           FEEDBACK
         </button>
@@ -198,39 +221,6 @@ export default function ActiveCaseRow({
           )}
         </div>
       </div>
-
-      {/* Escalation Confirmation Modal with Blurred Background */}
-      {showConfirmation && (
-        <div className="fixed inset-0 bg-white/10 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl border border-[#003366]/30">
-            <h3 className="text-lg font-semibold mb-4 text-[#003366]">Confirm Escalation</h3>
-            <div className="mb-6 text-gray-600">
-              Are you sure you want to escalate this case to <strong>{selectedDepartment}</strong>?
-              <br />
-              <br />
-              <em>Student:</em> {student}
-              <br />
-              <em>Category:</em> {categoryName}
-            </div>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={handleCancelEscalation}
-                disabled={isEscalating}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmEscalation}
-                disabled={isEscalating}
-                className="px-4 py-2 text-sm bg-[#003366] text-white rounded-md hover:bg-[#002244] disabled:opacity-50 transition-colors"
-              >
-                {isEscalating ? "Escalating..." : "Escalate"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

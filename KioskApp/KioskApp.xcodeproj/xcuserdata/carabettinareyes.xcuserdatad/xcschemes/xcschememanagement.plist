@@ -6,6 +6,8 @@
 	<dict>
 		<key>KioskApp.xcscheme</key>
 		<dict>
+			<key>isShown</key>
+			<true/>
 			<key>orderHint</key>
 			<integer>0</integer>
 		</dict>
@@ -16,8 +18,11 @@
 		</dict>
 		<key>KioskApp2.xcscheme</key>
 		<dict>
-			<key>isShown</key>
-			<true/>
+			<key>orderHint</key>
+			<integer>2</integer>
+		</dict>
+		<key>KioskApp3.xcscheme</key>
+		<dict>
 			<key>orderHint</key>
 			<integer>1</integer>
 		</dict>
