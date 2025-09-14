@@ -3,6 +3,7 @@ import { CaseItem } from "../lib/api";
 import { getCategoryName, getTruncatedCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
 import TooltipStyles from "./TooltipStyles";
 import Tooltip from "./Tooltip";
+import ZIDWithCopy from "./ZIDWithCopy";
 
 const ESCALATION_DEPARTMENTS = [
   "IT Support",
@@ -126,7 +127,7 @@ export default function ActiveCaseRow({
       <div className="mb-2 font-semibold truncate">
         {truncatedStudentName}
       </div>
-      <div className="text-xs text-gray-500 font-normal mb-3">{zID}</div>
+      <ZIDWithCopy zID={zID} />
       <div className="mb-3 space-y-1">
         <div className="text-xs text-zinc-500">
           {truncatedCategoryName.includes('...') ? (

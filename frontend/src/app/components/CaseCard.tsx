@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CaseItem } from "../lib/api";
 import { getCategoryName, getTruncatedCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
 import Tooltip from "./Tooltip";
+import ZIDWithCopy from "./ZIDWithCopy";
 
 export default function CaseCard({
   item,
@@ -68,7 +69,10 @@ export default function CaseCard({
           <div className="mb-2 font-semibold truncate">
             {truncatedStudentName}
           </div>
-        <div className="text-xs text-gray-500 font-normal mb-3">{zID}</div>
+        
+        {/* ZID section with copy functionality */}
+        <ZIDWithCopy zID={zID} />
+        
         <div className="mb-1 space-y-1">
           <div className="text-xs text-zinc-500">
             {truncatedCategoryName.includes('...') ? (
