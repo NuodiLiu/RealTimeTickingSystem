@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { CaseItem } from "../lib/api";
-import { getCategoryName, getTruncatedCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
+import { getCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
 import { isCasePendingFeedback } from "../lib/caseUtils";
+import { useTextTruncation } from "../hooks/useTextTruncation";
 import TooltipStyles from "./TooltipStyles";
 import Tooltip from "./Tooltip";
 import ZIDWithCopy from "./ZIDWithCopy";
@@ -44,8 +45,10 @@ export default function ActiveCaseRow({
   const truncatedStudentName = getTruncatedStudentName(student);
   const categoryId = item.category ?? "other";
   const categoryName = getCategoryName(categoryId);
-  const truncatedCategoryName = getTruncatedCategoryName(categoryId);
   const zID = item.zID ?? "";
+  
+  // Use text truncation hook
+  const { truncatedText: truncatedCategory, isTruncated, elementRef: categoryRef } = useTextTruncation(categoryName);
   
   // Check if case is pending feedback review
   const isPendingFeedback = isCasePendingFeedback(item);
@@ -133,13 +136,13 @@ export default function ActiveCaseRow({
       </div>
       <ZIDWithCopy zID={zID} />
       <div className="mb-3 space-y-1">
-        <div className="text-xs text-zinc-500">
-          {truncatedCategoryName.includes('...') ? (
+        <div ref={categoryRef} className="text-xs text-zinc-500 w-[78%]">
+          {isTruncated ? (
             <Tooltip content={categoryName}>
-              <span>{truncatedCategoryName}</span>
+              <span className="block">{truncatedCategory}</span>
             </Tooltip>
           ) : (
-            <span>{truncatedCategoryName}</span>
+            <span className="block">{truncatedCategory || categoryName}</span>
           )}
         </div>
         <div className="text-xs text-zinc-500">
