@@ -1,19 +1,19 @@
+"use client";
+
 import ActiveCaseRow from "../ActiveCaseRow";
 import EmptyState from "../EmptyState";
 import LoadingSkeleton from "../LoadingSkeleton";
-import { 
-  getFeedbackDisabledReason,
-  isFeedbackDisabledForCase
-} from "../../lib/caseUtils";
 
 interface ActiveCasesSectionProps {
   myActive: any[] | null;
   loading: boolean;
-  resolve: (id: string) => void;
-  sendFeedbackRequest: (id: string) => void;
+  resolve: (caseId: string) => void;
+  sendFeedbackRequest: (caseId: string) => void;
   escalate: (id: string, department: string) => void;
-  hasAvailableDevices: boolean;
+  hasSelectedDevice: boolean;
   selectedDevice: any;
+  isFeedbackDisabledForCase: (caseItem: any, hasSelectedDevice: boolean) => boolean;
+  getFeedbackDisabledReason: (caseItem: any, selectedDevice: any) => string;
 }
 
 export default function ActiveCasesSection({ 
@@ -22,12 +22,14 @@ export default function ActiveCasesSection({
   resolve, 
   sendFeedbackRequest, 
   escalate, 
-  hasAvailableDevices, 
-  selectedDevice 
+  hasSelectedDevice,
+  selectedDevice,
+  isFeedbackDisabledForCase,
+  getFeedbackDisabledReason
 }: ActiveCasesSectionProps) {
   return (
     <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
-      <div className="bg-green-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+      <div className="px-6 py-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">My Active Cases</h2>
           <p className="text-sm text-gray-600 mt-1">
@@ -48,7 +50,7 @@ export default function ActiveCasesSection({
                 onResolve={resolve}
                 onFeedback={sendFeedbackRequest}
                 onEscalate={escalate}
-                feedbackDisabled={isFeedbackDisabledForCase(c, hasAvailableDevices)}
+                feedbackDisabled={isFeedbackDisabledForCase(c, hasSelectedDevice)}
                 feedbackDisabledReason={getFeedbackDisabledReason(c, selectedDevice)}
               />
             ))}
