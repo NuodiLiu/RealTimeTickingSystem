@@ -84,13 +84,6 @@ export default function DeviceCard({
             Last seen: {new Date(device.lastSeenAt).toLocaleTimeString()}
           </p>
         )}
-        {showSelectButton && !canBeUsed && (
-          <p className="text-xs text-[#D03E16] mt-1">
-            {!device.isOnline 
-              ? "Device is offline" 
-              : "Device mode doesn't support feedback"}
-          </p>
-        )}
       </div>
       
       {/* Action dropdown */}
@@ -109,33 +102,31 @@ export default function DeviceCard({
         </button>
 
         {showDropdown && (
-          <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-md shadow-lg z-10 w-max">
-            <div className="py-1">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowDropdown(false);
-                  if (onUnpair) {
-                    onUnpair(device.deviceId, deviceDisplayName);
-                  }
-                }}
-                className="block w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
-              >
-                Unpair Device
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowDropdown(false);
-                  if (onToggleMode) {
-                    onToggleMode(device.deviceId, deviceDisplayName, device.mode);
-                  }
-                }}
-                className="block w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
-              >
-                Switch to {device.mode === 'FEEDBACK' ? 'Registration' : 'Feedback'}
-              </button>
-            </div>
+          <div className="absolute right-0 top-8 bg-white rounded-md shadow-lg z-10 w-max overflow-hidden">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDropdown(false);
+                if (onUnpair) {
+                  onUnpair(device.deviceId, deviceDisplayName);
+                }
+              }}
+              className="block w-full px-4 py-2 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
+            >
+              Unpair Device
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDropdown(false);
+                if (onToggleMode) {
+                  onToggleMode(device.deviceId, deviceDisplayName, device.mode);
+                }
+              }}
+              className="block w-full px-4 py-2 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
+            >
+              Switch to {device.mode === 'FEEDBACK' ? 'Registration' : 'Feedback'}
+            </button>
           </div>
         )}
       </div>
