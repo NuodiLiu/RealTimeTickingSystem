@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CaseItem } from "../lib/api";
 import { getCategoryName, getTruncatedCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
+import Tooltip from "./Tooltip";
 
 export default function CaseCard({
   item,
@@ -42,11 +43,11 @@ export default function CaseCard({
       const days = Math.floor(hours / 24);
 
       if (days > 0) {
-        setWaitingTime(`${days}d ${hours % 24}h ago`);
+        setWaitingTime(`${days}d ${hours % 24}h`);
       } else if (hours > 0) {
-        setWaitingTime(`${hours}h ${minutes % 60}m ago`);
+        setWaitingTime(`${hours}h ${minutes % 60}m`);
       } else if (minutes > 0) {
-        setWaitingTime(`${minutes}m ago`);
+        setWaitingTime(`${minutes}m`);
       } else {
         setWaitingTime("Just now");
       }
@@ -64,21 +65,22 @@ export default function CaseCard({
   return (
     <div className="flex items-start justify-between rounded-md border border-gray-200 shadow-sm p-4 bg-white">
       <div className="flex-1 min-w-0 pr-4">
-        <div className="font-semibold truncate cursor-help" title={student}>
-          {truncatedStudentName}
-        </div>
-        <div className="text-xs text-gray-500 font-normal">{zID}</div>
-        <div className="space-y-1">
+          <div className="mb-2 font-semibold truncate">
+            {truncatedStudentName}
+          </div>
+        <div className="text-xs text-gray-500 font-normal mb-3">{zID}</div>
+        <div className="mb-1 space-y-1">
           <div className="text-xs text-zinc-500">
-            <span 
-              title={categoryName}
-              className="cursor-help"
-            >
-              {truncatedCategoryName}
-            </span>
+            {truncatedCategoryName.includes('...') ? (
+              <Tooltip content={categoryName}>
+                <span>{truncatedCategoryName}</span>
+              </Tooltip>
+            ) : (
+              <span>{truncatedCategoryName}</span>
+            )}
           </div>
           <div className="text-xs text-zinc-500">
-            Waiting {waitingTime}
+            Waiting: {waitingTime}
           </div>
         </div>
       </div>
