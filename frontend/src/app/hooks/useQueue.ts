@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CaseItem, CasesAPI } from "../lib/api";
 import { io, Socket } from "socket.io-client";
+import { showToastPromise, handleError } from "../lib/toaster";
 
 // Accept both the backend's raw array and the helper's {items: []}
 function normalizeCases(res: unknown): CaseItem[] {
@@ -149,47 +150,67 @@ export default function useQueue(userId?: string) {
   async function take(id: string) {
     try { 
       console.log('Taking case:', id);
-      const result = await CasesAPI.take(id);
-      console.log('Take API result:', result);
+      await showToastPromise(
+        CasesAPI.take(id),
+        {
+          loading: 'Taking case...',
+          success: 'Case taken successfully.',
+          error: 'Failed to take case.'
+        }
+      );
       await load(); 
     }
     catch (e: any) { 
       console.error('Take error:', e);
-      setError(e?.message ?? "Failed to take case"); 
+      // Don't call handleError here since showToastPromise already handled it
     }
   }
 
   async function takeNext() {
     try { 
       console.log('Taking next case');
-      const result = await CasesAPI.takeNext();
-      console.log('Take next API result:', result);
+      await showToastPromise(
+        CasesAPI.takeNext(),
+        {
+          loading: 'Taking next case...',
+          success: 'Case taken successfully.',
+          error: 'Failed to take next case.'
+        }
+      );
       await load(); 
     }
     catch (e: any) { 
       console.error('Take next error:', e);
-      setError(e?.message ?? "Failed to take next case"); 
+      // Don't call handleError here since showToastPromise already handled it
     }
   }
 
   async function resolve(id: string) {
     try { 
-      await CasesAPI.resolve(id); 
+      await CasesAPI.resolve(id);
       await load(); 
     }
     catch (e: any) { 
-      setError(e?.message ?? "Failed to resolve case"); 
+      handleError(e);
     }
   }
 
   async function escalate(id: string, department: string) {
     try { 
-      await CasesAPI.escalate(id, department); 
+      await showToastPromise(
+        CasesAPI.escalate(id, department),
+        {
+          loading: `Escalating case to ${department}...`,
+          success: `Case escalated to ${department} successfully.`,
+          error: `Failed to escalate case to ${department}.`
+        }
+      );
       await load(); 
     }
     catch (e: any) { 
-      setError(e?.message ?? "Failed to escalate case"); 
-      throw e; // Re-throw so the component can handle the error
+      // Don't call handleError here since showToastPromise already handled it
+      console.error('Escalate error:', e);
+      throw e; // Re-throw so the component can handle the error if needed
     }
   }
 

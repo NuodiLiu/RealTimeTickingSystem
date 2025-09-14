@@ -5,6 +5,7 @@ import DeviceList from "../DeviceList";
 import QRGeneratorModal from "../QRGeneratorModal";
 import { DeviceAPI, FeedbackAPI, PairAPI } from "../../lib/api";
 import { toast } from 'react-hot-toast';
+import { showToastPromise, handleError } from "../../lib/toaster";
 
 interface DevicesSectionProps {
   user: any;
@@ -62,12 +63,15 @@ export default function DevicesSection({
 
   // Unpair device function
   const handleUnpairDevice = async (deviceId: string, deviceName: string) => {
-    const confirmed = window.confirm(`Are you sure you want to unpair the device "${deviceName}"? This action cannot be undone.`);
-    
-    if (!confirmed) return;
-
     try {
-      await DeviceAPI.unpair(deviceId);
+      await showToastPromise(
+        DeviceAPI.unpair(deviceId),
+        {
+          loading: `Unpairing device "${deviceName}"...`,
+          success: `Device "${deviceName}" has been successfully unpaired.`,
+          error: `Failed to unpair device "${deviceName}".`
+        }
+      );
       
       // Reload devices to reflect the change
       const allDevicesRes = await DeviceAPI.list();
@@ -92,26 +96,29 @@ export default function DevicesSection({
       setFeedbackDevices(feedbackDevs);
       setRegistrationDevices(registrationDevs);
       
-      toast.success(`Device "${deviceName}" has been successfully unpaired.`);
-      
       // Notify parent about device update
       if (onDeviceUpdate) {
         onDeviceUpdate();
       }
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to unpair device.");
+      // Don't call handleError here since showToastPromise already handled the error display
+      console.error('Unpair device error:', e);
     }
   };
 
   // Toggle device mode function
   const handleToggleDeviceMode = async (deviceId: string, deviceName: string, currentMode: string) => {
     const newMode = currentMode === 'FEEDBACK' ? 'REGISTRATION' : 'FEEDBACK';
-    const confirmed = window.confirm(`Are you sure you want to switch "${deviceName}" from ${currentMode} mode to ${newMode} mode?`);
-    
-    if (!confirmed) return;
 
     try {
-      await DeviceAPI.changeMode(deviceId, newMode as "REGISTRATION" | "FEEDBACK");
+      await showToastPromise(
+        DeviceAPI.changeMode(deviceId, newMode as "REGISTRATION" | "FEEDBACK"),
+        {
+          loading: `Switching "${deviceName}" to ${newMode} mode...`,
+          success: `Device "${deviceName}" has been successfully switched to ${newMode} mode.`,
+          error: `Failed to switch device "${deviceName}" to ${newMode} mode.`
+        }
+      );
       
       // Reload devices to reflect the change
       const allDevicesRes = await DeviceAPI.list();
@@ -135,15 +142,14 @@ export default function DevicesSection({
       
       setFeedbackDevices(feedbackDevs);
       setRegistrationDevices(registrationDevs);
-
-      toast.success(`Device "${deviceName}" has been successfully switched to ${newMode} mode.`);
       
       // Notify parent about device update
       if (onDeviceUpdate) {
         onDeviceUpdate();
       }
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to toggle device mode.");
+      // Don't call handleError here since showToastPromise already handled the error display
+      console.error('Toggle device mode error:', e);
     }
   };
 
