@@ -1,117 +1,90 @@
+"use client";
+
 import { useState } from "react";
-import type { DevicesListItem } from "../lib/api";
+import DeviceCard from "./DeviceCard";
+import EmptyState from "./EmptyState";
+import LoadingSkeleton from "./LoadingSkeleton";
 
 interface DeviceListProps {
-  devices: DevicesListItem[];
-  onModeChange?: (deviceId: string, newMode: string) => void;
+  title: string;
+  devices: any[];
+  loading: boolean;
+  selectedDeviceId?: string | null;
+  onSelect?: (deviceId: string) => void;
+  onUnpair?: (deviceId: string, deviceName: string) => void;
+  onToggleMode?: (deviceId: string, deviceName: string, currentMode: string) => void;
+  showSelectButton?: boolean;
+  collapsible?: boolean;
+  initiallyExpanded?: boolean;
+  emptyMessage?: string;
 }
 
-const DEVICE_MODES = [
-  { value: "FEEDBACK", label: "Feedback", color: "bg-green-100 text-green-800" },
-  { value: "REGISTRATION", label: "Registration", color: "bg-purple-100 text-purple-800" }
-];
-
-function getStatusColor(online: boolean, mode: string) {
-  if (!online) return "bg-red-100 text-red-800";
-  
-  // You can extend this logic based on whether device is busy/free
-  return "bg-green-100 text-green-800";
-}
-
-function formatLastSeen(updatedAt: string) {
-  const date = new Date(updatedAt);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / (1000 * 60));
-  
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
-}
-
-export default function DeviceList({ devices, onModeChange }: DeviceListProps) {
-  const [changingMode, setChangingMode] = useState<string | null>(null);
-
-  async function handleModeChange(deviceId: string, newMode: string) {
-    if (!onModeChange) return;
-    
-    try {
-      setChangingMode(deviceId);
-      await onModeChange(deviceId, newMode);
-    } catch (error) {
-      console.error("Failed to change mode:", error);
-    } finally {
-      setChangingMode(null);
-    }
-  }
+export default function DeviceList({
+  title,
+  devices,
+  loading,
+  selectedDeviceId,
+  onSelect,
+  onUnpair,
+  onToggleMode,
+  showSelectButton = false,
+  collapsible = false,
+  initiallyExpanded = true,
+  emptyMessage = "No devices available."
+}: DeviceListProps) {
+  const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
 
   return (
-    <div className="space-y-3">
-      {devices.map((device) => (
-        <div
-          key={device.deviceId}
-          className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="font-mono text-sm font-medium text-gray-900 truncate">
-                  {device.deviceId.split('-')[0]}...
-                </div>
-                <span
-                  className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(
-                    device.isOnline,
-                    device.mode
-                  )}`}
-                >
-                  {device.isOnline ? "Online" : "Offline"}
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs text-gray-500">Mode:</span>
-                {onModeChange ? (
-                  <select
-                    value={device.mode}
-                    onChange={(e) => handleModeChange(device.deviceId, e.target.value)}
-                    disabled={changingMode === device.deviceId || !device.isOnline}
-                    className="text-xs border border-gray-200 rounded px-2 py-1 bg-white disabled:opacity-50"
-                  >
-                    {DEVICE_MODES.map((mode) => (
-                      <option key={mode.value} value={mode.value}>
-                        {mode.label}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <span
-                    className={`inline-flex items-center rounded px-2 py-1 text-xs font-medium ${
-                      DEVICE_MODES.find(m => m.value === device.mode)?.color || "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {DEVICE_MODES.find(m => m.value === device.mode)?.label || device.mode}
-                  </span>
-                )}
-              </div>
-              
-              <div className="text-xs text-gray-500">
-                Last seen: {formatLastSeen(device.lastSeenAt)}
-              </div>
+    <div className="bg-white rounded-lg p-4 border border-gray-100">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-gray-700 flex items-center">
+          {title}
+          <span className="ml-2 px-2 py-1 bg-white text-gray-600 text-xs rounded-full">
+            {devices?.length || 0}
+          </span>
+        </h3>
+        {collapsible && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+            title={isExpanded ? `Hide ${title.toLowerCase()}` : `Show ${title.toLowerCase()}`}
+          >
+            <svg 
+              className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            {isExpanded ? 'Hide' : 'Show'}
+          </button>
+        )}
+      </div>
+      
+      {(!collapsible || isExpanded) && (
+        <>
+          {loading ? (
+            <LoadingSkeleton rows={2} />
+          ) : devices && devices.length > 0 ? (
+            <div className="space-y-3">
+              {devices.map((device: any) => (
+                <DeviceCard
+                  key={device.deviceId}
+                  device={device}
+                  isSelected={device.deviceId === selectedDeviceId}
+                  onSelect={onSelect}
+                  onUnpair={onUnpair}
+                  onToggleMode={onToggleMode}
+                  showSelectButton={showSelectButton}
+                />
+              ))}
             </div>
-            
-            {changingMode === device.deviceId && (
-              <div className="ml-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
+          ) : (
+            <EmptyState label={emptyMessage} />
+          )}
+        </>
+      )}
     </div>
   );
 }
