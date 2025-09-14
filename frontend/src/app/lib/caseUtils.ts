@@ -36,6 +36,11 @@ export function getFeedbackDisabledReason(caseItem: CaseItem, selectedDevice: De
 }
 
 export function isFeedbackDisabledForCase(caseItem: CaseItem, hasAvailableDevices: boolean): boolean {
-  // Don't disable pending feedback cases - they should show the yellow PENDING styling
-  return !hasAvailableDevices && !isCasePendingFeedback(caseItem);
+  // Disable if case is already pending feedback
+  if (isCasePendingFeedback(caseItem)) {
+    return true;
+  }
+  
+  // Disable if no available devices
+  return !hasAvailableDevices;
 }

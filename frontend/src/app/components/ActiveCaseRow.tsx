@@ -172,7 +172,7 @@ export default function ActiveCaseRow({
             disabled={feedbackDisabled}
             className={`rounded-md border px-3 py-1.5 text-sm ${
               feedbackDisabled 
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-300' 
                 : isPendingFeedback
                 ? 'border-yellow-500 bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
                 : 'border-[#003366] text-[#003366] hover:bg-[#003366] hover:text-white'
