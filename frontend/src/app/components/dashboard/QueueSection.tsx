@@ -1,3 +1,5 @@
+"use client";
+
 import CaseCard from "../CaseCard";
 import EmptyState from "../EmptyState";
 import LoadingSkeleton from "../LoadingSkeleton";
@@ -5,14 +7,19 @@ import LoadingSkeleton from "../LoadingSkeleton";
 interface QueueSectionProps {
   queued: any[] | null;
   loading: boolean;
-  take: (id: string) => void;
   takeNext: () => void;
+  take: (caseId: string) => void;
 }
 
-export default function QueueSection({ queued, loading, take, takeNext }: QueueSectionProps) {
+export default function QueueSection({ 
+  queued, 
+  loading, 
+  takeNext, 
+  take 
+}: QueueSectionProps) {
   return (
     <section className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
-      <div className="bg-blue-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+      <div className="px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Queue</h2>
@@ -22,7 +29,7 @@ export default function QueueSection({ queued, loading, take, takeNext }: QueueS
           </div>
           <button
             onClick={takeNext}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+            className="bg-[#ffd600] text-black px-4 py-2 rounded-md text-sm font-medium hover:bg-[#003366] hover:text-white transition-colors shadow-sm"
           >
             TAKE NEXT
           </button>
