@@ -178,6 +178,15 @@ export function bindRealtime(io: Server) {
     // 设备上线：刷新 lastSeenAt（吸收你 ws 版）
     await prisma.kioskDevice.update({ where: { id: deviceId }, data: { lastSeenAt: new Date() } });
 
+    // Real-time update: Notify dashboard that device is now online
+    // Uncomment below to enable real-time device online status updates
+    /*
+    DeviceGateway.notifyDashboard({
+      type: "device:online_status_changed",
+      payload: { deviceId, isOnline: true }
+    });
+    */
+
     // 发送一次 PING，设备可立即 PONG
     socket.emit("message", { type: "PING", payload: { now: new Date().toISOString() } } as ServerToDevice);
 
@@ -244,6 +253,15 @@ export function bindRealtime(io: Server) {
           io.emit("event", { type: "case:updated", payload: { id: caseId, status: "RESOLVED" } });
           io.emit("event", { type: "device:updated", payload: { id: deviceId, isBusy: false } });
         }
+        
+        // Real-time update: Always notify that the device went offline
+        // Uncomment below to enable real-time device offline status updates
+        /*
+        DeviceGateway.notifyDashboard({
+          type: "device:online_status_changed",
+          payload: { deviceId, isOnline: false }
+        });
+        */
       } catch (error) {
         console.error(`Error during disconnect cleanup for device ${deviceId}:`, error);
       }
@@ -281,6 +299,15 @@ export function bindRealtime(io: Server) {
                 where: { id: sid, deviceId, status: "CREATED" },
                 data: { status: "DELIVERED", deliveredAt: new Date() },
               });
+              
+              // Real-time update: Notify dashboard that device is actively being used for feedback
+              // Uncomment below to enable real-time feedback progress updates
+              /*
+              DeviceGateway.notifyDashboard({
+                type: "device:updated",
+                payload: { id: deviceId, isBusy: true, feedbackInProgress: true }
+              });
+              */
             }
             break;
           }

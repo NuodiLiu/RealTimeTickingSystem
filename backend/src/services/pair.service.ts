@@ -164,6 +164,20 @@ export class PairService {
       });
     }
 
+    // Real-time update: Notify dashboard about the new device pairing
+    // Uncomment below to enable real-time device pairing updates
+    /*
+    const { DeviceGateway } = await import('../websocket/deviceSocket');
+    DeviceGateway.notifyDashboard({
+      type: "device:paired",
+      payload: { 
+        deviceId: device.id, 
+        deviceName: device.name,
+        mode: device.mode 
+      }
+    });
+    */
+
     return {
       deviceId: device.id,
       deviceSecret,

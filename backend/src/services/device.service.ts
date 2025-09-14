@@ -293,6 +293,15 @@ export class DeviceService {
       // WS ignore error, not blocking api call
     }
 
+    // Real-time update: Notify dashboard about the mode change
+    // Uncomment below to enable real-time device mode change updates
+    /*
+    DeviceGateway.notifyDashboard({
+      type: "device:mode_changed",
+      payload: { deviceId, mode: newMode }
+    });
+    */
+
     return updated;
   }
 
@@ -330,6 +339,15 @@ export class DeviceService {
     } catch {
       // ignore
     };
+
+    // Real-time update: Notify dashboard about the unpair
+    // Uncomment below to enable real-time device unpair updates
+    /*
+    DeviceGateway.notifyDashboard({
+      type: "device:unpaired",
+      payload: { deviceId }
+    });
+    */
   }
 
   static async checkPairingStatus(deviceId: string): Promise<boolean> {

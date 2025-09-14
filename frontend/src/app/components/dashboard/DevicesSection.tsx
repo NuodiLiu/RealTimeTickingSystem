@@ -6,6 +6,8 @@ import QRGeneratorModal from "../QRGeneratorModal";
 import { DeviceAPI, FeedbackAPI, PairAPI } from "../../lib/api";
 import { toast } from 'react-hot-toast';
 import { showToastPromise, handleError } from "../../lib/toaster";
+// Real-time device updates hook - uncomment to enable
+// import useDevices from "../../hooks/useDevices";
 
 interface DevicesSectionProps {
   user: any;
@@ -26,10 +28,17 @@ export default function DevicesSection({
   onPairDevice,
   showHeader = true
 }: DevicesSectionProps) {
+  // Current implementation - devices state managed locally
   // Devices state - separate for feedback and registration
   const [feedbackDevices, setFeedbackDevices] = useState<any[]>([]);
   const [registrationDevices, setRegistrationDevices] = useState<any[]>([]);
   const [deviceLoading, setDeviceLoading] = useState(true);
+
+  /* 
+  // Real-time implementation - uncomment to enable WebSocket updates
+  // Replace the above state management with this:
+  // const { feedbackDevices, registrationDevices, loading: deviceLoading, reload: reloadDevices } = useDevices();
+  */
 
   useEffect(() => {
     const loadDevices = async () => {
@@ -79,7 +88,7 @@ export default function DevicesSection({
         }
       );
       
-      // Reload devices to reflect the change
+      // Current implementation: Reload devices to reflect the change
       const allDevicesRes = await DeviceAPI.list();
       const allDevices = allDevicesRes.items || [];
       
@@ -148,6 +157,12 @@ export default function DevicesSection({
       
       setFeedbackDevices(feedbackDevs);
       setRegistrationDevices(registrationDevs);
+      
+      /* 
+      // Real-time implementation: Much simpler - WebSocket handles updates automatically
+      // Replace the device reloading above with:
+      // reloadDevices(); // Only needed for structural changes like unpair
+      */
       
       // Notify parent about device update
       if (onDeviceUpdate) {
