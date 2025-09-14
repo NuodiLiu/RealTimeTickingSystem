@@ -12,6 +12,7 @@ interface ActiveCasesSectionProps {
   escalate: (id: string, department: string) => void;
   hasSelectedDevice: boolean;
   selectedDevice: any;
+  isSelectedDeviceOnline: boolean;
   isFeedbackDisabledForCase: (caseItem: any, hasSelectedDevice: boolean) => boolean;
   getFeedbackDisabledReason: (caseItem: any, selectedDevice: any) => string;
 }
@@ -24,6 +25,7 @@ export default function ActiveCasesSection({
   escalate, 
   hasSelectedDevice,
   selectedDevice,
+  isSelectedDeviceOnline,
   isFeedbackDisabledForCase,
   getFeedbackDisabledReason
 }: ActiveCasesSectionProps) {
@@ -50,7 +52,7 @@ export default function ActiveCasesSection({
                 onResolve={resolve}
                 onFeedback={sendFeedbackRequest}
                 onEscalate={escalate}
-                feedbackDisabled={isFeedbackDisabledForCase(c, hasSelectedDevice)}
+                feedbackDisabled={isFeedbackDisabledForCase(c, hasSelectedDevice && isSelectedDeviceOnline)}
                 feedbackDisabledReason={getFeedbackDisabledReason(c, selectedDevice)}
               />
             ))}

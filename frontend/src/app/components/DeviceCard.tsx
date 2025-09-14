@@ -26,8 +26,8 @@ export default function DeviceCard({
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isAvailable = showSelectButton ? isDeviceAvailableForFeedback(device) : true;
-  const canBeUsed = showSelectButton ? canUseDeviceForFeedback(device) : true;
-  const isClickable = showSelectButton && canBeUsed && onSelect;
+  const canBeSelected = showSelectButton ? (device && device.mode === 'FEEDBACK') : true;
+  const isClickable = showSelectButton && canBeSelected && onSelect;
   const deviceDisplayName = device.name || device.deviceLabel || "iPad Device";
 
   // Close dropdown when clicking outside
@@ -57,20 +57,21 @@ export default function DeviceCard({
     >
       <div 
         onClick={() => isClickable && onSelect(device.deviceId)}
-        className={`min-w-0 flex-1 ${isClickable ? 'cursor-pointer' : showSelectButton && !canBeUsed ? 'cursor-not-allowed opacity-60' : ''}`}
+        className={`min-w-0 flex-1 ${isClickable ? 'cursor-pointer' : showSelectButton && !canBeSelected ? 'cursor-not-allowed' : ''} ${!device.isOnline ? 'opacity-60' : ''}`}
       >
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-gray-900 truncate">
             {deviceDisplayName}
           </h3>
         </div>
-        <p className="text-sm text-zinc-500 mt-1">
-          Mode: <span className="font-medium">{device.mode}</span>
-        </p>
         <div className="flex items-center mt-2">
           <div
             className={`w-2 h-2 rounded-full mr-2 ${
-              device.isOnline ? "bg-green-500" : "bg-red-500"
+              !device.isOnline 
+                ? "bg-red-500" 
+                : device.status === 'BUSY' 
+                  ? "bg-yellow-500" 
+                  : "bg-green-500"
             }`}
           />
           {device.status && (

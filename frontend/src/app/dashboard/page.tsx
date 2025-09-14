@@ -58,7 +58,8 @@ export default function DashboardPage() {
   useEffect(() => {
     if (selectedDeviceId && feedbackDevices.length > 0) {
       const selectedDevice = feedbackDevices.find((d: any) => d.deviceId === selectedDeviceId);
-      if (!selectedDevice || !canUseDeviceForFeedback(selectedDevice)) {
+      // Only clear selection if device is completely missing or not in feedback mode
+      if (!selectedDevice || selectedDevice.mode !== 'FEEDBACK') {
         // Clear invalid selection
         setSelectedDeviceId(null);
         localStorage.removeItem('selected-feedback-device');
@@ -94,8 +95,9 @@ export default function DashboardPage() {
   // Get selected device info
   const selectedDevice = feedbackDevices.find(d => d.deviceId === selectedDeviceId);
 
-  // Check if feedback is available (has selected online device that supports feedback)
-  const hasSelectedDevice = selectedDevice && canUseDeviceForFeedback(selectedDevice);
+  // Check if feedback is available (has selected device that supports feedback)
+  const hasSelectedDevice = selectedDevice && selectedDevice.mode === 'FEEDBACK';
+  const isSelectedDeviceOnline = selectedDevice && selectedDevice.isOnline;
   const isSelectedDeviceBusy = selectedDevice && selectedDevice.status === 'BUSY';
 
   // Export to Excel functionality
@@ -135,6 +137,11 @@ export default function DashboardPage() {
     
     if (!hasSelectedDevice || !selectedDevice) {
       toast.error("Please select an available device for feedback first.");
+      return;
+    }
+    
+    if (!isSelectedDeviceOnline) {
+      toast.error("The selected device is currently offline. Please select an online device or wait for it to come back online.");
       return;
     }
     
@@ -240,6 +247,7 @@ export default function DashboardPage() {
             escalate={escalate}
             hasSelectedDevice={hasSelectedDevice}
             selectedDevice={selectedDevice}
+            isSelectedDeviceOnline={isSelectedDeviceOnline}
             isFeedbackDisabledForCase={isFeedbackDisabledForCase}
             getFeedbackDisabledReason={getFeedbackDisabledReason}
           />
