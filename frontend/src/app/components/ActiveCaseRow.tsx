@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { CaseItem } from "../lib/api";
 import { getCategoryName, getTruncatedStudentName } from "../lib/categoryUtils";
+import { isCasePendingFeedback } from "../lib/caseUtils";
 import TooltipStyles from "./TooltipStyles";
 import Tooltip from "./Tooltip";
 import ZIDWithCopy from "./ZIDWithCopy";
@@ -44,6 +45,9 @@ export default function ActiveCaseRow({
   const categoryId = item.category ?? "other";
   const categoryName = getCategoryName(categoryId);
   const zID = item.zID ?? "";
+  
+  // Check if case is pending feedback review
+  const isPendingFeedback = isCasePendingFeedback(item);
   
   // Only use startedAt if it exists, otherwise show "Just started"
   const startTime = item.startedAt;
@@ -166,10 +170,12 @@ export default function ActiveCaseRow({
             className={`rounded-md border px-3 py-1.5 text-sm ${
               feedbackDisabled 
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                : isPendingFeedback
+                ? 'border-yellow-500 bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
                 : 'border-[#003366] text-[#003366] hover:bg-[#003366] hover:text-white'
             } transition-colors`}
           >
-            FEEDBACK
+            {isPendingFeedback ? 'PENDING' : 'FEEDBACK'}
           </button>
         </Tooltip>
         
