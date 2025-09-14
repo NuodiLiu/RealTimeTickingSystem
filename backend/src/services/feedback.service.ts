@@ -91,7 +91,7 @@ export class FeedbackService {
     // 5) 通知portal/dashboard：设备现在忙碌
     DeviceGateway.notifyDashboard({
       type: "device:updated",
-      payload: { id: deviceId, isBusy: true }
+      payload: { id: deviceId, isBusy: true, isOnline: true }
     });
 
     // 6) 返回
@@ -171,6 +171,7 @@ export class FeedbackService {
       payload: { 
         id: deviceId, 
         isBusy: true,
+        isOnline: true,
         currentCaseId: caseId, // 新的case ID
         overriddenCaseId: currentLock.caseId // 被覆盖的原case ID
       }
@@ -284,7 +285,7 @@ export class FeedbackService {
     });
     DeviceGateway.notifyDashboard({
       type: "device:updated", 
-      payload: { id: session.deviceId, isBusy: false }
+      payload: { id: session.deviceId, isBusy: false, isOnline: true }
     });
 
     return {

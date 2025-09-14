@@ -6,8 +6,8 @@ import QRGeneratorModal from "../QRGeneratorModal";
 import { DeviceAPI, FeedbackAPI, PairAPI } from "../../lib/api";
 import { toast } from 'react-hot-toast';
 import { showToastPromise, handleError } from "../../lib/toaster";
-// Real-time device updates hook - uncomment to enable
-// import useDevices from "../../hooks/useDevices";
+// Real-time device updates hook - enabled for real-time updates
+import useDevices from "../../hooks/useDevices";
 
 interface DevicesSectionProps {
   user: any;
@@ -28,18 +28,20 @@ export default function DevicesSection({
   onPairDevice,
   showHeader = true
 }: DevicesSectionProps) {
+  // Real-time implementation - WebSocket updates enabled
+  const { feedbackDevices, registrationDevices, loading: deviceLoading, reload: reloadDevices } = useDevices();
+
+  /* 
+  // Legacy implementation - commented out in favor of real-time updates
   // Current implementation - devices state managed locally
   // Devices state - separate for feedback and registration
   const [feedbackDevices, setFeedbackDevices] = useState<any[]>([]);
   const [registrationDevices, setRegistrationDevices] = useState<any[]>([]);
   const [deviceLoading, setDeviceLoading] = useState(true);
-
-  /* 
-  // Real-time implementation - uncomment to enable WebSocket updates
-  // Replace the above state management with this:
-  // const { feedbackDevices, registrationDevices, loading: deviceLoading, reload: reloadDevices } = useDevices();
   */
 
+  /* 
+  // Legacy device loading - replaced by real-time hook
   useEffect(() => {
     const loadDevices = async () => {
       setDeviceLoading(true);
@@ -75,6 +77,7 @@ export default function DevicesSection({
     };
     loadDevices();
   }, []);
+  */
 
   // Unpair device function
   const handleUnpairDevice = async (deviceId: string, deviceName: string) => {
@@ -88,28 +91,11 @@ export default function DevicesSection({
         }
       );
       
-      // Current implementation: Reload devices to reflect the change
-      const allDevicesRes = await DeviceAPI.list();
-      const allDevices = allDevicesRes.items || [];
-      
-      const feedbackDevs = allDevices
-        .filter((device: any) => device.mode === 'FEEDBACK')
-        .sort((a: any, b: any) => {
-          const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
-          const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
-          return nameA.localeCompare(nameB);
-        });
-      
-      const registrationDevs = allDevices
-        .filter((device: any) => device.mode === 'REGISTRATION')
-        .sort((a: any, b: any) => {
-          const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
-          const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
-          return nameA.localeCompare(nameB);
-        });
-      
-      setFeedbackDevices(feedbackDevs);
-      setRegistrationDevices(registrationDevs);
+      // Real-time implementation: Device list will update automatically via WebSocket
+      // Optionally trigger a manual reload if needed
+      if (reloadDevices) {
+        reloadDevices();
+      }
       
       // Notify parent about device update
       if (onDeviceUpdate) {
@@ -136,6 +122,8 @@ export default function DevicesSection({
       );
       
       // Reload devices to reflect the change
+      /* 
+      // Legacy implementation: Manual device reloading - replaced by real-time updates
       const allDevicesRes = await DeviceAPI.list();
       const allDevices = allDevicesRes.items || [];
       
@@ -157,12 +145,12 @@ export default function DevicesSection({
       
       setFeedbackDevices(feedbackDevs);
       setRegistrationDevices(registrationDevs);
-      
-      /* 
-      // Real-time implementation: Much simpler - WebSocket handles updates automatically
-      // Replace the device reloading above with:
-      // reloadDevices(); // Only needed for structural changes like unpair
       */
+      
+      // Real-time implementation: Device mode changes update automatically via WebSocket
+      if (reloadDevices) {
+        reloadDevices(); // Manual reload for mode changes
+      }
       
       // Notify parent about device update
       if (onDeviceUpdate) {

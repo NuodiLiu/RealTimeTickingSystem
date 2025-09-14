@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma";
 import { BadRequestError, ConflictError, MissingFieldError, NotFoundError } from "../error";
+import { DeviceGateway } from "../websocket/deviceSocket";
 
 export class CasesService {
     static async getQueuedCases(statusQuery?: string) {
@@ -22,7 +23,23 @@ export class CasesService {
         if (!studentName || !category || !zID) {
             throw new MissingFieldError(["studentName", "category", "zID"]);
         }
-        return prisma.studentCase.create({ data: { studentName, category, zID } });
+        
+        const created = await prisma.studentCase.create({ data: { studentName, category, zID } });
+        
+        // Real-time notification: Notify dashboard that a new case was created
+        DeviceGateway.notifyDashboard({
+            type: "case:created",
+            payload: { 
+                id: created.id,
+                studentName: created.studentName,
+                category: created.category,
+                zID: created.zID,
+                status: created.status,
+                createdAt: created.createdAt
+            }
+        });
+        
+        return created;
     }
 
     static async takeCase(id: string, staffId: string) {
@@ -58,6 +75,17 @@ export class CasesService {
             id: taken.id, 
             status: taken.status, 
             startedAt: taken.startedAt 
+        });
+
+        // Real-time notification: Notify dashboard that case status changed
+        DeviceGateway.notifyDashboard({
+            type: "case:updated",
+            payload: { 
+                id: taken.id, 
+                status: taken.status,
+                staffId: taken.staffId,
+                startedAt: taken.startedAt
+            }
         });
 
         return taken;
@@ -100,6 +128,20 @@ export class CasesService {
                     status: taken?.status, 
                     startedAt: taken?.startedAt 
                 });
+
+                // Real-time notification: Notify dashboard that case status changed
+                if (taken) {
+                    DeviceGateway.notifyDashboard({
+                        type: "case:updated",
+                        payload: { 
+                            id: taken.id, 
+                            status: taken.status,
+                            staffId: taken.staffId,
+                            startedAt: taken.startedAt
+                        }
+                    });
+                }
+
                 return taken;
             }
 
@@ -124,8 +166,11 @@ export class CasesService {
                 throw new NotFoundError('Case not found');
             }
             
+            const wasPendingFeedback = existingCase.status === 'RESOLVED_PENDING_FEEDBACK';
+            let deviceId = null;
+            
             // 如果case处于RESOLVED_PENDING_FEEDBACK状态，需要特殊处理
-            if (existingCase.status === 'RESOLVED_PENDING_FEEDBACK') {
+            if (wasPendingFeedback) {
                 // 查找相关的活动反馈会话和设备锁
                 const activeFeedbackSession = await prisma.feedbackSession.findFirst({
                     where: {
@@ -139,9 +184,11 @@ export class CasesService {
                     }
                 });
                 
+                deviceId = activeFeedbackSession?.deviceId;
+                
                 if (activeFeedbackSession) {
                     // 在事务中处理所有更新
-                    return await prisma.$transaction(async (tx) => {
+                    const updatedCase = await prisma.$transaction(async (tx) => {
                         // 1. 更新case状态
                         const updatedCase = await tx.studentCase.update({
                             where: { id },
@@ -194,25 +241,63 @@ export class CasesService {
                         
                         return updatedCase;
                     });
+                    
+                    // Real-time notifications for RESOLVED_PENDING_FEEDBACK case
+                    if (deviceId) {
+                        // 通知iPad关闭反馈界面  
+                        DeviceGateway.publish(deviceId, {
+                            type: "DISMISS"
+                        });
+                        
+                        // 通知dashboard更新device状态
+                        DeviceGateway.notifyDashboard({
+                            type: "device:updated", 
+                            payload: { id: deviceId, isBusy: false, isOnline: true }
+                        });
+                    }
+                    
+                    // 通知dashboard更新case状态
+                    DeviceGateway.notifyDashboard({
+                        type: "case:updated",
+                        payload: { id: id, status: "RESOLVED", resolvedAt: updatedCase.resolvedAt }
+                    });
+                    
+                    return updatedCase;
                 } else {
                     // 没有活动反馈会话，直接更新case
-                    return await prisma.studentCase.update({
+                    const updatedCase = await prisma.studentCase.update({
                         where: { id },
                         data: { 
                             status: 'RESOLVED', 
                             resolvedAt: now 
                         },
                     });
+                    
+                    // Real-time notification: Notify dashboard that case was resolved
+                    DeviceGateway.notifyDashboard({
+                        type: "case:updated",
+                        payload: { id: id, status: "RESOLVED", resolvedAt: updatedCase.resolvedAt }
+                    });
+                    
+                    return updatedCase;
                 }
             } else {
                 // 非pending_feedback状态，正常处理
-                return await prisma.studentCase.update({
+                const updatedCase = await prisma.studentCase.update({
                     where: { id },
                     data: { 
                         status: 'RESOLVED', 
                         resolvedAt: now 
                     },
                 });
+                
+                // Real-time notification: Notify dashboard that case was resolved
+                DeviceGateway.notifyDashboard({
+                    type: "case:updated",
+                    payload: { id: id, status: "RESOLVED", resolvedAt: updatedCase.resolvedAt }
+                });
+                
+                return updatedCase;
             }
         } catch (err: any) {
             if (err?.code === 'P2025') throw new NotFoundError('Case not found');

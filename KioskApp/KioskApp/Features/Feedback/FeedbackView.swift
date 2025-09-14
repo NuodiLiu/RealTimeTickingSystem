@@ -113,6 +113,7 @@ struct FeedbackView: View {
                         // Close 按钮（如果有 onDismiss）
                         if onDismiss != nil {
                             Button {
+                                vm.cancel() // 发送取消消息到后端
                                 onDismiss?()
                             } label: {
                                 HStack(spacing: 8) {

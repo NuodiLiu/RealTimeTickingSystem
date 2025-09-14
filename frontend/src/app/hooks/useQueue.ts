@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CaseItem, CasesAPI } from "../lib/api";
 import { io, Socket } from "socket.io-client";
 import { showToastPromise, handleError } from "../lib/toaster";
+import { toast } from 'react-hot-toast';
 
 // Accept both the backend's raw array and the helper's {items: []}
 function normalizeCases(res: unknown): CaseItem[] {
@@ -88,7 +89,7 @@ export default function useQueue(userId?: string) {
     load();
 
     // Set up WebSocket connection for real-time updates
-    const socket: Socket = io(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001', {
+    const socket: Socket = io(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000', {
       path: '/ws',
       transports: ['websocket'],
       reconnection: true,
@@ -101,10 +102,58 @@ export default function useQueue(userId?: string) {
 
     socket.on('event', (event: { type: string; payload: any }) => {
       console.log('Real-time event received:', event);
-      // Reload data on any case or device update to keep the UI in sync
-      if (event.type.startsWith('case:') || event.type.startsWith('device:')) {
-        console.log(`Relevant event [${event.type}] received, reloading queue data...`);
-        load();
+      
+      switch (event.type) {
+        case 'case:created':
+          console.log('New case created, reloading queue...');
+          load();
+          break;
+          
+        case 'case:updated':
+          console.log('Case updated, reloading queue...');
+          load();
+          break;
+          
+        case 'case:feedback_ready':
+          console.log('Case feedback ready, reloading queue...');
+          load();
+          break;
+          
+        case 'device:updated':
+          console.log('📱 useQueue: Device status updated, reloading queue...', event.payload);
+          load();
+          break;
+          
+        case 'device:feedback_progress':
+          console.log('Feedback progress update, reloading queue...');
+          load();
+          break;
+          
+        case 'device:feedback_submitted':
+          console.log('Feedback submitted, reloading queue...');
+          load();
+          break;
+          
+        case 'device:paired':
+          console.log('New device paired successfully');
+          break;
+          
+        case 'device:unpaired':
+          console.log('Device unpaired');
+          break;
+          
+        case 'device:mode_changed':
+          // Device mode changed notification - silently handled
+          console.log(`Device mode changed to ${event.payload?.mode || 'new mode'}`);
+          break;
+          
+        default:
+          // For any other case or device related events, reload as fallback
+          if (event.type.startsWith('case:') || event.type.startsWith('device:')) {
+            console.log(`Other relevant event [${event.type}] received, reloading queue data...`);
+            load();
+          }
+          break;
       }
     });
 

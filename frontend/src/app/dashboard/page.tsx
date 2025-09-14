@@ -11,6 +11,7 @@ import ResponsiveLayout from "../components/layout/ResponsiveLayout";
 import QRGeneratorModal from "../components/QRGeneratorModal";
 import useAuth from "../hooks/useAuth";
 import useQueue from "../hooks/useQueue";
+import useDevices from "../hooks/useDevices";
 import { DeviceAPI, FeedbackAPI, HealthAPI } from "../lib/api";
 import { 
   isCasePendingFeedback,
@@ -24,9 +25,9 @@ import { showConfirmation, showToastPromise, handleError } from "../lib/toaster"
 export default function DashboardPage() {
   const { user, booting, logout } = useAuth();
   const { queued, myActive, loading, take, takeNext, resolve, escalate, reload } = useQueue(user?.id);
+  const { feedbackDevices, reload: reloadDevices } = useDevices();
 
-  // Devices state for feedback functionality
-  const [feedbackDevices, setFeedbackDevices] = useState<any[]>([]);
+  // Device selection state
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [pairModalOpen, setPairModalOpen] = useState<boolean>(false);
 
@@ -36,26 +37,6 @@ export default function DashboardPage() {
     if (savedDeviceId) {
       setSelectedDeviceId(savedDeviceId);
     }
-  }, []);
-
-  useEffect(() => {
-    const loadDevices = async () => {
-      try {
-        // Load all devices first
-        const allDevicesRes = await DeviceAPI.list();
-        const allDevices = allDevicesRes.items || [];
-        
-        // Filter devices by mode
-        const feedbackDevs = allDevices.filter((device: any) => 
-          device.mode === 'FEEDBACK'
-        );
-        
-        setFeedbackDevices(feedbackDevs);
-      } catch (e) {
-        console.error("Failed to load devices:", e);
-      }
-    };
-    loadDevices();
   }, []);
 
   // Separate effect to validate selected device when devices or selection changes
@@ -110,9 +91,9 @@ export default function DashboardPage() {
   const selectedDevice = feedbackDevices.find(d => d.deviceId === selectedDeviceId);
 
   // Check if feedback is available (has selected device that supports feedback)
-  const hasSelectedDevice = selectedDevice && selectedDevice.mode === 'FEEDBACK';
-  const isSelectedDeviceOnline = selectedDevice && selectedDevice.isOnline;
-  const isSelectedDeviceBusy = selectedDevice && selectedDevice.status === 'BUSY';
+  const hasSelectedDevice = Boolean(selectedDevice && selectedDevice.mode === 'FEEDBACK');
+  const isSelectedDeviceOnline = Boolean(selectedDevice && selectedDevice.isOnline);
+  const isSelectedDeviceBusy = Boolean(selectedDevice && selectedDevice.status === 'BUSY');
 
   // Export to Excel functionality
   const handleExportToExcel = async () => {
@@ -312,28 +293,7 @@ export default function DashboardPage() {
               user={user}
               selectedDeviceId={selectedDeviceId}
               onSelectDevice={handleSelectDevice}
-              onDeviceUpdate={() => {
-                // Reload devices when they are updated
-                const loadDevices = async () => {
-                  try {
-                    const allDevicesRes = await DeviceAPI.list();
-                    const allDevices = allDevicesRes.items || [];
-                    
-                    const feedbackDevs = allDevices
-                      .filter((device: any) => device.mode === 'FEEDBACK')
-                      .sort((a: any, b: any) => {
-                        const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
-                        const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
-                        return nameA.localeCompare(nameB);
-                      });
-                    
-                    setFeedbackDevices(feedbackDevs);
-                  } catch (e) {
-                    console.error("Failed to reload devices:", e);
-                  }
-                };
-                loadDevices();
-              }}
+              onDeviceUpdate={reloadDevices}
             />
           }
         />

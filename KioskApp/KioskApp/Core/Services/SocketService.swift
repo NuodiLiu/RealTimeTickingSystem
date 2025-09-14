@@ -273,6 +273,7 @@ final class SocketService {
 
     // 上行
     func sendDelivered(sessionId: String) { emit(type: "DELIVERED", payload: ["sessionId": sessionId]) }
+    func sendFeedbackCancelled(sessionId: String) { emit(type: "FEEDBACK_CANCELLED", payload: ["sessionId": sessionId]) }
     func sendLeaseTick() { emit(type: "LEASE") }
     func sendStatusPing() { emit(type: "STATUS") }
 

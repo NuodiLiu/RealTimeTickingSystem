@@ -1,8 +1,4 @@
 // Real-time device updates hook with WebSocket functionality
-// This implementation is commented out to not affect the current system
-// Uncomment the code below to enable real-time device status updates
-
-/*
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -58,7 +54,7 @@ export default function useDevices() {
     );
   }, []);
 
-  // Get devices filtered by mode
+  // Get devices filtered by mode with proper sorting
   const getDevicesByMode = useCallback((mode: 'FEEDBACK' | 'REGISTRATION') => {
     return devices
       .filter(device => device.mode === mode)
@@ -74,7 +70,7 @@ export default function useDevices() {
     loadDevices();
 
     // Set up WebSocket connection for real-time device updates
-    const socket: Socket = io(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001', {
+    const socket: Socket = io(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000', {
       path: '/ws',
       transports: ['websocket'],
       reconnection: true,
@@ -82,23 +78,35 @@ export default function useDevices() {
     });
 
     socket.on('connect', () => {
-      console.log('Device WebSocket connected');
+      console.log('🔌 useDevices: Device WebSocket connected');
     });
 
     socket.on('event', (event: { type: string; payload: any }) => {
-      console.log('Device event received:', event);
+      console.log('📱 useDevices: Device event received:', event);
       
       switch (event.type) {
         case 'device:updated':
           {
             const { id, isBusy, isOnline, currentLock } = event.payload;
             if (id) {
-              console.log(`Real-time device update: ${id} -> busy: ${isBusy}, online: ${isOnline}`);
-              updateDevice(id, {
-                status: isBusy ? 'BUSY' : 'IDLE',
-                isOnline: isOnline !== undefined ? isOnline : undefined,
-                currentLock: currentLock !== undefined ? currentLock : undefined,
-              });
+              console.log(`🔄 useDevices: Real-time device update: ${id} -> busy: ${isBusy}, online: ${isOnline}`);
+              
+              // Only include fields that are actually provided
+              const updates: Partial<Device> = {
+                status: isBusy ? 'BUSY' : 'IDLE'
+              };
+              
+              if (isOnline !== undefined) {
+                updates.isOnline = isOnline;
+              }
+              
+              if (currentLock !== undefined) {
+                updates.currentLock = currentLock;
+              }
+              
+              updateDevice(id, updates);
+            } else {
+              console.warn('⚠️ useDevices: Received device:updated event without id:', event);
             }
           }
           break;
@@ -175,19 +183,5 @@ export default function useDevices() {
     error,
     reload: loadDevices,
     updateDevice,
-  };
-}
-*/
-
-// Placeholder export to prevent TypeScript errors
-export default function useDevices() {
-  return {
-    devices: [],
-    feedbackDevices: [],
-    registrationDevices: [],
-    loading: false,
-    error: null,
-    reload: () => {},
-    updateDevice: () => {},
   };
 }

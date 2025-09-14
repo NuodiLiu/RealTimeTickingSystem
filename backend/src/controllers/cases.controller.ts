@@ -1,7 +1,5 @@
 import { BadRequestError } from '../error';
 import { CasesService } from '../services/cases.service';
-import { DeviceGateway } from '../websocket/deviceSocket';
-import { prisma } from '../lib/prisma';
 
 export class CasesController {
   static async getQueuedCases(req: any, res: any, next: any) {
@@ -60,52 +58,8 @@ export class CasesController {
     try {
       const caseId = req.params.id;
       
-      // 在resolve之前获取case信息，以便确定是否需要发送通知
-      const existingCase = await prisma.studentCase.findUnique({
-        where: { id: caseId },
-        select: { id: true, status: true }
-      });
-      
-      if (!existingCase) {
-        throw new BadRequestError('Case not found');
-      }
-      
-      const wasPendingFeedback = existingCase.status === 'RESOLVED_PENDING_FEEDBACK';
-      
-      // 如果case处于pending_feedback状态，获取相关的设备信息
-      let deviceId = null;
-      if (wasPendingFeedback) {
-        const activeFeedbackSession = await prisma.feedbackSession.findFirst({
-          where: {
-            caseId: caseId,
-            status: { in: ['CREATED', 'DELIVERED'] }
-          },
-          select: { deviceId: true }
-        });
-        deviceId = activeFeedbackSession?.deviceId;
-      }
-      
-      // 执行resolve操作
+      // 执行resolve操作（Service层会处理所有通知逻辑）
       const updated = await CasesService.resolveCase(caseId);
-      
-      // 如果case之前处于pending_feedback状态，发送WebSocket通知
-      if (wasPendingFeedback && deviceId) {
-        // 通知iPad关闭反馈界面
-        DeviceGateway.publish(deviceId, {
-          type: "DISMISS"
-        });
-        
-        // 通知dashboard更新case和device状态
-        DeviceGateway.notifyDashboard({
-          type: "case:updated",
-          payload: { id: caseId, status: "RESOLVED" }
-        });
-        
-        DeviceGateway.notifyDashboard({
-          type: "device:updated", 
-          payload: { id: deviceId, isBusy: false }
-        });
-      }
       
       res.status(200).json(updated);
     } catch (err) {

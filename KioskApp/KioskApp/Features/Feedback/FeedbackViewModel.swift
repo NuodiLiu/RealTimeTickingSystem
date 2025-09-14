@@ -81,4 +81,15 @@ final class FeedbackViewModel: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
+    
+    // MARK: - 取消
+    func cancel() {
+        guard let sessionId = pendingPayload?.sessionId else {
+            print("📱 FeedbackViewModel: No sessionId to cancel")
+            return
+        }
+        
+        print("📱 FeedbackViewModel: Sending FEEDBACK_CANCELLED for session \(sessionId)")
+        env.socketService.sendFeedbackCancelled(sessionId: sessionId)
+    }
 }

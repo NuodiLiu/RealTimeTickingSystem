@@ -80,13 +80,122 @@ async function handleFeedbackCancellation(deviceId: string, sessionId: string) {
       });
       DeviceGateway.notifyDashboard({
         type: "device:updated", 
-        payload: { id: deviceId, isBusy: false }
+        payload: { id: deviceId, isBusy: false, isOnline: true }
       });
     } else {
       console.log(`Session ${sessionId} is not in an active state (${session.status}), no action needed`);
     }
   } catch (error) {
     console.error(`Error handling feedback cancellation for session ${sessionId}:`, error);
+  }
+}
+
+// Handle feedback submission when user submits feedback on iPad
+async function handleFeedbackSubmission(deviceId: string, sessionId: string, rating?: number, comment?: string) {
+  try {
+    console.log(`Handling feedback submission for session ${sessionId} on device ${deviceId}`);
+    
+    const session = await prisma.feedbackSession.findUnique({
+      where: { id: sessionId },
+      select: { id: true, status: true, caseId: true, deviceId: true, staffId: true }
+    });
+    
+    if (!session) {
+      console.log(`Session ${sessionId} not found`);
+      return;
+    }
+    
+    if (session.deviceId !== deviceId) {
+      console.log(`Session ${sessionId} does not belong to device ${deviceId}`);
+      return;
+    }
+    
+    // Only process if session is still active
+    if (session.status === 'DELIVERED' || session.status === 'CREATED') {
+      await prisma.$transaction(async (tx) => {
+        // 1. Update session status to SUBMITTED
+        await tx.feedbackSession.update({
+          where: { id: sessionId },
+          data: { 
+            status: 'SUBMITTED',
+            submittedAt: new Date()
+          }
+        });
+        
+        // 2. Create the actual feedback record if rating is provided
+        if (rating !== undefined && rating !== null) {
+          await tx.feedback.create({
+            data: {
+              caseId: session.caseId,
+              staffId: session.staffId,
+              rating: rating,
+              comment: comment || null
+            }
+          });
+        }
+        
+        // 3. Resolve the case automatically (since feedback is submitted, no review needed)
+        await tx.studentCase.update({
+          where: { id: session.caseId },
+          data: { 
+            status: 'RESOLVED',
+            resolvedAt: new Date()
+          }
+        });
+        
+        // 4. Find and complete any associated lock
+        const associatedLock = await tx.kioskLock.findFirst({
+          where: {
+            deviceId: deviceId,
+            caseId: session.caseId,
+            status: 'ACTIVE'
+          }
+        });
+        
+        if (associatedLock) {
+          // Complete the lock
+          await tx.kioskLock.update({
+            where: { id: associatedLock.id },
+            data: { 
+              status: 'COMPLETED',
+              releasedAt: new Date(),
+              version: { increment: 1 }
+            }
+          });
+          
+          // Release the device
+          await tx.kioskDevice.update({
+            where: { id: deviceId },
+            data: { currentLockId: null }
+          });
+        }
+      });
+      
+      console.log(`Successfully processed feedback submission and resolved case ${session.caseId}`);
+      
+      // Notify dashboard that case is resolved
+      DeviceGateway.notifyDashboard({
+        type: "case:updated",
+        payload: { 
+          id: session.caseId, 
+          status: "RESOLVED"
+        }
+      });
+      
+      // Notify dashboard that device is now free
+      DeviceGateway.notifyDashboard({
+        type: "device:updated",
+        payload: { 
+          id: deviceId, 
+          isBusy: false,
+          isOnline: true
+        }
+      });
+    } else {
+      console.log(`Session ${sessionId} is not in an active state (${session.status}), cannot submit feedback`);
+    }
+  } catch (error) {
+    console.error(`Error handling feedback submission for session ${sessionId}:`, error);
   }
 }
 
@@ -179,13 +288,10 @@ export function bindRealtime(io: Server) {
     await prisma.kioskDevice.update({ where: { id: deviceId }, data: { lastSeenAt: new Date() } });
 
     // Real-time update: Notify dashboard that device is now online
-    // Uncomment below to enable real-time device online status updates
-    /*
     DeviceGateway.notifyDashboard({
       type: "device:online_status_changed",
       payload: { deviceId, isOnline: true }
     });
-    */
 
     // 发送一次 PING，设备可立即 PONG
     socket.emit("message", { type: "PING", payload: { now: new Date().toISOString() } } as ServerToDevice);
@@ -255,13 +361,10 @@ export function bindRealtime(io: Server) {
         }
         
         // Real-time update: Always notify that the device went offline
-        // Uncomment below to enable real-time device offline status updates
-        /*
         DeviceGateway.notifyDashboard({
           type: "device:online_status_changed",
           payload: { deviceId, isOnline: false }
         });
-        */
       } catch (error) {
         console.error(`Error during disconnect cleanup for device ${deviceId}:`, error);
       }
@@ -301,13 +404,15 @@ export function bindRealtime(io: Server) {
               });
               
               // Real-time update: Notify dashboard that device is actively being used for feedback
-              // Uncomment below to enable real-time feedback progress updates
-              /*
               DeviceGateway.notifyDashboard({
-                type: "device:updated",
-                payload: { id: deviceId, isBusy: true, feedbackInProgress: true }
+                type: "device:feedback_progress",
+                payload: { 
+                  deviceId, 
+                  status: "in_progress",
+                  feedbackInProgress: true,
+                  sessionId: sid
+                }
               });
-              */
             }
             break;
           }
@@ -319,6 +424,13 @@ export function bindRealtime(io: Server) {
             const sessionId = msg?.payload?.sessionId;
             if (typeof sessionId === "string" && sessionId) {
               await handleFeedbackCancellation(deviceId, sessionId);
+            }
+            break;
+          }
+          case "FEEDBACK_SUBMITTED": {
+            const { sessionId, rating, comment } = msg?.payload || {};
+            if (typeof sessionId === "string" && sessionId) {
+              await handleFeedbackSubmission(deviceId, sessionId, rating, comment);
             }
             break;
           }
