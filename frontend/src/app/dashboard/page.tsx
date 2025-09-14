@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import QRCode from "qrcode";
 import Header from "../components/Header";
 import CaseCard from "../components/CaseCard";
@@ -57,17 +57,6 @@ export default function DashboardPage() {
         
         setFeedbackDevices(feedbackDevs);
         setRegistrationDevices(registrationDevs);
-        
-        // If we have a saved selected device, verify it still exists and can be used for feedback
-        if (selectedDeviceId) {
-          const selectedDevice = feedbackDevs.find((d: any) => d.deviceId === selectedDeviceId);
-          if (!selectedDevice || !canUseDeviceForFeedback(selectedDevice)) {
-            // Clear invalid selection
-            setSelectedDeviceId(null);
-            localStorage.removeItem('selected-feedback-device');
-            console.log('Cleared invalid device selection:', selectedDeviceId);
-          }
-        }
       } catch (e) {
         console.error("Failed to load devices:", e);
       } finally {
@@ -75,7 +64,20 @@ export default function DashboardPage() {
       }
     };
     loadDevices();
-  }, [selectedDeviceId]);
+  }, []); // Remove selectedDeviceId dependency
+
+  // Separate effect to validate selected device when devices or selection changes
+  useEffect(() => {
+    if (selectedDeviceId && feedbackDevices.length > 0) {
+      const selectedDevice = feedbackDevices.find((d: any) => d.deviceId === selectedDeviceId);
+      if (!selectedDevice || !canUseDeviceForFeedback(selectedDevice)) {
+        // Clear invalid selection
+        setSelectedDeviceId(null);
+        localStorage.removeItem('selected-feedback-device');
+        console.log('Cleared invalid device selection:', selectedDeviceId);
+      }
+    }
+  }, [selectedDeviceId, feedbackDevices]);
 
   // Health ping
   const [online, setOnline] = useState<boolean>(true);
@@ -290,15 +292,34 @@ export default function DashboardPage() {
     onToggleMode?: (deviceId: string, deviceName: string, currentMode: string) => void;
     showSelectButton?: boolean;
   }) => {
+    const [showDropdown, setShowDropdown] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
     const isAvailable = showSelectButton ? isDeviceAvailableForFeedback(device) : true;
     const canBeUsed = showSelectButton ? canUseDeviceForFeedback(device) : true;
     const isClickable = showSelectButton && canBeUsed && onSelect;
     const deviceDisplayName = device.name || device.deviceLabel || "iPad Device";
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+          setShowDropdown(false);
+        }
+      };
+
+      if (showDropdown) {
+        document.addEventListener('mousedown', handleClickOutside);
+      }
+
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [showDropdown]);
     
     return (
       <div
         className={`
-          flex justify-between p-4 border rounded-md shadow-sm transition-all
+          flex justify-between p-4 border rounded-md shadow-sm transition-all duration-200 ease-in-out
           ${isSelected ? 'border-[#ffd600] bg-white' : 'border-gray-200 bg-white'}
           ${isSelected ? 'ring-2 ring-[#ffd600]/30' : ''}
         `}
@@ -341,35 +362,51 @@ export default function DashboardPage() {
           )}
         </div>
         
-        {/* Action buttons */}
-        <div className="flex-shrink-0 ml-3 flex flex-col gap-2">
-          {/* Unpair button */}
+        {/* Action dropdown */}
+        <div className="flex-shrink-0 ml-3 relative" ref={dropdownRef}>
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (onUnpair) {
-                onUnpair(device.deviceId, deviceDisplayName);
-              }
+              setShowDropdown(!showDropdown);
             }}
-            className="px-2 py-1 text-xs text-black border border-[#ffd600] rounded hover:bg-[#ffd600] hover:text-black transition-colors"
-            title="Unpair this device"
+            className="p-2 rounded-md hover:bg-gray-100 transition-colors"
+            title="Device actions"
           >
-            Unpair
+            <svg className="w-4 h-4 text-gray-500 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+            </svg>
           </button>
-          
-          {/* Switch Mode button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onToggleMode) {
-                onToggleMode(device.deviceId, deviceDisplayName, device.mode);
-              }
-            }}
-            className="px-2 py-1 text-xs text-black border border-[#ffd600] rounded hover:bg-[#ffd600] hover:text-black transition-colors"
-            title={`Switch to ${device.mode === 'FEEDBACK' ? 'REGISTRATION' : 'FEEDBACK'} mode`}
-          >
-            Switch Mode
-          </button>
+
+          {showDropdown && (
+            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-md shadow-lg z-10 w-max">
+              <div className="py-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDropdown(false);
+                    if (onUnpair) {
+                      onUnpair(device.deviceId, deviceDisplayName);
+                    }
+                  }}
+                  className="block w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
+                >
+                  Unpair Device
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDropdown(false);
+                    if (onToggleMode) {
+                      onToggleMode(device.deviceId, deviceDisplayName, device.mode);
+                    }
+                  }}
+                  className="block w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
+                >
+                  Switch to {device.mode === 'FEEDBACK' ? 'Registration' : 'Feedback'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -510,7 +547,7 @@ export default function DashboardPage() {
                     }}
                     className="bg-[#ffd600] text-black px-3 py-2 rounded-md text-sm font-medium hover:bg-[#003366] hover:text-white transition-colors shadow-sm"
                   >
-                    Generate QR
+                    Pair Device
                   </button>
                   {user?.role === 'ADMIN' && (
                     <button
@@ -614,46 +651,76 @@ export default function DashboardPage() {
       {pairOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={closePairModal} />
-          <div className="relative z-10 w-full max-w-lg rounded-xl bg-white shadow-2xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-base font-semibold">Pair iPad</h3>
+          <div className="relative z-10 w-full max-w-lg rounded-xl bg-white shadow-2xl p-6">
+            <div className="flex justify-end mb-4">
               <button
-                className="rounded-md border px-2 py-1 text-sm hover:bg-zinc-50"
+                className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50"
                 onClick={closePairModal}
               >
                 Close
               </button>
             </div>
 
-            <div className="space-y-3">
-              <p className="text-sm text-zinc-600">
-                Generate a pairing QR that the iPad will scan to complete pairing.
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-600 text-center">
+                Scan this code on the iPad to pair
               </p>
-              <div className="flex items-center gap-2">
-                <button
-                  disabled={pairGenerating}
-                  onClick={() => handleGenerateQR("REGISTRATION")}
-                  className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-50 disabled:opacity-50"
-                >
-                  {pairGenerating ? "Generating…" : "Generate QR"}
-                </button>
-              </div>
 
-              {pairError && <p className="text-sm text-[#D03E16]">{pairError}</p>}
-
-              {pairQrDataUrl && (
-                <div className="mt-3 flex items-center justify-center">
-                  <img
-                    src={pairQrDataUrl}
-                    alt="Pairing QR"
-                    className="max-h-64 rounded-lg border p-2 bg-white"
-                  />
-                </div>
+              {pairError && (
+                <p className="text-sm text-[#D03E16] text-center">{pairError}</p>
               )}
 
-              {!pairQrDataUrl && !pairGenerating && (
-                <div className="mt-2 rounded-md border p-3 text-sm text-zinc-500">
-                  Press "Generate QR" to create a one-time pairing code. It expires in ~5 minutes.
+              {pairQrDataUrl ? (
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="relative">
+                    <img
+                      src={pairQrDataUrl}
+                      alt="Pairing QR"
+                      className="max-h-64 rounded-lg border p-2 bg-white"
+                    />
+                  </div>
+                  
+                  {/* Refresh button centered below QR */}
+                  <button
+                    disabled={pairGenerating}
+                    onClick={() => handleGenerateQR("REGISTRATION")}
+                    className="p-2 rounded-full hover:bg-zinc-100 disabled:opacity-50 transition-colors"
+                    title="Generate new QR code"
+                  >
+                    {pairGenerating ? (
+                      <svg className="w-5 h-5 animate-spin text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="w-64 h-64 border-2 border-dashed border-zinc-300 rounded-lg flex items-center justify-center">
+                    <button
+                      disabled={pairGenerating}
+                      onClick={() => handleGenerateQR("REGISTRATION")}
+                      className="p-4 rounded-full hover:bg-zinc-100 disabled:opacity-50 transition-colors"
+                      title="Generate QR code"
+                    >
+                      {pairGenerating ? (
+                        <svg className="w-8 h-8 animate-spin text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      ) : (
+                        <svg className="w-8 h-8 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-zinc-500 text-center">
+                    Click the refresh icon to generate a pairing code
+                  </p>
                 </div>
               )}
             </div>
