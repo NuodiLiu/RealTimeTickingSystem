@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DeviceCard from "./DeviceCard";
 import EmptyState from "./EmptyState";
 import LoadingSkeleton from "./LoadingSkeleton";
@@ -34,7 +34,28 @@ export default function DeviceList({
   initiallyExpanded = true,
   emptyMessage = "No devices available."
 }: DeviceListProps) {
-  const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
+  // Create a unique localStorage key based on the title
+  const storageKey = `deviceList_${title.toLowerCase().replace(/\s+/g, '_')}_expanded`;
+  
+  // Initialize state from localStorage if available, otherwise use initiallyExpanded
+  const [isExpanded, setIsExpanded] = useState(() => {
+    if (typeof window !== 'undefined' && collapsible) {
+      const saved = localStorage.getItem(storageKey);
+      return saved !== null ? JSON.parse(saved) : initiallyExpanded;
+    }
+    return initiallyExpanded;
+  });
+
+  // Save to localStorage whenever isExpanded changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && collapsible) {
+      localStorage.setItem(storageKey, JSON.stringify(isExpanded));
+    }
+  }, [isExpanded, storageKey, collapsible]);
+
+  const handleToggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+  };
 
   return (
     <div className="bg-white rounded-lg p-4 border border-gray-100">
@@ -47,7 +68,7 @@ export default function DeviceList({
         </h3>
         {collapsible && (
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={handleToggleExpanded}
             className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
             title={isExpanded ? `Hide ${title.toLowerCase()}` : `Show ${title.toLowerCase()}`}
           >
