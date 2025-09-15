@@ -195,6 +195,18 @@ router.post("/logout", (req, res) => {
   res.json({ ok: true });
 });
 
+// POST /auth/refresh -> 刷新会话（对于 cookie-session 来说，这主要是检查会话有效性）
+router.post("/refresh", (req, res) => {
+  // 对于 cookie-session，我们主要是检查当前会话是否有效
+  const user = (req.session as any)?.user;
+  if (!user) {
+    return res.status(401).json({ error: "No valid session" });
+  }
+  
+  // 会话有效，返回成功
+  res.json({ ok: true });
+});
+
 // GET /auth/me -> 返回当前用户（SSO claims）
 router.get("/me", (req, res) => {
   res.json({ user: (req.session as any).user ?? null });

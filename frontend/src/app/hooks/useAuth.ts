@@ -74,6 +74,8 @@ export default function useAuth() {
       console.error('Logout error:', e);
     } finally {
       setUser(null);
+      // Immediately redirect to login page to prevent any lingering API calls
+      window.location.href = '/login';
     }
   }
 
