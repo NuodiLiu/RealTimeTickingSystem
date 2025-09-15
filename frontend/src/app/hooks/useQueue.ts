@@ -85,6 +85,11 @@ export default function useQueue(userId?: string) {
   }, []);
 
   useEffect(() => {
+    // Don't set up connections or timers if no user
+    if (!userId) {
+      return;
+    }
+
     // Initial load
     load();
 

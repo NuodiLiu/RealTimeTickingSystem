@@ -293,7 +293,7 @@ export const AuthAPI = {
   // POST /auth/refresh
   refresh: () => post<undefined>("/auth/refresh"),
   // POST /auth/logout
-  logout: () => post<undefined>("/auth/logout"),
+  logout: () => baseFetch<undefined>("/auth/logout", { method: "POST", skipRefreshRetry: true }),
 };
 
 export const CasesAPI = {
