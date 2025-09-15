@@ -353,4 +353,46 @@ export class DeviceService {
     // Device is paired if it exists and hasn't been deleted/unpaired
     return !!(device && !device.deletedAt);
   }
+
+  // update device name
+  static async updateDeviceName(deviceId: string, newName: string) {
+    if (!newName || newName.trim().length === 0) {
+      throw new Error('Device name cannot be empty');
+    }
+
+    const device = await prisma.kioskDevice.findUnique({
+      where: { id: deviceId },
+    });
+
+    if (!device || device.deletedAt) {
+      throw new NotFoundError('Device not found');
+    }
+
+    const updatedDevice = await prisma.kioskDevice.update({
+      where: { id: deviceId },
+      data: { name: newName.trim() },
+      select: {
+        id: true,
+        name: true,
+        mode: true,
+        lastSeenAt: true,
+      },
+    });
+
+    // Notify dashboard clients about the device name change
+    DeviceGateway.notifyDashboard({
+      type: 'DEVICE_NAME_UPDATED',
+      payload: {
+        deviceId: updatedDevice.id,
+        name: updatedDevice.name,
+        mode: updatedDevice.mode,
+        lastSeenAt: updatedDevice.lastSeenAt,
+      },
+    });
+
+    return {
+      success: true,
+      device: updatedDevice,
+    };
+  }
 }

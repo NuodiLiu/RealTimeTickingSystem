@@ -122,6 +122,17 @@ export interface PairGenerateQrRes {
 export interface UnpairDeviceReq { deviceId: string; }
 export interface UnpairDeviceRes { ok: boolean; message: string; }
 
+export interface UpdateDeviceNameReq { name: string; }
+export interface UpdateDeviceNameRes { 
+  success: boolean; 
+  device: {
+    id: string;
+    name: string;
+    mode: "REGISTRATION" | "FEEDBACK";
+    lastSeenAt: string;
+  };
+}
+
 export interface HealthPing {
   status: 'ok' | 'error';
   version?: string;
@@ -129,10 +140,31 @@ export interface HealthPing {
 }
 
 export interface HealthRes {
-  status: "ok" | "error";
+  status: string;
   timestamp: string;
   connectedDevices: number;
   onlineDeviceIds: string[];
+}
+
+// Excel Export Types
+export interface ExcelFilterParams {
+  startDate?: string;
+  endDate?: string;
+  hasFeedback?: 'yes' | 'no' | 'both'; // New filter for feedback presence
+  resolvedOnly?: boolean; // Filter for resolved cases only
+}
+
+export interface ExcelPreviewResponse {
+  totalCases: number;
+  dateRange: {
+    earliest: number | null;
+    latest: number | null;
+  };
+  statusBreakdown: Record<string, number>;
+  categoryBreakdown: Record<string, number>;
+  staffBreakdown: Record<string, number>;
+  filters: ExcelFilterParams;
+  estimatedFileSize: string;
 }
 
 // Generic API Error shape your backend sends like { error: string }
@@ -241,7 +273,72 @@ export const CasesAPI = {
   createFromDevice: (payload: any) => post<{ case: CaseItem }>("/cases", payload),
   // export to excel
   exportCases: () => get<any[]>('/cases/export-cases'),
+};
 
+// Excel Export API
+export const ExcelAPI = {
+  // GET /excel/preview - Get export preview and statistics
+  getPreview: (filters?: ExcelFilterParams) => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.hasFeedback && filters.hasFeedback !== 'both') {
+      params.append('hasFeedback', filters.hasFeedback);
+    }
+    if (filters?.resolvedOnly) {
+      params.append('status', 'RESOLVED');
+    }
+    
+    const queryString = params.toString();
+    return get<ExcelPreviewResponse>(`/excel/preview${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  // GET /excel/cases/json - Export as JSON (compatibility)
+  exportAsJson: (filters?: ExcelFilterParams) => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.hasFeedback && filters.hasFeedback !== 'both') {
+      params.append('hasFeedback', filters.hasFeedback);
+    }
+    if (filters?.resolvedOnly) {
+      params.append('status', 'RESOLVED');
+    }
+    
+    const queryString = params.toString();
+    return get<any[]>(`/excel/cases/json${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  // GET /excel/cases/xlsx - Export as Excel file
+  exportAsExcel: async (filters?: ExcelFilterParams): Promise<Blob> => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.hasFeedback && filters.hasFeedback !== 'both') {
+      params.append('hasFeedback', filters.hasFeedback);
+    }
+    if (filters?.resolvedOnly) {
+      params.append('status', 'RESOLVED');
+    }
+    
+    const queryString = params.toString();
+    const url = join(API_BASE, `/excel/cases/xlsx${queryString ? `?${queryString}` : ''}`);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Export failed: ${response.status} ${errorText}`);
+    }
+    
+    return response.blob();
+  }
 };
 
 export const DeviceAPI = {
@@ -267,6 +364,9 @@ export const DeviceAPI = {
   // PATCH /device/:id/mode (change device mode)
   changeMode: (deviceId: string, mode: "REGISTRATION" | "FEEDBACK") => 
     patch<{ id: string; name: string; mode: string; lastSeenAt: string }>(`/device/${encodeURIComponent(deviceId)}/mode`, { mode }),
+  // PATCH /device/:id/name (update device name)
+  updateName: (deviceId: string, name: string) => 
+    patch<UpdateDeviceNameRes>(`/device/${encodeURIComponent(deviceId)}/name`, { name }),
   // DELETE /device/:id (unpair device)
   unpair: (deviceId: string) => del<undefined>(`/device/${encodeURIComponent(deviceId)}`),
 };

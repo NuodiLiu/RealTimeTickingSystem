@@ -13,6 +13,7 @@ interface DeviceListProps {
   onSelect?: (deviceId: string) => void;
   onUnpair?: (deviceId: string, deviceName: string) => void;
   onToggleMode?: (deviceId: string, deviceName: string, currentMode: string) => void;
+  onUpdateName?: (deviceId: string, newName: string) => void;
   showSelectButton?: boolean;
   collapsible?: boolean;
   initiallyExpanded?: boolean;
@@ -27,6 +28,7 @@ export default function DeviceList({
   onSelect,
   onUnpair,
   onToggleMode,
+  onUpdateName,
   showSelectButton = false,
   collapsible = false,
   initiallyExpanded = true,
@@ -76,6 +78,7 @@ export default function DeviceList({
                   onSelect={onSelect}
                   onUnpair={onUnpair}
                   onToggleMode={onToggleMode}
+                  onUpdateName={onUpdateName}
                   showSelectButton={showSelectButton}
                 />
               ))}

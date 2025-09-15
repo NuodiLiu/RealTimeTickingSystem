@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { BadRequestError } from "../error";
 import { DeviceService } from "../services/device.service";
 import { DeviceMode, ListFilters } from '../lib/utils/type';
+// Import auth types to ensure Request interface extension is available
+import '../middlewares/auth.middleware';
 
 export class DeviceController {
     static async handleHeartbeat(req: Request, res: Response, next: NextFunction) {
@@ -122,6 +124,21 @@ export class DeviceController {
       
       const isPaired = await DeviceService.checkPairingStatus(id);
       res.status(200).json({ isPaired });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async updateDeviceName(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const { name } = req.body as { name?: string };
+      
+      if (!id) throw new BadRequestError('Device ID required');
+      if (!name) throw new BadRequestError('Device name required');
+      
+      const result = await DeviceService.updateDeviceName(id, name);
+      res.status(200).json(result);
     } catch (err) {
       next(err);
     }

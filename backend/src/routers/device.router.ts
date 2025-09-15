@@ -19,6 +19,7 @@ router.get("/online/:mode", requireAuth, requireStaff, DeviceController.getOnlin
 router.post("/ws-token", requireDevice, DeviceController.issueWsToken);
 
 router.patch("/:id/mode", requireAuth, requireStaff, DeviceController.changeMode);
+router.patch("/:id/name", requireAuth, requireStaff, DeviceController.updateDeviceName);
 router.delete("/:id", requireAuth, requireStaff, DeviceController.unpairDevice);
 
 // DEV ONLY: Unpair without auth for testing

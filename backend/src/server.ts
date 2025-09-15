@@ -10,12 +10,13 @@ import cookieSession from "cookie-session";
 import authRouter from "./routers/auth.router";
 import casesRouter from "./routers/cases.router";
 import pairRouter from "./routers/pair.router";
+import deviceRouter from "./routers/device.router";
+import feedbackRouter from "./routers/feedback.router";
+import excelRouter from "./routers/excel.router";
 import { errorHandler } from "./middlewares/error.middleware";
 
 import { DeviceGateway } from "./websocket/deviceSocket";
 import { bindRealtime } from "./websocket";
-import deviceRouter from "./routers/device.router";
-import feedbackRouter from "./routers/feedback.router";
 
 dotenv.config();
 
@@ -52,6 +53,7 @@ app.use("/cases", casesRouter);
 app.use("/pair", pairRouter);
 app.use("/device", deviceRouter);
 app.use("/feedback", feedbackRouter);
+app.use("/excel", excelRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);

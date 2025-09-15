@@ -121,32 +121,6 @@ export default function DevicesSection({
         }
       );
       
-      // Reload devices to reflect the change
-      /* 
-      // Legacy implementation: Manual device reloading - replaced by real-time updates
-      const allDevicesRes = await DeviceAPI.list();
-      const allDevices = allDevicesRes.items || [];
-      
-      const feedbackDevs = allDevices
-        .filter((device: any) => device.mode === 'FEEDBACK')
-        .sort((a: any, b: any) => {
-          const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
-          const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
-          return nameA.localeCompare(nameB);
-        });
-      
-      const registrationDevs = allDevices
-        .filter((device: any) => device.mode === 'REGISTRATION')
-        .sort((a: any, b: any) => {
-          const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
-          const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
-          return nameA.localeCompare(nameB);
-        });
-      
-      setFeedbackDevices(feedbackDevs);
-      setRegistrationDevices(registrationDevs);
-      */
-      
       // Real-time implementation: Device mode changes update automatically via WebSocket
       if (reloadDevices) {
         reloadDevices(); // Manual reload for mode changes
@@ -159,6 +133,25 @@ export default function DevicesSection({
     } catch (e: any) {
       // Don't call handleError here since showToastPromise already handled the error display
       console.error('Toggle device mode error:', e);
+    }
+  };
+
+  // Update device name function
+  const handleUpdateDeviceName = async (deviceId: string, newName: string) => {
+    try {
+      await DeviceAPI.updateName(deviceId, newName);
+      
+      // Real-time implementation: Device name changes update automatically via WebSocket
+      if (reloadDevices) {
+        reloadDevices(); // Manual reload for name changes
+      }
+      
+      // Notify parent about device update
+      if (onDeviceUpdate) {
+        onDeviceUpdate();
+      }
+    } catch (e: any) {
+      console.error('Update device name error:', e);
     }
   };
 
@@ -210,6 +203,7 @@ export default function DevicesSection({
             onSelect={onSelectDevice}
             onUnpair={handleUnpairDevice}
             onToggleMode={handleToggleDeviceMode}
+            onUpdateName={handleUpdateDeviceName}
             showSelectButton={true}
             emptyMessage="No feedback devices available."
           />
@@ -221,6 +215,7 @@ export default function DevicesSection({
             loading={deviceLoading}
             onUnpair={handleUnpairDevice}
             onToggleMode={handleToggleDeviceMode}
+            onUpdateName={handleUpdateDeviceName}
             showSelectButton={false}
             collapsible={true}
             initiallyExpanded={true}

@@ -9,10 +9,11 @@ import QueueSection from "../components/dashboard/QueueSection";
 import ActiveCasesSection from "../components/dashboard/ActiveCasesSection";
 import ResponsiveLayout from "../components/layout/ResponsiveLayout";
 import QRGeneratorModal from "../components/QRGeneratorModal";
+import ExcelExportModal from "../components/ExcelExportModal";
 import useAuth from "../hooks/useAuth";
 import useQueue from "../hooks/useQueue";
 import useDevices from "../hooks/useDevices";
-import { DeviceAPI, FeedbackAPI, HealthAPI } from "../lib/api";
+import { DeviceAPI, FeedbackAPI, HealthAPI, ExcelAPI } from "../lib/api";
 import { 
   isCasePendingFeedback,
   canUseDeviceForFeedback,
@@ -30,6 +31,7 @@ export default function DashboardPage() {
   // Device selection state
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [pairModalOpen, setPairModalOpen] = useState<boolean>(false);
+  const [excelModalOpen, setExcelModalOpen] = useState<boolean>(false);
 
   // Load selected device from localStorage on mount
   useEffect(() => {
@@ -97,34 +99,12 @@ export default function DashboardPage() {
 
   // Export to Excel functionality
   const handleExportToExcel = async () => {
-    try {
-      if (user?.role !== 'ADMIN') {
-        toast.error('You do not have permission to export this data.');
-        return;
-      }
-  
-      const { CasesAPI } = await import("../lib/api");
-      const XLSX = await import('xlsx');
-      
-      await showToastPromise(
-        (async () => {
-          const data = await CasesAPI.exportCases();
-          const ws = XLSX.utils.json_to_sheet(data);
-          const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, 'Cases');
-          XLSX.writeFile(wb, 'cases_export.xlsx');
-          return data;
-        })(),
-        {
-          loading: 'Exporting cases to Excel...',
-          success: 'Records exported to Excel successfully.',
-          error: 'An error occurred while exporting the data.'
-        }
-      );
-    } catch (error) {
-      console.error('Error exporting to Excel:', error);
-      handleError(error);
+    if (user?.role !== 'ADMIN') {
+      toast.error('You do not have permission to export this data.');
+      return;
     }
+    
+    setExcelModalOpen(true);
   };
 
   // Send feedback request (uses selected device, with override if busy)
@@ -305,6 +285,13 @@ export default function DashboardPage() {
         isOpen={pairModalOpen}
         onClose={handleClosePairModal}
         defaultMode="DUAL"
+      />
+
+      {/* Excel Export Modal */}
+      <ExcelExportModal
+        isOpen={excelModalOpen}
+        onClose={() => setExcelModalOpen(false)}
+        userRole={user?.role || 'STAFF'}
       />
     </main>
   );
