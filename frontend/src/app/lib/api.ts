@@ -66,7 +66,10 @@ export interface CaseItem {
   payload?: any }
 export interface CasesListRes { items: CaseItem[] }
 
-export interface TakeCaseRes { case: CaseItem }
+export interface TakeCaseRes { 
+  case: CaseItem | null; 
+  message: string;
+}
 export interface ResolveCaseRes { case: CaseItem }
 
 export interface DevicesListItem { 
@@ -184,34 +187,69 @@ export class ApiError extends Error {
 let isRefreshing = false;
 let pending401Queue: Array<() => void> = [];
 
+// Timeout wrapper for fetch requests
+// Wrapper function to add timeout to fetch requests
+function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  // 3 second timeout for faster offline detection
+  const timeoutMs = 3000;
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new TypeError('Network request timed out. Please check your internet connection.'));
+    }, timeoutMs);
+
+    fetch(input, init)
+      .then(response => {
+        clearTimeout(timeoutId);
+        resolve(response);
+      })
+      .catch(error => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+}
+
 async function baseFetch<T>(path: string, init?: RequestInit & { skipRefreshRetry?: boolean }): Promise<T> {
   const url = join(API_BASE, path);
-  const res = await fetch(url, {
-    ...init,
-    credentials: "include", // send cookies
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
+  
+  try {
+    const res = await fetchWithTimeout(url, {
+      ...init,
+      credentials: "include", // send cookies
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+    });
 
-  if (res.status === 204) return undefined as unknown as T;
+    if (res.status === 204) return undefined as unknown as T;
 
-  const isJson = res.headers.get("content-type")?.includes("application/json");
-  const data = isJson ? await res.json().catch(() => ({})) : undefined;
+    const isJson = res.headers.get("content-type")?.includes("application/json");
+    const data = isJson ? await res.json().catch(() => ({})) : undefined;
 
-  if (!res.ok) {
-    // Try refresh on 401 once
-    if (res.status === 401 && !init?.skipRefreshRetry) {
-      await handle401Refresh();
-      // Retry original once, but mark to skip loop
-      return baseFetch<T>(path, { ...init, skipRefreshRetry: true });
+    if (!res.ok) {
+      // Try refresh on 401 once
+      if (res.status === 401 && !init?.skipRefreshRetry) {
+        await handle401Refresh();
+        // Retry original once, but mark to skip loop
+        return baseFetch<T>(path, { ...init, skipRefreshRetry: true });
+      }
+      const message = (data && (data.error || data.message)) ?? res.statusText;
+      throw new ApiError(res.status, message, data);
     }
-    const message = (data && (data.error || data.message)) ?? res.statusText;
-    throw new ApiError(res.status, message, data);
-  }
 
-  return (data as T);
+    return (data as T);
+  } catch (error) {
+    // Convert network errors to a more specific error type
+    if (error instanceof TypeError && (
+      error.message.includes('fetch') || 
+      error.message.includes('timed out') ||
+      error.message.includes('Network request failed')
+    )) {
+      throw new ApiError(0, 'Unable to connect to server. Please check your internet connection and try again.', null);
+    }
+    throw error;
+  }
 }
 
 async function handle401Refresh() {

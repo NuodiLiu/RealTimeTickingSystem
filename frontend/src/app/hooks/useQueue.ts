@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CaseItem, CasesAPI } from "../lib/api";
 import { io, Socket } from "socket.io-client";
 import { showToastPromise, handleError } from "../lib/toaster";
-import { toast } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 
 // Accept both the backend's raw array and the helper's {items: []}
 function normalizeCases(res: unknown): CaseItem[] {
@@ -205,15 +205,17 @@ export default function useQueue(userId?: string) {
   async function take(id: string) {
     try { 
       console.log('Taking case:', id);
-      await showToastPromise(
+      const result = await showToastPromise(
         CasesAPI.take(id),
         {
           loading: 'Taking case...',
-          success: 'Case taken successfully.',
+          success: (res) => res.message || 'Case taken successfully.',
           error: 'Failed to take case.'
         }
       );
-      await load(); 
+      if (result.case) {
+        await load(); 
+      }
     }
     catch (e: any) { 
       console.error('Take error:', e);
@@ -224,50 +226,67 @@ export default function useQueue(userId?: string) {
   async function takeNext() {
     try { 
       console.log('Taking next case');
-      await showToastPromise(
-        CasesAPI.takeNext(),
-        {
-          loading: 'Taking next case...',
-          success: 'Case taken successfully.',
-          error: 'Failed to take next case.'
-        }
-      );
-      await load(); 
+      const result = await CasesAPI.takeNext();
+      
+      if (result.case) {
+        // Case was successfully taken - show success toast
+        toast.success(result.message || 'Case taken successfully.', {
+          duration: 3000,
+          style: {
+            borderRadius: '8px',
+            background: '#dcfce7',
+            color: '#166534',
+            border: '1px solid #bbf7d0',
+            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+            fontSize: '14px',
+            fontWeight: '500',
+            padding: '12px 16px',
+          }
+        });
+        await load(); 
+      }
+      // If no case available (result.case is null), do nothing - no toast
     }
     catch (e: any) { 
       console.error('Take next error:', e);
-      // Don't call handleError here since showToastPromise already handled it
+      handleError(e);
     }
   }
 
   async function resolve(id: string) {
     try { 
-      await CasesAPI.resolve(id);
+      await showToastPromise(
+        CasesAPI.resolve(id),
+        {
+          loading: 'Resolving case...',
+          success: 'Case resolved successfully.',
+          error: 'Failed to resolve case.'
+        }
+      );
       await load(); 
     }
     catch (e: any) { 
-      handleError(e);
+      // Don't call handleError here since showToastPromise already handled it
+      console.error('Resolve error:', e);
     }
   }
 
   async function escalate(id: string, department: string) {
     try { 
-      // Disabled toast messages for escalation
-      // await showToastPromise(
-      //   CasesAPI.escalate(id, department),
-      //   {
-      //     loading: `Escalating case to ${department}...`,
-      //     success: `Case escalated to ${department} successfully.`,
-      //     error: `Failed to escalate case to ${department}.`
-      //   }
-      // );
-      await CasesAPI.escalate(id, department);
+      await showToastPromise(
+        CasesAPI.escalate(id, department),
+        {
+          loading: `Escalating case to ${department}...`,
+          success: `Case escalated to ${department} successfully.`,
+          error: `Failed to escalate case to ${department}.`
+        }
+      );
       await load(); 
     }
     catch (e: any) { 
       // Don't call handleError here since showToastPromise already handled it
       console.error('Escalate error:', e);
-      throw e; // Re-throw so the component can handle the error if needed
+      // Don't re-throw to prevent unhandled promise rejections
     }
   }
 

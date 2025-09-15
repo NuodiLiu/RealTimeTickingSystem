@@ -139,7 +139,14 @@ export default function DevicesSection({
   // Update device name function
   const handleUpdateDeviceName = async (deviceId: string, newName: string) => {
     try {
-      await DeviceAPI.updateName(deviceId, newName);
+      await showToastPromise(
+        DeviceAPI.updateName(deviceId, newName),
+        {
+          loading: `Updating device name...`,
+          success: `Device name updated successfully.`,
+          error: `Failed to update device name.`
+        }
+      );
       
       // Real-time implementation: Device name changes update automatically via WebSocket
       if (reloadDevices) {
@@ -151,6 +158,7 @@ export default function DevicesSection({
         onDeviceUpdate();
       }
     } catch (e: any) {
+      // Don't call handleError here since showToastPromise already handled the error display
       console.error('Update device name error:', e);
     }
   };

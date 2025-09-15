@@ -60,12 +60,85 @@ export default function DashboardPage() {
   useEffect(() => {
     let timer: any;
     const ping = async () => {
-      const isOnline = await HealthAPI.check();
-      setOnline(isOnline);
+      try {
+        const isOnline = await HealthAPI.check();
+        setOnline(isOnline);
+      } catch (error) {
+        // If health check fails, assume offline
+        setOnline(false);
+        console.log('Health check failed, assuming offline:', error);
+      }
     };
     ping();
     timer = setInterval(ping, 5000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Add global error handlers to prevent unhandled promise rejections
+  useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.log('Caught unhandled promise rejection:', event.reason);
+      
+      // Check if this is a network/database related error
+      const errorMessage = event.reason?.message || String(event.reason || '').toLowerCase();
+      const isNetworkError = errorMessage.includes('database') ||
+                           errorMessage.includes('network') ||
+                           errorMessage.includes('connection') ||
+                           errorMessage.includes('fetch') ||
+                           errorMessage.includes('timeout') ||
+                           errorMessage.includes('offline') ||
+                           errorMessage.includes('unavailable') ||
+                           errorMessage.includes('prisma') ||
+                           errorMessage.includes('sql') ||
+                           errorMessage.includes('econnrefused') ||
+                           errorMessage.includes('etimedout');
+      
+      if (isNetworkError) {
+        // Prevent the error from being shown in the error boundary
+        event.preventDefault();
+        
+        // Show a user-friendly toast instead (with slight delay to avoid spam)
+        setTimeout(() => {
+          toast.error('Unable to connect to server. Please check your internet connection and try again.');
+        }, 100);
+      }
+    };
+
+    const handleError = (event: ErrorEvent) => {
+      console.log('Caught global error:', event.error);
+      
+      // Check if this is a network/database related error
+      const errorMessage = event.error?.message || String(event.error || '').toLowerCase();
+      const isNetworkError = errorMessage.includes('database') ||
+                           errorMessage.includes('network') ||
+                           errorMessage.includes('connection') ||
+                           errorMessage.includes('fetch') ||
+                           errorMessage.includes('timeout') ||
+                           errorMessage.includes('offline') ||
+                           errorMessage.includes('unavailable') ||
+                           errorMessage.includes('prisma') ||
+                           errorMessage.includes('sql') ||
+                           errorMessage.includes('econnrefused') ||
+                           errorMessage.includes('etimedout');
+      
+      if (isNetworkError) {
+        // Prevent error boundary from showing for network errors
+        event.preventDefault();
+        
+        // Show toast error instead
+        setTimeout(() => {
+          toast.error('Unable to connect to server. Please check your internet connection and try again.');
+        }, 100);
+      }
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    window.addEventListener('error', handleError);
+
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      window.removeEventListener('error', handleError);
+    };
   }, []);
 
   // Redirect if unauth

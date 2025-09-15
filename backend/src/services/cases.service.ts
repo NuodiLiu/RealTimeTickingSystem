@@ -88,7 +88,7 @@ export class CasesService {
             }
         });
 
-        return taken;
+        return { case: taken, message: "Case taken successfully" };
     }
 
     static async takeNextCase(staffId: string, maxAttempts = 3) {
@@ -106,7 +106,11 @@ export class CasesService {
                 select: { id: true },
             });
             
-            if (!next) throw new NotFoundError("No queued cases");
+            if (!next) {
+                // Return a special response indicating no cases are available
+                // instead of throwing an error
+                return { case: null, message: "No queued cases available" };
+            }
 
             const now = new Date();
             
@@ -142,7 +146,7 @@ export class CasesService {
                     });
                 }
 
-                return taken;
+                return { case: taken, message: "Case taken successfully" };
             }
 
             // 4) Someone else took it → retry
