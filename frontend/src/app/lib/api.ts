@@ -49,7 +49,7 @@ export interface User {
   role: 'ADMIN' | 'STAFF'; // Ensure role is part of the user object
   token?: string;
 }
-export type CaseStatus = "queued" | "in_progress" | "resolved_pending_feedback" | "resolved";
+export type CaseStatus = "QUEUED" | "IN_PROGRESS" | "RESOLVED_PENDING_FEEDBACK" | "RESOLVED";
 export interface CaseItem { 
   id: string; 
   zID: string;
@@ -64,7 +64,7 @@ export interface CaseItem {
   deviceId?: string; 
   staffId?: string; 
   payload?: any }
-export interface CasesListRes { items: CaseItem[] }
+export interface CasesListRes extends Array<CaseItem> {}
 
 export interface TakeCaseRes { 
   case: CaseItem | null; 
@@ -298,7 +298,11 @@ export const AuthAPI = {
 
 export const CasesAPI = {
   // GET /cases?status=queued|in_progress|resolved 
-  list: (status?: CaseStatus) => get<CasesListRes>(`/cases${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  list: (status?: CaseStatus) => {
+    // Convert uppercase status to lowercase for API call
+    const apiStatus = status?.toLowerCase();
+    return get<CasesListRes>(`/cases${apiStatus ? `?status=${encodeURIComponent(apiStatus)}` : ""}`);
+  },
   // POST /cases/:id/take 
   take: (id: string) => post<TakeCaseRes>(`/cases/${encodeURIComponent(id)}/take`),
   // POST /cases/take-next 

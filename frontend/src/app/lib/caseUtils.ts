@@ -2,7 +2,7 @@
 import { CaseItem, DevicesListItem } from './api';
 
 export function isCasePendingFeedback(caseItem: CaseItem): boolean {
-  return caseItem.status === 'resolved_pending_feedback';
+  return caseItem.status === 'RESOLVED_PENDING_FEEDBACK';
 }
 
 export function isDeviceAvailableForFeedback(device: DevicesListItem): boolean {
