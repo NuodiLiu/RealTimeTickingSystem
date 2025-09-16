@@ -276,10 +276,10 @@ export default function useQueue(userId?: string) {
     }
   }
 
-  async function escalate(id: string, department: string) {
+  async function escalate(id: string, department: string | null, resolvedOnSite: boolean | null = null) {
     try { 
       await showToastPromise(
-        CasesAPI.escalate(id, department),
+        CasesAPI.escalate(id, department, resolvedOnSite),
         {
           loading: `Escalating case to ${department}...`,
           success: `Case escalated to ${department} successfully.`,

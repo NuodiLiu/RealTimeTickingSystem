@@ -8,6 +8,7 @@ import Tooltip from "./Tooltip";
 import ZIDWithCopy from "./ZIDWithCopy";
 
 const ESCALATION_DEPARTMENTS = [
+  "None",
   "IT Support",
   "Academic Services", 
   "Student Services",
@@ -31,7 +32,7 @@ export default function ActiveCaseRow({
   item: CaseItem;
   onResolve: (id: string) => void;
   onFeedback: (id: string) => void;
-  onEscalate: (id: string, department: string) => void;
+    onEscalate: (id: string, department: string | null, resolvedOnSite: boolean | null) => void;
   feedbackDisabled?: boolean;
   feedbackDisabledReason?: string;
 }) {
@@ -39,6 +40,8 @@ export default function ActiveCaseRow({
   const [showEscalationDropdown, setShowEscalationDropdown] = useState(false);
   const [isEscalating, setIsEscalating] = useState(false);
   const [showPopAnimation, setShowPopAnimation] = useState(false);
+  const [resolvedOnSite, setResolvedOnSite] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const student = item.studentName ?? "Student";
@@ -113,20 +116,57 @@ export default function ActiveCaseRow({
     };
   }, [showEscalationDropdown]);
 
-  const handleEscalateClick = async (department: string) => {
+  const handleEscalateClick = (department: string) => {
     setShowEscalationDropdown(false);
-    setIsEscalating(true);
+    // Convert "None" to null for the state
+    const departmentToSet = department === "None" ? null : department;
+    setSelectedDepartment(departmentToSet);
     
-    try {
-      await onEscalate(item.id, department);
-      // Trigger smooth pop animation for the escalated badge
+    // Trigger animation when selecting a department (except "None")
+    if (departmentToSet !== null) {
       setShowPopAnimation(true);
       setTimeout(() => setShowPopAnimation(false), 800);
-    } catch (error) {
-      console.error("Failed to escalate case:", error);
-    } finally {
-      setIsEscalating(false);
     }
+  };
+
+  const handleEscalationIfNeeded = async (): Promise<boolean> => {
+    // First escalate if department is selected or resolvedOnSite is checked
+    if (selectedDepartment !== null || resolvedOnSite) {
+      try {
+        setIsEscalating(true);
+        await onEscalate(item.id, selectedDepartment, resolvedOnSite);
+        // Trigger smooth pop animation for the escalated badge
+        setShowPopAnimation(true);
+        setTimeout(() => setShowPopAnimation(false), 800);
+        return true; // Escalation succeeded
+      } catch (error) {
+        console.error("Failed to escalate case:", error);
+        return false; // Escalation failed
+      } finally {
+        setIsEscalating(false);
+      }
+    }
+    return true; // No escalation needed, proceed
+  };
+
+  const handleResolveClick = async () => {
+    const escalationSucceeded = await handleEscalationIfNeeded();
+    if (!escalationSucceeded) {
+      return; // Don't proceed to resolve if escalation fails
+    }
+    
+    // Then resolve the case
+    onResolve(item.id);
+  };
+
+  const handleFeedbackClick = async () => {
+    const escalationSucceeded = await handleEscalationIfNeeded();
+    if (!escalationSucceeded) {
+      return; // Don't proceed to feedback if escalation fails
+    }
+    
+    // Then proceed with feedback
+    onFeedback(item.id);
   };
 
   return (
@@ -147,7 +187,7 @@ export default function ActiveCaseRow({
         </div>
         <div className="text-xs text-zinc-500">
           Started {elapsedTime}
-          {item.escalatedTo && (
+          {(selectedDepartment) && (
             <span 
               className={`ml-2 px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800 ${
                 showPopAnimation 
@@ -155,7 +195,7 @@ export default function ActiveCaseRow({
                   : ''
               }`}
             >
-              Escalated to {item.escalatedTo}
+              Escalated to {selectedDepartment}
             </span>
           )}
         </div>
@@ -164,24 +204,25 @@ export default function ActiveCaseRow({
       </div>
       <div className="flex gap-2 flex-wrap">
         <button 
-          onClick={() => onResolve(item.id)} 
-          className="rounded-md bg-[#ffd600] px-3 py-1.5 text-sm text-black hover:bg-[#003366] hover:text-white transition-colors"
+          onClick={handleResolveClick} 
+          disabled={isEscalating}
+          className="rounded-md bg-[#ffd600] px-3 py-1.5 text-sm text-black hover:bg-[#003366] hover:text-white transition-colors disabled:opacity-50"
         >
-          RESOLVE
+          {isEscalating ? 'PROCESSING...' : 'RESOLVE'}
         </button>
         <Tooltip content={feedbackDisabled ? feedbackDisabledReason : 'Send feedback form to iPad'}>
           <button 
-            onClick={() => onFeedback(item.id)} 
-            disabled={feedbackDisabled}
+            onClick={handleFeedbackClick} 
+            disabled={feedbackDisabled || isEscalating}
             className={`rounded-md border px-3 py-1.5 text-sm ${
-              feedbackDisabled 
+              feedbackDisabled || isEscalating
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-300' 
                 : isPendingFeedback
                 ? 'border-yellow-500 bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
                 : 'border-[#003366] text-[#003366] hover:bg-[#003366] hover:text-white'
             } transition-colors`}
           >
-            {isPendingFeedback ? 'PENDING' : 'FEEDBACK'}
+            {isEscalating ? 'PROCESSING...' : (isPendingFeedback ? 'PENDING' : 'FEEDBACK')}
           </button>
         </Tooltip>
         
@@ -210,6 +251,21 @@ export default function ActiveCaseRow({
             </div>
           )}
         </div>
+
+        {/* Resolved on Site Checkbox */}
+        {selectedDepartment && (
+          <div className="flex items-center">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={resolvedOnSite}
+                onChange={(e) => setResolvedOnSite(e.target.checked)}
+                className="w-4 h-4 text-[#003366] bg-gray-100 border-gray-300 rounded focus:ring-[#003366] focus:ring-2"
+              />
+              <span className="text-sm text-gray-700">Resolved on site</span>
+            </label>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -3,6 +3,30 @@ import { BadRequestError, ConflictError, MissingFieldError, NotFoundError } from
 import { DeviceGateway } from "../websocket/deviceSocket";
 
 export class CasesService {
+    // Public method for display screens - returns only non-sensitive information
+    static async getPublicQueueData() {
+        const queuedCases = await prisma.studentCase.findMany({
+            where: { status: 'QUEUED' },
+            orderBy: { createdAt: 'asc' },
+            select: {
+                // Only select non-sensitive fields for public display
+                id: true,
+                studentName: true,
+                createdAt: true,
+                status: true,
+            }
+        });
+
+        // Return sanitized data
+        return queuedCases.map((caseItem, index) => ({
+            id: caseItem.id,
+            studentName: caseItem.studentName,
+            position: index + 1, // Add position in queue
+            createdAt: caseItem.createdAt,
+            status: caseItem.status
+        }));
+    }
+
     static async getQueuedCases(statusQuery?: string) {
         const map: Record<string, 'QUEUED' | 'IN_PROGRESS' | 'RESOLVED_PENDING_FEEDBACK' | 'RESOLVED'> = {
             queued: 'QUEUED',
@@ -309,11 +333,14 @@ export class CasesService {
         }
     }
 
-    static async escalateCase(id: string, department: string) {
+    static async escalateCase(id: string, department: string | null, resolvedOnSite: boolean | null) {
         try {
             return await prisma.studentCase.update({
                 where: { id },
-                data: { escalatedTo: department },
+                data: { 
+                    escalatedTo: department,
+                    resolvedOnSite: resolvedOnSite
+                },
             });
         } catch (err: any) {
             if (err?.code === 'P2025') throw new NotFoundError('Case not found');

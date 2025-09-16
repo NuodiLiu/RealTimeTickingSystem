@@ -3,10 +3,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { io, Socket } from 'socket.io-client';
-import { CaseItem, CasesAPI } from "../lib/api";
+import { PublicQueueItem, CasesAPI } from "../lib/api";
 
 export default function PublicDisplayPage() {
-  const [cases, setCases] = useState<CaseItem[] | null>(null);
+  const [cases, setCases] = useState<PublicQueueItem[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [queueCount, setQueueCount] = useState(0); // Separate state for header count
@@ -30,7 +30,7 @@ export default function PublicDisplayPage() {
     // Debounce updates to prevent rapid fire
     updateTimeoutRef.current = setTimeout(async () => {
       try {
-        const response = await CasesAPI.list('QUEUED');
+        const response = await CasesAPI.getPublicQueue();
         const newCount = response?.length || 0;
         
         // Always update the header count immediately
@@ -72,7 +72,7 @@ export default function PublicDisplayPage() {
     const fetchInitialData = async () => {
       try {
         setLoading(true);
-        const response = await CasesAPI.list('QUEUED');
+        const response = await CasesAPI.getPublicQueue();
         console.log('📋 Public Display: Initial queue data fetched:', response);
         setCases(response);
         setQueueCount(response?.length || 0);
@@ -172,8 +172,8 @@ export default function PublicDisplayPage() {
     );
   }
 
-  // Sort queued cases by creation time (API already filters for QUEUED status)
-  const queuedCases = cases?.sort((a: CaseItem, b: CaseItem) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) || [];
+  // Sort queued cases by creation time (API already filters for QUEUED status and includes position)
+  const queuedCases = cases?.sort((a: PublicQueueItem, b: PublicQueueItem) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) || [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -211,7 +211,7 @@ export default function PublicDisplayPage() {
           ) : (
             /* Two-column layout for landscape, single column for portrait */
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-4 max-h-[calc(100vh-240px)] overflow-y-auto pr-2">
-              {queuedCases.map((caseItem: CaseItem, index: number) => (
+              {queuedCases.map((caseItem: PublicQueueItem, index: number) => (
                 <div 
                   key={caseItem.id} 
                   className="bg-white rounded-lg shadow-md border-l-4 border-[#ffd600] p-4 hover:shadow-lg transition-all duration-200"
@@ -222,14 +222,14 @@ export default function PublicDisplayPage() {
                       {/* Position Badge - Smaller */}
                       <div className="w-10 h-10 rounded-full bg-[#ffd600] flex items-center justify-center shadow-sm">
                         <span className="text-lg font-bold text-[#003366]">
-                          {index + 1}
+                          {caseItem.position}
                         </span>
                       </div>
                       
                       {/* Student Info - Compact */}
                       <div className="min-w-0 flex-1">
                         <h3 className="text-lg font-bold text-[#003366] truncate leading-tight">
-                          {caseItem.studentName || `Student ${index + 1}`}
+                          {caseItem.studentName || `Student ${caseItem.position}`}
                         </h3>
                       </div>
                     </div>

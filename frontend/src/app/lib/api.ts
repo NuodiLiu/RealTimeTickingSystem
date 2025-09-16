@@ -61,10 +61,20 @@ export interface CaseItem {
   startedAt?: string; 
   resolvedAt?: string;
   escalatedTo?: string;
+  resolvedOnSite?: boolean | null;
   deviceId?: string; 
   staffId?: string; 
   payload?: any }
 export interface CasesListRes extends Array<CaseItem> {}
+
+// Public queue item type (non-sensitive information only)
+export interface PublicQueueItem {
+  id: string;
+  studentName: string;
+  position: number;
+  createdAt: string;
+  status: CaseStatus;
+}
 
 export interface TakeCaseRes { 
   case: CaseItem | null; 
@@ -297,12 +307,14 @@ export const AuthAPI = {
 };
 
 export const CasesAPI = {
-  // GET /cases?status=queued|in_progress|resolved 
+  // GET /cases?status=queued|in_progress|resolved (authenticated)
   list: (status?: CaseStatus) => {
     // Convert uppercase status to lowercase for API call
     const apiStatus = status?.toLowerCase();
     return get<CasesListRes>(`/cases${apiStatus ? `?status=${encodeURIComponent(apiStatus)}` : ""}`);
   },
+  // GET /cases/public-queue (no authentication required)
+  getPublicQueue: () => get<PublicQueueItem[]>("/cases/public-queue"),
   // POST /cases/:id/take 
   take: (id: string) => post<TakeCaseRes>(`/cases/${encodeURIComponent(id)}/take`),
   // POST /cases/take-next 
@@ -310,7 +322,7 @@ export const CasesAPI = {
   // POST /cases/:id/resolve 
   resolve: (id: string) => post<ResolveCaseRes>(`/cases/${encodeURIComponent(id)}/resolve`),
   // POST /cases/:id/escalate
-  escalate: (id: string, department: string) => post<ResolveCaseRes>(`/cases/${encodeURIComponent(id)}/escalate`, { department }),
+  escalate: (id: string, department: string | null, resolvedOnSite: boolean | null = null) => post<ResolveCaseRes>(`/cases/${encodeURIComponent(id)}/escalate`, { department, resolvedOnSite }),
   // Device-only (usually kiosk) POST /cases 
   createFromDevice: (payload: any) => post<{ case: CaseItem }>("/cases", payload),
   // export to excel

@@ -2,6 +2,16 @@ import { BadRequestError } from '../error';
 import { CasesService } from '../services/cases.service';
 
 export class CasesController {
+  // Public endpoint for display screens - returns only non-sensitive queue info
+  static async getPublicQueue(req: any, res: any, next: any) {
+    try {
+      const publicQueueData = await CasesService.getPublicQueueData();
+      res.status(200).json(publicQueueData);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async getQueuedCases(req: any, res: any, next: any) {
     try {
       const statusQuery = req.query.status;
@@ -69,11 +79,9 @@ export class CasesController {
 
   static async escalateCase(req: any, res: any, next: any) {
     try {
-      const { department } = req.body;
-      if (!department) {
-        throw new BadRequestError('Department is required for escalation');
-      }
-      const updated = await CasesService.escalateCase(req.params.id, department);
+      const { department, resolvedOnSite } = req.body;
+      // department and resolvedOnSite can both be null - frontend controls the values
+      const updated = await CasesService.escalateCase(req.params.id, department, resolvedOnSite);
       res.status(200).json(updated);
     } catch (err) {
       next(err);

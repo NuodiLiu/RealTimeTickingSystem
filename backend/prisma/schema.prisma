@@ -65,6 +65,7 @@ model StudentCase {
   status           CaseStatus        @default(QUEUED)
   staffId          String?
   escalatedTo      String?
+  resolvedOnSite   Boolean?
   createdAt        DateTime          @default(now())
   resolvedAt       DateTime?
   startedAt        DateTime?

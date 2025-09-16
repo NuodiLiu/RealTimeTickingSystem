@@ -9,7 +9,7 @@ interface ActiveCasesSectionProps {
   loading: boolean;
   resolve: (caseId: string) => void;
   sendFeedbackRequest: (caseId: string) => void;
-  escalate: (id: string, department: string) => void;
+  escalate: (id: string, department: string | null, resolvedOnSite: boolean | null) => void;
   hasSelectedDevice: boolean;
   selectedDevice: any;
   isSelectedDeviceOnline: boolean;
