@@ -18,6 +18,7 @@ final class RegistrationViewModel: ObservableObject {
     @Published var name: String = ""
     @Published var categoryId: String = ""
     @Published var noZIDChecked: Bool = false // 新增：是否勾选"没有zID"选项
+    @Published var privacyPolicyAccepted: Bool = false // 新增：是否勾选隐私政策
 
     // 数据源（下拉）
     @Published private(set) var categories: [CategoryItem] = [
@@ -44,6 +45,8 @@ final class RegistrationViewModel: ObservableObject {
     @Published private(set) var lastCreatedCaseId: String?
     @Published var errorMessage: String?
     @Published var showZIDValidation: Bool = false // 是否显示验证状态
+    @Published var showPrivacyPolicyModal: Bool = false // 新增：是否显示隐私政策模态框
+    @Published var showPrivacyPolicyWebView: Bool = false // 新增：是否显示隐私政策网页
 
     private let env: AppEnvironment
     private var validationTimer: Timer?
@@ -159,6 +162,19 @@ final class RegistrationViewModel: ObservableObject {
     }
 
     // MARK: - 提交
+    /// 检查隐私政策并提交
+    @MainActor
+    func submitWithPrivacyCheck() async {
+        // 如果没有勾选隐私政策，显示模态框
+        if !privacyPolicyAccepted {
+            showPrivacyPolicyModal = true
+            return
+        }
+        
+        // 如果已勾选，直接提交
+        await submit()
+    }
+    
     /// 提交后可选择是否清空表单（默认不清空，便于继续提交相似记录）
     @MainActor
     func submit(clearOnSuccess: Bool = true) async {
@@ -186,6 +202,7 @@ final class RegistrationViewModel: ObservableObject {
                 zID = ""
                 name = ""
                 noZIDChecked = false // 重置复选框状态
+                privacyPolicyAccepted = false // 重置隐私政策状态
                 // 保留分类选择，便于连续同类录入
             }
 
@@ -202,6 +219,30 @@ final class RegistrationViewModel: ObservableObject {
     /// 清除成功提示状态
     func clearSuccess() {
         lastCreatedCaseId = nil
+    }
+    
+    // MARK: - 隐私政策处理
+    /// 用户同意隐私政策并提交
+    func agreeToPrivacyPolicyAndSubmit() async {
+        privacyPolicyAccepted = true
+        showPrivacyPolicyModal = false
+        await submit()
+    }
+    
+    /// 用户不同意隐私政策
+    func disagreeToPrivacyPolicy() {
+        showPrivacyPolicyModal = false
+        // 不设置 privacyPolicyAccepted = true，保持原状态
+    }
+    
+    /// 打开隐私政策网页
+    func openPrivacyPolicy() {
+        showPrivacyPolicyWebView = true
+    }
+    
+    /// 关闭隐私政策网页
+    func closePrivacyPolicyWebView() {
+        showPrivacyPolicyWebView = false
     }
 
     // MARK: - 便捷方法
