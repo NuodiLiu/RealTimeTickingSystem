@@ -14,24 +14,24 @@ function normalizeCases(res: unknown): CaseItem[] {
   // Map backend StudentCase -> frontend CaseItem
   return arr.map((c: any) => {
     // backend returns status as 'QUEUED' | 'IN_PROGRESS' | 'RESOLVED_PENDING_FEEDBACK' | 'RESOLVED'
-    const backendStatus = String(c.status || "").toLowerCase();
+    const backendStatus = String(c.status || "").toUpperCase();
     let frontendStatus: CaseItem["status"];
     
     switch (backendStatus) {
-      case "queued":
-        frontendStatus = "queued";
+      case "QUEUED":
+        frontendStatus = "QUEUED";
         break;
-      case "in_progress":
-        frontendStatus = "in_progress";
+      case "IN_PROGRESS":
+        frontendStatus = "IN_PROGRESS";
         break;
-      case "resolved_pending_feedback":
-        frontendStatus = "resolved_pending_feedback";
+      case "RESOLVED_PENDING_FEEDBACK":
+        frontendStatus = "RESOLVED_PENDING_FEEDBACK";
         break;
-      case "resolved":
-        frontendStatus = "resolved";
+      case "RESOLVED":
+        frontendStatus = "RESOLVED";
         break;
       default:
-        frontendStatus = "queued";
+        frontendStatus = "QUEUED";
     }
 
     return {
@@ -65,11 +65,11 @@ export default function useQueue(userId?: string) {
       // Get raw responses
       const [qRaw, ipRaw, pfRaw] = await Promise.all([
         // @ts-ignore – we want the raw shape back to normalize ourselves
-        CasesAPI.list("queued") as unknown as Promise<any>,
+        CasesAPI.list("QUEUED") as unknown as Promise<any>,
         // @ts-ignore
-        CasesAPI.list("in_progress") as unknown as Promise<any>,
+        CasesAPI.list("IN_PROGRESS") as unknown as Promise<any>,
         // @ts-ignore
-        CasesAPI.list("resolved_pending_feedback") as unknown as Promise<any>,
+        CasesAPI.list("RESOLVED_PENDING_FEEDBACK") as unknown as Promise<any>,
       ]);
 
       setQueued(normalizeCases(qRaw));
