@@ -52,7 +52,7 @@ export interface User {
 export type CaseStatus = "QUEUED" | "IN_PROGRESS" | "RESOLVED_PENDING_FEEDBACK" | "RESOLVED";
 export interface CaseItem { 
   id: string; 
-  zID: string;
+  zID: string | null;
   studentName: string;
   category: string;
   status: CaseStatus; 
@@ -95,7 +95,7 @@ export interface DevicesListItem {
     version: number;
     case: {
       id: string;
-      zID: string;
+      zID: string | null;
       studentName: string;
       category: string;
       status: string;

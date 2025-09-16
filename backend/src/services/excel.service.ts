@@ -4,7 +4,7 @@ import { BadRequestError, NotFoundError } from "../error";
 
 export interface CaseExportData {
   // 基础信息
-  zID: string;
+  zID: string | null;
   studentName: string;
   category: string;
   status: string;
@@ -221,7 +221,7 @@ export class ExcelService {
     
     // 主数据表 - 包含所有详细信息
     const mainSheetData = data.map(row => ({
-      'Case ID': row.zID,
+      'Case ID': row.zID || 'N/A',
       'Student Name': row.studentName,
       'Category': row.category,
       'Status': row.status,

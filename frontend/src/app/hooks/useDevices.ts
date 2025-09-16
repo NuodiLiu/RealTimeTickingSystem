@@ -18,7 +18,7 @@ export interface Device {
     version: number;
     case: {
       studentName: string;
-      zID: string;
+      zID: string | null;
     };
   } | null;
 }

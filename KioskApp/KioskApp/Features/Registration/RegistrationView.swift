@@ -64,18 +64,45 @@ struct RegistrationView: View {
                         // ZID 字段
                         UNSWFormField(
                             title: "Student ID (zID)",
-                            required: true,
+                            required: !vm.noZIDChecked, // 当勾选"没有zID"时，不是必填项
                             content: {
-                                UNSWTextField(
-                                    placeholder: "Please enter your zID",
-                                    text: $vm.zID,
-                                    isFirstResponder: $zidFocused,
-                                    hasError: vm.shouldShowZIDError,
-                                    activeDropdown: $active
-                                )
-                                .onSubmit { 
-                                    zidFocused = false
-                                    nameFocused = true
+                                VStack(alignment: .leading, spacing: 16) {
+                                    UNSWTextField(
+                                        placeholder: vm.noZIDChecked ? "N/A" : "Please enter your zID",
+                                        text: $vm.zID,
+                                        isFirstResponder: $zidFocused,
+                                        hasError: vm.shouldShowZIDError,
+                                        activeDropdown: $active
+                                    )
+                                    .disabled(vm.noZIDChecked) // 当勾选时禁用输入
+                                    .opacity(vm.noZIDChecked ? 0.5 : 1.0) // 当勾选时变灰
+                                    .onSubmit { 
+                                        zidFocused = false
+                                        nameFocused = true
+                                    }
+                                    .onChange(of: vm.noZIDChecked) { _, newValue in
+                                        if newValue {
+                                            vm.zID = "" // 勾选时清空zID
+                                            zidFocused = false // 失去焦点
+                                        }
+                                    }
+                                    
+                                    // "I don't have a zID" 复选框
+                                    HStack(spacing: 8) {
+                                        Button(action: {
+                                            vm.noZIDChecked.toggle()
+                                        }) {
+                                            HStack(spacing: 8) {
+                                                Image(systemName: vm.noZIDChecked ? "checkmark.square.fill" : "square")
+                                                    .font(.system(size: 18))
+                                                    .foregroundColor(vm.noZIDChecked ? unswDarkBlue : .gray)
+                                                Text("I don't have a zID")
+                                                    .font(.system(size: 16, weight: .medium))
+                                                    .foregroundColor(unswDarkBlue)
+                                            }
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
+                                    }
                                 }
                             }
                         )
@@ -157,6 +184,7 @@ struct RegistrationView: View {
                         Button {
                             vm.zID = ""
                             vm.name = ""
+                            vm.noZIDChecked = false // 重置复选框状态
                             if let first = vm.categories.first { vm.categoryId = first.id }
                             // 不聚焦任何输入框，保持所有输入框失去焦点状态
                             zidFocused = false

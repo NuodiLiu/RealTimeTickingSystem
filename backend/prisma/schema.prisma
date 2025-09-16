@@ -59,7 +59,7 @@ model IdpAccount {
 
 model StudentCase {
   id               String            @id @default(cuid())
-  zID              String
+  zID              String?
   studentName      String
   category         String
   status           CaseStatus        @default(QUEUED)

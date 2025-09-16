@@ -42,13 +42,19 @@ export class CasesService {
         });
     }
 
-    static async postCase(data: { studentName?: string; category?: string; zID?: string }) {
+    static async postCase(data: { studentName?: string; category?: string; zID?: string | null }) {
         const { studentName, category, zID } = data ?? {};
-        if (!studentName || !category || !zID) {
-            throw new MissingFieldError(["studentName", "category", "zID"]);
+        if (!studentName || !category) {
+            throw new MissingFieldError(["studentName", "category"]);
         }
         
-        const created = await prisma.studentCase.create({ data: { studentName, category, zID } });
+        const created = await prisma.studentCase.create({ 
+            data: { 
+                studentName, 
+                category, 
+                zID: zID || null 
+            } 
+        });
         
         // Real-time notification: Notify dashboard that a new case was created
         DeviceGateway.notifyDashboard({

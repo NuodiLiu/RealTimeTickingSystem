@@ -17,6 +17,7 @@ final class RegistrationViewModel: ObservableObject {
     @Published var zID: String = ""
     @Published var name: String = ""
     @Published var categoryId: String = ""
+    @Published var noZIDChecked: Bool = false // 新增：是否勾选"没有zID"选项
 
     // 数据源（下拉）
     @Published private(set) var categories: [CategoryItem] = [
@@ -110,8 +111,13 @@ final class RegistrationViewModel: ObservableObject {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    private var normalizedZID: String {
+    private var normalizedZID: String? {
         let trimmed = zID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        
+        // 如果为空，返回nil
+        if trimmed.isEmpty {
+            return nil
+        }
         
         // 如果输入是7位数字，自动补全z前缀
         if trimmed.count == 7, trimmed.allSatisfy(\.isNumber) {
@@ -130,7 +136,7 @@ final class RegistrationViewModel: ObservableObject {
     }
     
     private var isValidZID: Bool {
-        let normalized = normalizedZID
+        guard let normalized = normalizedZID else { return true } // 允许为空
         return normalized.count == 8 && 
                normalized.hasPrefix("z") && 
                String(normalized.dropFirst()).allSatisfy(\.isNumber)
@@ -139,7 +145,7 @@ final class RegistrationViewModel: ObservableObject {
     var canSubmit: Bool {
         !normalizedName.isEmpty &&
         !categoryId.isEmpty &&
-        isValidZID &&
+        (noZIDChecked || isValidZID) && // 如果勾选了"没有zID"或者zID有效
         categories.contains(where: { $0.id == categoryId }) &&
         !isSubmitting
     }
@@ -147,7 +153,9 @@ final class RegistrationViewModel: ObservableObject {
     // MARK: - UI 验证状态
     /// 是否应该显示红色边框（用户输入了但格式不对）
     var shouldShowZIDError: Bool {
-        showZIDValidation && !normalizedZID.isEmpty && !isValidZID
+        guard !noZIDChecked else { return false } // 如果勾选了"没有zID"，不显示错误
+        guard let normalized = normalizedZID else { return false } // 空值不显示错误
+        return showZIDValidation && !normalized.isEmpty && !isValidZID
     }
 
     // MARK: - 提交
@@ -166,8 +174,9 @@ final class RegistrationViewModel: ObservableObject {
         defer { isSubmitting = false }
 
         do {
+            let finalZID = noZIDChecked ? nil : normalizedZID
             _ = try await env.casesAPI.createCase(
-                zID: normalizedZID,
+                zID: finalZID,
                 name: normalizedName,
                 categoryId: categoryId
             )
@@ -176,6 +185,7 @@ final class RegistrationViewModel: ObservableObject {
             if clearOnSuccess {
                 zID = ""
                 name = ""
+                noZIDChecked = false // 重置复选框状态
                 // 保留分类选择，便于连续同类录入
             }
 

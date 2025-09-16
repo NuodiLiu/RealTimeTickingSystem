@@ -1,7 +1,7 @@
 import CopyButton from "./CopyButton";
 
 interface ZIDWithCopyProps {
-  zID: string;
+  zID: string | null;
   className?: string;
 }
 
@@ -9,15 +9,18 @@ export default function ZIDWithCopy({
   zID, 
   className = "flex items-center gap-1 mb-3" 
 }: ZIDWithCopyProps) {
+  const displayZID = zID || "N/A";
   return (
     <div className={className}>
       <span className="text-xs text-gray-500 font-normal">
-        {zID}
+        {displayZID}
       </span>
-      <CopyButton 
-        text={zID}
-        ariaLabel={`Copy student ID ${zID}`}
-      />
+      {zID && (
+        <CopyButton 
+          text={zID}
+          ariaLabel={`Copy student ID ${zID}`}
+        />
+      )}
     </div>
   );
 }

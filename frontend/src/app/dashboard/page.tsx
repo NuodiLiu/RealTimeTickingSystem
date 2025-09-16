@@ -213,7 +213,7 @@ export default function DashboardPage() {
       if (isSelectedDeviceBusy && selectedDevice.currentLock) {
         // Device is busy, ask for confirmation to override
         const confirmed = await showConfirmation(
-          `The selected device is currently busy with **${selectedDevice.currentLock.case.studentName}** (**${selectedDevice.currentLock.case.zID}**). \nOverride and send feedback request to this device?`,
+          `The selected device is currently busy with **${selectedDevice.currentLock.case.studentName}** (**${selectedDevice.currentLock.case.zID || 'N/A'}**). \nOverride and send feedback request to this device?`,
           {
             confirmText: 'Override Device',
             cancelText: 'Cancel',
