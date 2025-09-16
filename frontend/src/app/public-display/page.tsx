@@ -178,24 +178,15 @@ export default function PublicDisplayPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Yellow Banner Header */}
-      <header className="bg-[#ffd600] px-8 py-6 shadow-lg">
+      <header className="bg-[#ffd600] px-6 py-4 shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Image 
-              src="/img/unswcollege.png" 
-              alt="UNSW College Logo" 
-              width={80}
-              height={80}
-              className="rounded-lg object-cover"
-            />
-            <div>
-              <h1 className="text-3xl font-bold text-[#003366]">Help Desk Queue</h1>
-            </div>
+          <div>
+            <h1 className="text-xl font-semibold text-[#003366]">Help Desk Queue</h1>
           </div>
           
           <div className="text-right">
-            <div className="text-lg text-[#003366] font-medium">Students in Queue</div>
-            <div className="text-5xl font-bold text-[#003366]">{queueCount}</div>
+            <div className="text-sm font-medium text-[#003366] uppercase tracking-wide">Students in Queue</div>
+            <div className="text-3xl font-semibold text-[#003366]">{queueCount}</div>
           </div>
         </div>
       </header>
@@ -210,7 +201,7 @@ export default function PublicDisplayPage() {
             </div>
           ) : (
             /* Two-column layout for landscape, single column for portrait */
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-4 max-h-[calc(100vh-240px)] overflow-y-auto pr-2">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-4 max-h-[calc(100vh-240px)] overflow-y-auto pr-2 pb-4">
               {queuedCases.map((caseItem: PublicQueueItem, index: number) => (
                 <div 
                   key={caseItem.id} 
