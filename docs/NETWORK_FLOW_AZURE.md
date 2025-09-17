@@ -13,7 +13,7 @@ flowchart TD
   subgraph ClientApps["Client Applications"]
     iPadApp["iPad Kiosk App<br/>(Student Interface)"]
     StaffBrowser["Staff Web Browser<br/>(Staff Portal)"]
-    PublicBrowser["Public Web Browser<br/>(Public Information)"]
+    PublicBrowser["Public Web Browser<br/>(Public Queue Page)"]
   end
 
   %% Network
@@ -61,7 +61,6 @@ flowchart TD
   BackendFunc -->|Send Messages| SignalR
   
   FrontendApp -->|Negotiate Connection| BackendFunc
-  iPadApp -->|Direct WebSocket| SignalR
 
   %% Styling
   classDef azure fill:#0078d4,stroke:#ffffff,stroke-width:2px,color:#ffffff
