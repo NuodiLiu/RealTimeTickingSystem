@@ -6,7 +6,6 @@ public struct StarRatingView: View {
     public var size: CGFloat = 36
     public var spacing: CGFloat = 16
     
-    // UNSW 主题色
     private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
     private let unswDarkBlue = Color(red: 0.0, green: 0.2, blue: 0.4)
 
@@ -31,10 +30,10 @@ public struct StarRatingView: View {
                 .scaleEffect(i <= rating ? 1.1 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: rating)
                 .accessibilityLabel("\(i) star\(i > 1 ? "s" : "")")
-                .frame(maxWidth: .infinity) // 每个星星占据相等的宽度
+                .frame(maxWidth: .infinity)
             }
         }
         .padding(.vertical, 16)
-        .frame(maxWidth: .infinity) // 容器占满整个宽度
+        .frame(maxWidth: .infinity)
     }
 }

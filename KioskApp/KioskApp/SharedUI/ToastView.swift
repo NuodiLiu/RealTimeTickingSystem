@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// UNSW风格的Toast提示组件
-/// 从顶部中间滑入，支持不同样式（错误、警告、信息、成功）
 struct ToastView: View {
     let message: String
     let style: ToastStyle
@@ -50,8 +48,6 @@ struct ToastView: View {
     }
 }
 
-/// Toast显示修饰符
-/// 用法: .showToast(message: $errorMessage, style: .error)
 struct ToastModifier: ViewModifier {
     @Binding var message: String?
     let style: ToastView.ToastStyle
@@ -90,18 +86,15 @@ struct ToastModifier: ViewModifier {
     }
     
     private func showToast() {
-        // 取消之前的工作项
         workItem?.cancel()
         
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             isShowing = true
         }
         
-        // 创建新的自动隐藏工作项
         let task = DispatchWorkItem {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 isShowing = false
-                // 延迟清除消息，确保动画完成
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     message = nil
                 }
@@ -124,11 +117,6 @@ struct ToastModifier: ViewModifier {
 }
 
 extension View {
-    /// 显示Toast提示
-    /// - Parameters:
-    ///   - message: 绑定的消息，当不为nil时显示toast
-    ///   - style: toast样式
-    ///   - duration: 显示持续时间（秒），默认3秒
     func showToast(message: Binding<String?>, style: ToastView.ToastStyle, duration: Double = 3.0) -> some View {
         modifier(ToastModifier(message: message, style: style, duration: duration))
     }

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Header from "../components/Header";
-import CaseCard from "../components/CaseCard";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import DevicesSection from "../components/dashboard/DevicesSection";
 import QueueSection from "../components/dashboard/QueueSection";
@@ -13,15 +12,14 @@ import ExcelExportModal from "../components/ExcelExportModal";
 import useAuth from "../hooks/useAuth";
 import useQueue from "../hooks/useQueue";
 import useDevices from "../hooks/useDevices";
-import { DeviceAPI, FeedbackAPI, HealthAPI, ExcelAPI } from "../lib/api";
+import { FeedbackAPI, HealthAPI } from "../lib/api";
 import { 
   isCasePendingFeedback,
-  canUseDeviceForFeedback,
   getFeedbackDisabledReason,
   isFeedbackDisabledForCase
 } from "../lib/caseUtils";
 import { toast, Toaster } from 'react-hot-toast'
-import { showConfirmation, showToastPromise, handleError } from "../lib/toaster";
+import { showConfirmation, showToastPromise } from "../lib/toaster";
 
 export default function DashboardPage() {
   const { user, booting, logout } = useAuth();
@@ -45,9 +43,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (selectedDeviceId && feedbackDevices.length > 0) {
       const selectedDevice = feedbackDevices.find((d: any) => d.deviceId === selectedDeviceId);
-      // Only clear selection if device is completely missing or not in feedback mode
       if (!selectedDevice || selectedDevice.mode !== 'FEEDBACK') {
-        // Clear invalid selection
         setSelectedDeviceId(null);
         localStorage.removeItem('selected-feedback-device');
         console.log('Cleared invalid device selection:', selectedDeviceId);
@@ -64,7 +60,6 @@ export default function DashboardPage() {
         const isOnline = await HealthAPI.check();
         setOnline(isOnline);
       } catch (error) {
-        // If health check fails, assume offline
         setOnline(false);
         console.log('Health check failed, assuming offline:', error);
       }
@@ -74,12 +69,12 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Add global error handlers to prevent unhandled promise rejections
+  // global error handlers to prevent unhandled promise rejections
   useEffect(() => {
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       console.log('Caught unhandled promise rejection:', event.reason);
       
-      // Check if this is a network/database related error
+      // Check if network/database related error
       const errorMessage = event.reason?.message || String(event.reason || '').toLowerCase();
       const isNetworkError = errorMessage.includes('database') ||
                            errorMessage.includes('network') ||
@@ -94,10 +89,9 @@ export default function DashboardPage() {
                            errorMessage.includes('etimedout');
       
       if (isNetworkError) {
-        // Prevent the error from being shown in the error boundary
         event.preventDefault();
         
-        // Show a user-friendly toast instead (with slight delay to avoid spam)
+        // Show toast 
         setTimeout(() => {
           toast.error('Unable to connect to server. Please check your internet connection and try again.');
         }, 100);
@@ -107,7 +101,6 @@ export default function DashboardPage() {
     const handleError = (event: ErrorEvent) => {
       console.log('Caught global error:', event.error);
       
-      // Check if this is a network/database related error
       const errorMessage = event.error?.message || String(event.error || '').toLowerCase();
       const isNetworkError = errorMessage.includes('database') ||
                            errorMessage.includes('network') ||
@@ -122,10 +115,9 @@ export default function DashboardPage() {
                            errorMessage.includes('etimedout');
       
       if (isNetworkError) {
-        // Prevent error boundary from showing for network errors
         event.preventDefault();
         
-        // Show toast error instead
+        // Show toast 
         setTimeout(() => {
           toast.error('Unable to connect to server. Please check your internet connection and try again.');
         }, 100);
@@ -184,7 +176,6 @@ export default function DashboardPage() {
   const [isProcessingFeedback, setIsProcessingFeedback] = useState(false);
   
   async function sendFeedbackRequest(caseId: string) {
-    // Prevent multiple simultaneous requests
     if (isProcessingFeedback) {
       return;
     }
@@ -211,7 +202,6 @@ export default function DashboardPage() {
       setIsProcessingFeedback(true);
       
       if (isSelectedDeviceBusy && selectedDevice.currentLock) {
-        // Device is busy, ask for confirmation to override
         const confirmed = await showConfirmation(
           `The selected device is currently busy with **${selectedDevice.currentLock.case.studentName}** (**${selectedDevice.currentLock.case.zID || 'N/A'}**). \nOverride and send feedback request to this device?`,
           {
@@ -240,7 +230,6 @@ export default function DashboardPage() {
           }
         );
       } else {
-        // Device is available, use normal send API
         await showToastPromise(
           FeedbackAPI.send({
             caseId: caseId,
@@ -257,7 +246,6 @@ export default function DashboardPage() {
       // Reload queue data to reflect the status change
       reload();
     } catch (e: any) {
-      // Don't call handleError here since showToastPromise already handled the error display
       console.error('Feedback request error:', e);
     } finally {
       setIsProcessingFeedback(false);
@@ -353,14 +341,14 @@ export default function DashboardPage() {
       </div>
       <Toaster />
       
-      {/* QR Generator Modal for Pair Device */}
+      {/* QR Generator for Pair Device */}
       <QRGeneratorModal 
         isOpen={pairModalOpen}
         onClose={handleClosePairModal}
         defaultMode="DUAL"
       />
 
-      {/* Excel Export Modal */}
+      {/* Excel Export */}
       <ExcelExportModal
         isOpen={excelModalOpen}
         onClose={() => setExcelModalOpen(false)}

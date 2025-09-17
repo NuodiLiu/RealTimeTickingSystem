@@ -24,7 +24,7 @@ export default function QRGeneratorModal({
       setPairError(null);
       setPairGenerating(true);
 
-      // Fetch QR URL from backend
+      // Fetch QR URL 
       const res = await PairAPI.generateQR({ mode });
 
       // Generate the QR code using the URL
@@ -38,7 +38,6 @@ export default function QRGeneratorModal({
   }, [defaultMode]);
 
   const handleClose = useCallback(() => {
-    // Reset state when closing
     setPairQrDataUrl(null);
     setPairError(null);
     setPairGenerating(false);
@@ -84,7 +83,7 @@ export default function QRGeneratorModal({
                 />
               </div>
               
-              {/* Refresh button centered below QR */}
+              {/* Refresh button below QR */}
               <button
                 disabled={pairGenerating}
                 onClick={() => handleGenerateQR("REGISTRATION")}

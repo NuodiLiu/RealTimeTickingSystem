@@ -189,5 +189,3 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:3000  # Backend API URL
 - React DevTools for component debugging
 
 ---
-
-*For backend API documentation, see `/backend/docs/api.yaml` or visit http://localhost:3000/api-docs*

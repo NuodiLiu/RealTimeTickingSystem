@@ -3,14 +3,14 @@ import SwiftUI
 struct FeedbackCoverView: View {
     var body: some View {
         ZStack {
-            // Background image - fills the entire view
+            // Background image 
             Image("CoverViewBackground0")
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
             
-            // Main content - centered logo and text
+            // Main content 
             VStack(spacing: 40) {
                 // UNSW College Logo
                 Image("UnswCollegeLogo")
@@ -34,7 +34,7 @@ struct FeedbackCoverView: View {
         }
         .navigationBarHidden(true)
         .navigationBarBackButtonHidden(true)
-        .allowsHitTesting(true) // Allow touch interactions including dev reset gesture
+        .allowsHitTesting(true) 
     }
 }
 

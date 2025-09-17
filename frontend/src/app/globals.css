@@ -16,12 +16,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
-  /* Disable bouncing/elastic scrolling */
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
 }
 
-/* Disable bouncing on html and body elements */
 html, body {
   position: fixed;
   overflow: hidden;
@@ -40,7 +38,6 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Custom animation for copy feedback */
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -56,7 +53,6 @@ html, body {
   animation: fade-in 0.3s ease-out;
 }
 
-/* Additional mobile optimizations */
 * {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
@@ -71,24 +67,20 @@ html, body {
   user-select: text;
 }
 
-/* Prevent pull-to-refresh */
 body {
   overscroll-behavior-y: none;
 }
 
-/* 确保文本颜色正确 */
 .font-semibold {
-  color: #111827 !important; /* text-gray-900 equivalent */
+  color: #111827 !important; 
 }
 
 b, strong {
-  color: #111827 !important; /* text-gray-900 equivalent */
+  color: #111827 !important; 
   font-weight: 600;
 }
 
-/* 响应式布局样式 */
 
-/* 确保面板和抽屉的平滑动画 */
 .responsive-panel-enter {
   transform: translateX(100%);
 }
@@ -125,26 +117,21 @@ b, strong {
   transition: transform 300ms ease-in;
 }
 
-/* 触控优化 */
 @media (max-width: 500px) {
-  /* 增大触控目标 */
   .touch-target {
     min-height: 44px;
     min-width: 44px;
   }
   
-  /* 优化间距 */
   .mobile-spacing {
     padding: 1rem;
     gap: 1rem;
   }
   
-  /* 优化字体大小 */
   .mobile-text {
-    font-size: 16px; /* 防止iOS Safari缩放 */
+    font-size: 16px;
   }
   
-  /* 手机端全屏模态动画覆盖 */
   .responsive-drawer-enter {
     opacity: 0;
     transform: scale(0.95);
@@ -168,7 +155,6 @@ b, strong {
   }
 }
 
-/* 平板优化 */
 @media (min-width: 501px) and (max-width: 1024px) {
   .tablet-grid {
     display: grid;
@@ -177,13 +163,11 @@ b, strong {
   }
 }
 
-/* 焦点可见性增强 */
 .focus-visible:focus {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
 }
 
-/* 高对比度模式支持 */
 @media (prefers-contrast: high) {
   .high-contrast-border {
     border-width: 2px;
@@ -191,7 +175,6 @@ b, strong {
   }
 }
 
-/* 动画减少偏好支持 */
 @media (prefers-reduced-motion: reduce) {
   .responsive-panel-enter-active,
   .responsive-panel-exit-active,
@@ -201,20 +184,17 @@ b, strong {
   }
 }
 
-/* 深色模式支持 */
 @media (prefers-color-scheme: dark) {
   .responsive-overlay {
     background-color: rgba(0, 0, 0, 0.7);
   }
 }
 
-/* 毛玻璃效果 */
 .glass-panel {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  /* Fallback for browsers that don't support backdrop-filter */
   background-color: rgba(255, 255, 255, 0.9);
 }
 
@@ -222,11 +202,9 @@ b, strong {
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  /* Fallback for browsers that don't support backdrop-filter */
   background-color: rgba(255, 255, 255, 0.3);
 }
 
-/* 支持backdrop-filter的浏览器 */
 @supports (backdrop-filter: blur(1px)) {
   .glass-panel {
     background-color: rgba(255, 255, 255, 0.95);
@@ -260,7 +238,6 @@ b, strong {
   }
 }
 
-/* 滚动优化 */
 .scroll-smooth {
   scroll-behavior: smooth;
 }

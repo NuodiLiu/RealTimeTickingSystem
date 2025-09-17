@@ -13,7 +13,6 @@ final class FeedbackAPI {
     init(client: ApiClient) { self.client = client }
     
     
-    /// 设备提交反馈 — POST /feedback/submit （requireDevice）
     func submit(sessionId: String, rating: Int, text: String?) async throws {
         let ep = Endpoint<EmptyResponse>(
             path: "/feedback/submit",

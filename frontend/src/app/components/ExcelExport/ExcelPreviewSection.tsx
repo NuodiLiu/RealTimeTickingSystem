@@ -10,7 +10,6 @@ interface ExcelPreviewSectionProps {
   endDate: Date | null;
 }
 
-// 使用 React.memo 优化，只有当 props 真正变化时才重新渲染
 const ExcelPreviewSection = React.memo(function ExcelPreviewSection({
   preview,
   isLoadingPreview,
@@ -53,23 +52,16 @@ const ExcelPreviewSection = React.memo(function ExcelPreviewSection({
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Export Preview</h3>
       
       <div className="space-y-4">
-        {/* 数据统计卡片 - 使用单独的组件来优化更新 */}
         <DataStatsCards totalCases={preview.totalCases} estimatedFileSize={preview.estimatedFileSize} />
 
-        {/* Date Range Display */}
         <DateRangeDisplay startDate={startDate} endDate={endDate} />
 
-        {/* Additional Export Info
-        {preview.totalCases > 0 && <ExportInfoCard />} */}
-
-        {/* No data message */}
         {preview.totalCases === 0 && <NoDataMessage />}
       </div>
     </div>
   );
 });
 
-// 单独的数据统计卡片组件，使用 memo 优化
 const DataStatsCards = React.memo(function DataStatsCards({ 
   totalCases, 
   estimatedFileSize 
@@ -91,7 +83,6 @@ const DataStatsCards = React.memo(function DataStatsCards({
   );
 });
 
-// 日期范围显示组件，使用 memo 优化
 const DateRangeDisplay = React.memo(function DateRangeDisplay({
   startDate,
   endDate
@@ -122,7 +113,6 @@ const DateRangeDisplay = React.memo(function DateRangeDisplay({
   );
 });
 
-// 无数据消息组件，这个是静态的
 const NoDataMessage = React.memo(function NoDataMessage() {
   return (
     <div className="text-center py-8 text-gray-500">

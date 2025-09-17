@@ -32,46 +32,46 @@ final class DeviceAuthProvider: AuthProviding {
 
     var deviceId: String? { 
         let id = try? keychain.get(Keys.deviceId)
-        print("📱 AuthProvider: deviceId requested, found: \(id ?? "nil")")
+        print("AuthProvider: deviceId requested, found: \(id ?? "nil")")
         return id
     }
     var deviceApiKey: String? { 
         let key = try? keychain.get(Keys.apiKey)
-        print("📱 AuthProvider: deviceApiKey requested, found: \(key?.prefix(20) ?? "nil")")
+        print("AuthProvider: deviceApiKey requested, found: \(key?.prefix(20) ?? "nil")")
         return key
     }
     var wsToken: String? { 
         let token = try? keychain.get(Keys.wsToken)
-        print("📱 AuthProvider: wsToken requested, found: \(token?.prefix(20) ?? "nil")")
+        print("AuthProvider: wsToken requested, found: \(token?.prefix(20) ?? "nil")")
         return token
     }
     var wsEndpoint: String? { 
         let endpoint = try? keychain.get(Keys.wsEndpoint)
-        print("📱 AuthProvider: wsEndpoint requested, found: \(endpoint ?? "nil")")
+        print("AuthProvider: wsEndpoint requested, found: \(endpoint ?? "nil")")
         return endpoint
     }
 
 
     func storeDevice(credentials: DeviceCredentials) throws {
-        print("📱 AuthProvider: Storing device credentials")
-        print("📱 AuthProvider: Device ID: \(credentials.deviceId)")
-        print("📱 AuthProvider: API Key: \(credentials.apiKey.prefix(20))...")
-        print("📱 AuthProvider: Mode: \(credentials.mode)")
-        
+        print("AuthProvider: Storing device credentials")
+        print("AuthProvider: Device ID: \(credentials.deviceId)")
+        print("AuthProvider: API Key: \(credentials.apiKey.prefix(20))...")
+        print("AuthProvider: Mode: \(credentials.mode)")
+
         try keychain.set(credentials.deviceId, for: Keys.deviceId)
         try keychain.set(credentials.apiKey, for: Keys.apiKey)
         
         // Store WebSocket credentials if available
         if let wsToken = credentials.wsToken {
             try keychain.set(wsToken, for: Keys.wsToken)
-            print("📱 AuthProvider: Stored WS Token: \(wsToken.prefix(20))...")
+            print("AuthProvider: Stored WS Token: \(wsToken.prefix(20))...")
         }
         if let wsEndpoint = credentials.wsEndpoint {
             try keychain.set(wsEndpoint, for: Keys.wsEndpoint)
-            print("📱 AuthProvider: Stored WS Endpoint: \(wsEndpoint)")
+            print("AuthProvider: Stored WS Endpoint: \(wsEndpoint)")
         }
-        
-        print("📱 AuthProvider: Successfully stored all credentials")
+
+        print("AuthProvider: Successfully stored all credentials")
     }
 
     func clearDevice() throws {

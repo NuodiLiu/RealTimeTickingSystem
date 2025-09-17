@@ -20,23 +20,18 @@ export default function PublicDisplayPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Smart update with debouncing: only refresh list if case list actually changed
   const smartUpdateQueue = useCallback(async (eventType: string, payload?: any) => {
-    // Clear any pending update
     if (updateTimeoutRef.current) {
       clearTimeout(updateTimeoutRef.current);
     }
 
-    // Debounce updates to prevent rapid fire
     updateTimeoutRef.current = setTimeout(async () => {
       try {
         const response = await CasesAPI.getPublicQueue();
         const newCount = response?.length || 0;
         
-        // Always update the header count immediately
         setQueueCount(newCount);
         
-        // Only update the full list if the actual cases changed
         setCases(prevCases => {
           const currentCount = prevCases?.length || 0;
           
@@ -44,20 +39,19 @@ export default function PublicDisplayPage() {
               eventType === 'case:created' || 
               !prevCases || 
               prevCases.length === 0) {
-            console.log(`📋 Updating full queue list (${currentCount} → ${newCount})`);
+            console.log(`Updating full queue list (${currentCount} → ${newCount})`);
             return response;
           } else {
-            console.log(`📊 Only updating count (${newCount}), list unchanged`);
-            return prevCases; // Keep existing cases
+            console.log(`Only updating count (${newCount}), list unchanged`);
+            return prevCases;
           }
         });
       } catch (error) {
         console.error('Failed to smart update queue:', error);
       }
-    }, 500); // 500ms debounce
-  }, []); // Remove cases dependency
+    }, 500); 
+  }, []); 
 
-  // Simplified update function for backward compatibility
   const updateQueueCount = useCallback(async () => {
     await smartUpdateQueue('case:updated');
   }, [smartUpdateQueue]);
@@ -73,7 +67,7 @@ export default function PublicDisplayPage() {
       try {
         setLoading(true);
         const response = await CasesAPI.getPublicQueue();
-        console.log('📋 Public Display: Initial queue data fetched:', response);
+        console.log('Public Display: Initial queue data fetched:', response);
         setCases(response);
         setQueueCount(response?.length || 0);
       } catch (error) {
@@ -83,7 +77,6 @@ export default function PublicDisplayPage() {
       }
     };
 
-    // Initial load
     fetchInitialData();
 
     // Set up Socket.io connection for real-time updates
@@ -95,52 +88,50 @@ export default function PublicDisplayPage() {
     });
 
     socket.on('connect', () => {
-      console.log('🔌 Public Display: Socket connected for real-time updates');
+      console.log('Public Display: Socket connected for real-time updates');
     });
 
     socket.on('event', (event: { type: string; payload: any }) => {
-      console.log('📡 Public Display: Real-time event received:', event);
+      console.log('Public Display: Real-time event received:', event);
       
       switch (event.type) {
         case 'case:created':
-          console.log('📋 New case created, full refresh needed');
+          console.log('New case created, full refresh needed');
           smartUpdateQueue('case:created', event.payload);
           break;
           
         case 'case:updated':
-          console.log('📋 Case updated, smart update');
+          console.log('Case updated, smart update');
           smartUpdateQueue('case:updated', event.payload);
           break;
           
         case 'case:feedback_ready':
-          console.log('📋 Case feedback ready, smart update');
+          console.log('Case feedback ready, smart update');
           smartUpdateQueue('case:feedback_ready', event.payload);
           break;
           
         default:
-          // Ignore other events for public display
           break;
       }
     });
 
     socket.on('disconnect', () => {
-      console.log('🔌 Public Display: Socket disconnected');
+      console.log('Public Display: Socket disconnected');
     });
 
     socket.on('connect_error', (err) => {
-      console.error('🔌 Public Display: Socket connection error:', err);
+      console.error('Public Display: Socket connection error:', err);
     });
 
     return () => {
-      console.log('🧹 Public Display: Cleaning up socket connection...');
+      console.log('Public Display: Cleaning up socket connection...');
       socket.disconnect();
       
-      // Clear any pending updates
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
       }
     };
-  }, []); // Remove dependencies to prevent infinite loop
+  }, []); 
 
   const getWaitingTime = (createdAt: string) => {
     const now = currentTime.getTime();
@@ -172,7 +163,6 @@ export default function PublicDisplayPage() {
     );
   }
 
-  // Sort queued cases by creation time (API already filters for QUEUED status and includes position)
   const queuedCases = cases?.sort((a: PublicQueueItem, b: PublicQueueItem) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) || [];
 
   return (
@@ -200,24 +190,23 @@ export default function PublicDisplayPage() {
               <p className="text-xl text-gray-600">No students currently waiting</p>
             </div>
           ) : (
-            /* Two-column layout for landscape, single column for portrait */
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-4 max-h-[calc(100vh-240px)] overflow-y-auto pr-2 pb-4">
               {queuedCases.map((caseItem: PublicQueueItem, index: number) => (
                 <div 
                   key={caseItem.id} 
                   className="bg-white rounded-lg shadow-md border-l-4 border-[#ffd600] p-4 hover:shadow-lg transition-all duration-200"
                 >
-                  {/* Compact Position and Info Layout */}
+                  {/* Position and Info Layout */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      {/* Position Badge - Smaller */}
+                      {/* Position Badge  */}
                       <div className="w-10 h-10 rounded-full bg-[#ffd600] flex items-center justify-center shadow-sm">
                         <span className="text-lg font-bold text-[#003366]">
                           {caseItem.position}
                         </span>
                       </div>
                       
-                      {/* Student Info - Compact */}
+                      {/* Student Info  */}
                       <div className="min-w-0 flex-1">
                         <h3 className="text-lg font-bold text-[#003366] truncate leading-tight">
                           {caseItem.studentName || `Student ${caseItem.position}`}
@@ -225,7 +214,7 @@ export default function PublicDisplayPage() {
                       </div>
                     </div>
 
-                    {/* Waiting Time - Compact */}
+                    {/* Waiting Time  */}
                     <div className="text-right flex-shrink-0">
                       <div className="text-xs text-gray-500 mb-1">Waiting</div>
                       <div className="text-xl font-bold text-[#003366]">

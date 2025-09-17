@@ -7,12 +7,12 @@ enum DeviceStatus: String, Codable {
     case OFFLINE, IDLE, BUSY
 }
 
-// iPad 本地保存的调用凭据（配对后写入 Keychain）
+// iPad locally stored credentials
 struct DeviceCredentials: Codable, Equatable {
     let deviceId: String
-    let apiKey: String          // HTTP API 认证
-    let wsToken: String?        // WebSocket JWT 认证 token
-    let wsEndpoint: String?     // WebSocket 端点 URL
+    let apiKey: String         
+    let wsToken: String?       
+    let wsEndpoint: String?   
     let mode: DeviceMode
 }
 
@@ -26,10 +26,10 @@ struct PairCompleteResponse: Decodable {
     let deviceId: String
     let deviceSecret: String
     let apiKey: String
-    let wsToken: String?         // WebSocket JWT 认证 token
+    let wsToken: String?         
     let deviceName: String
-    let mode: DeviceMode         // 统一使用DeviceMode枚举类型
-    let wsEndpoint: String?      // WebSocket 端点 URL
+    let mode: DeviceMode
+    let wsEndpoint: String?
 }
 
 // /cases
@@ -45,7 +45,6 @@ struct CreateCaseRequest: Encodable {
     let studentName: String
     let category: String
     
-    // 便捷初始化器，接受原来的参数名
     init(zID: String?, name: String, categoryId: String) {
         self.zID = zID
         self.studentName = name

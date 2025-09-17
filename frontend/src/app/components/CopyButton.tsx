@@ -29,7 +29,6 @@ export default function CopyButton({
     } catch (err) {
       console.error('Failed to copy text:', err);
       setCopyStatus('idle');
-      // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = text;
       document.body.appendChild(textArea);

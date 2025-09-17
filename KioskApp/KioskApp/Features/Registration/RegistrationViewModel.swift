@@ -11,15 +11,12 @@ public struct CategoryItem: Identifiable, Hashable, Decodable {
     public let name: String
 }
 
-/// 负责登记表单（姓名、分类）提交流程（不从后端拉分类，分类由外部注入）
 final class RegistrationViewModel: ObservableObject {
-    // 输入
     @Published var zID: String = ""
     @Published var name: String = ""
     @Published var categoryId: String = ""
-    @Published var noZIDChecked: Bool = false // 新增：是否勾选"没有zID"选项
+    @Published var noZIDChecked: Bool = false 
 
-    // 数据源（下拉）
     @Published private(set) var categories: [CategoryItem] = [
         CategoryItem(id: "activities", name: "Activities and Volunteering"),
         CategoryItem(id: "academic_support", name: "Academic Support and Academic Standing"),
@@ -39,21 +36,18 @@ final class RegistrationViewModel: ObservableObject {
         CategoryItem(id: "other", name: "Other Issues")
     ]
 
-    // 状态
     @Published private(set) var isSubmitting = false
     @Published private(set) var lastCreatedCaseId: String?
     @Published var errorMessage: String?
-    @Published var showZIDValidation: Bool = false // 是否显示验证状态
+    @Published var showZIDValidation: Bool = false 
 
     private let env: AppEnvironment
     private var validationTimer: Timer?
 
     init(env: AppEnvironment) {
         self.env = env
-        // 默认选择第一个分类
         self.categoryId = categories.first?.id ?? ""
         
-        // 监听 zID 输入变化
         setupZIDValidation()
     }
     
@@ -68,45 +62,41 @@ final class RegistrationViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     private func handleZIDInput(_ input: String) {
-        // 取消之前的定时器
         validationTimer?.invalidate()
         
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // 如果输入少于3个字符，不显示验证
         if trimmed.count < 3 {
             showZIDValidation = false
             return
         }
         
-        // 输入3个字符以上时，延迟500ms显示验证状态
+        // verification status display after 500ms delay
         validationTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
             self?.showZIDValidation = true
         }
     }
 
-    // MARK: - 分类注入（无网络）
+    // MARK: - class injection offline
     /// 从外部（本地常量 / 缓存）注入分类；可传入一个要预选的 id
     func setCategories(_ items: [CategoryItem], preselect id: String? = nil) {
         categories = items
 
-        // 优先选择外部传入的 preselect
+        //  prioritise incoming external
         if let id, items.contains(where: { $0.id == id }) {
             categoryId = id
             return
         }
-        // 若当前选择无效/为空，默认选第一个
         if !items.contains(where: { $0.id == categoryId }) {
             categoryId = items.first?.id ?? ""
         }
     }
 
-    /// 外部可选的便捷方法：注入后立刻预选第一个
+    /// preselect first option after injection
     func setCategoriesAndPickFirst(_ items: [CategoryItem]) {
         setCategories(items, preselect: items.first?.id)
     }
 
-    // MARK: - 校验
     private var normalizedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -114,17 +104,14 @@ final class RegistrationViewModel: ObservableObject {
     private var normalizedZID: String? {
         let trimmed = zID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         
-        // 如果为空，返回nil
         if trimmed.isEmpty {
             return nil
         }
         
-        // 如果输入是7位数字，自动补全z前缀
         if trimmed.count == 7, trimmed.allSatisfy(\.isNumber) {
             return "z\(trimmed)"
         }
         
-        // 如果输入是z or Z 开头+7位数字，直接返回
         if trimmed.count == 8, trimmed.hasPrefix("z") {
             let digits = String(trimmed.dropFirst())
             if digits.count == 7, digits.allSatisfy(\.isNumber) {
@@ -132,7 +119,7 @@ final class RegistrationViewModel: ObservableObject {
             }
         }
         
-        return trimmed // 其他情况返回原值，交由canSubmit判断
+        return trimmed 
     }
     
     private var isValidZID: Bool {
@@ -150,19 +137,16 @@ final class RegistrationViewModel: ObservableObject {
         !isSubmitting
     }
     
-    // MARK: - UI 验证状态
-    /// 是否应该显示红色边框（用户输入了但格式不对）
+    // MARK: - UI 
     var shouldShowZIDError: Bool {
-        guard !noZIDChecked else { return false } // 如果勾选了"没有zID"，不显示错误
-        guard let normalized = normalizedZID else { return false } // 空值不显示错误
+        guard !noZIDChecked else { return false } 
+        guard let normalized = normalizedZID else { return false } 
         return showZIDValidation && !normalized.isEmpty && !isValidZID
     }
 
-    // MARK: - 提交
-    /// 提交后可选择是否清空表单（默认不清空，便于继续提交相似记录）
+    // MARK: - submit
     @MainActor
     func submit(clearOnSuccess: Bool = true) async {
-        // 避免重复点击/竞态
         guard canSubmit else {
             errorMessage = "Please check all fields and try again"
             return
@@ -170,7 +154,7 @@ final class RegistrationViewModel: ObservableObject {
 
         isSubmitting = true
         errorMessage = nil
-        lastCreatedCaseId = nil // 清除之前的成功消息
+        lastCreatedCaseId = nil 
         defer { isSubmitting = false }
 
         do {
@@ -180,16 +164,14 @@ final class RegistrationViewModel: ObservableObject {
                 name: normalizedName,
                 categoryId: categoryId
             )
-            lastCreatedCaseId = "Successful" // 简化成功消息
+            lastCreatedCaseId = "Successful" 
             
             if clearOnSuccess {
                 zID = ""
                 name = ""
-                noZIDChecked = false // 重置复选框状态
-                // 保留分类选择，便于连续同类录入
+                noZIDChecked = false 
             }
 
-            // 2.5秒后自动清除成功提示
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                 self.lastCreatedCaseId = nil
             }
@@ -198,14 +180,12 @@ final class RegistrationViewModel: ObservableObject {
         }
     }
 
-    // MARK: - 清除成功状态
-    /// 清除成功提示状态
+    // MARK: - clear successful status
     func clearSuccess() {
         lastCreatedCaseId = nil
     }
 
-    // MARK: - 便捷方法
-    /// 外部可预填姓名（如扫码/缓存命中）
+    // MARK: - convenience methods
     func prefill(zID: String? = nil, name: String?, categoryId: String? = nil) {
         if let z = zID { self.zID = z }
         if let n = name { self.name = n }

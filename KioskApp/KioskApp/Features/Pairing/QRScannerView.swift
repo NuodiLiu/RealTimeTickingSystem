@@ -16,13 +16,11 @@ struct QRScannerView: UIViewRepresentable {
         view.onCodeScanned = onFound
         view.onError = { error in
             print("QR Scanner Error: \(error)")
-            // 不再直接返回错误字符串，让主视图处理错误
         }
         return view
     }
 
     func updateUIView(_ uiView: CameraPreviewView, context: Context) {
-        // 更新回调
         uiView.onCodeScanned = onFound
     }
     
@@ -44,10 +42,10 @@ final class CameraPreviewView: UIView {
     var onCodeScanned: ((String) -> Void)?
     var onError: ((String) -> Void)?
     
-    // MARK: - Initialization
+    // MARK: - Initialisation
     override init(frame: CGRect) {
         super.init(frame: frame)
-        backgroundColor = .black // 设置背景色避免白屏
+        backgroundColor = .black 
         setupCamera()
     }
     
@@ -61,14 +59,12 @@ final class CameraPreviewView: UIView {
     private func setupCamera() {
         print("📱 Setting up camera...")
         
-        // 首先检查相机权限
         checkCameraPermission { [weak self] granted in
             DispatchQueue.main.async {
                 if granted {
                     self?.initializeCamera()
                 } else {
-                    // 权限被拒绝时，不初始化相机，让上层UI处理
-                    print("📱 Camera permission denied - camera will not be initialized")
+                    print("Camera permission denied - camera will not be initialized")
                 }
             }
         }
@@ -77,40 +73,40 @@ final class CameraPreviewView: UIView {
     private func checkCameraPermission(completion: @escaping (Bool) -> Void) {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
-            print("📱 Camera permission: Authorized")
+            print("Camera permission: Authorized")
             completion(true)
         case .notDetermined:
-            print("📱 Camera permission: Requesting...")
+            print("Camera permission: Requesting...")
             AVCaptureDevice.requestAccess(for: .video) { granted in
-                print("📱 Camera permission: \(granted ? "Granted" : "Denied")")
+                print("Camera permission: \(granted ? "Granted" : "Denied")")
                 completion(granted)
             }
         case .denied, .restricted:
-            print("📱 Camera permission: Denied/Restricted - will not initialize camera")
+            print("Camera permission: Denied/Restricted - will not initialize camera")
             // 权限被拒绝时，不要调用 onError，让上层处理
             completion(false)
         @unknown default:
-            print("📱 Camera permission: Unknown")
+            print("Camera permission: Unknown")
             completion(false)
         }
     }
     
     private func initializeCamera() {
-        print("📱 Initializing camera...")
+        print("Initialising camera...")
         
         guard let videoCaptureDevice = AVCaptureDevice.default(for: .video) else {
-            print("❌ Failed to get camera device")
+            print("Failed to get camera device")
             onError?("No camera device found")
             return
         }
         
-        print("📱 Camera device found: \(videoCaptureDevice.localizedName)")
+        print("Camera device found: \(videoCaptureDevice.localizedName)")
         
         let videoInput: AVCaptureDeviceInput
         do {
             videoInput = try AVCaptureDeviceInput(device: videoCaptureDevice)
         } catch {
-            print("❌ Failed to create video input: \(error)")
+            print("Failed to create video input: \(error)")
             onError?("Failed to create video input: \(error.localizedDescription)")
             return
         }
@@ -119,9 +115,9 @@ final class CameraPreviewView: UIView {
         
         if captureSession.canAddInput(videoInput) {
             captureSession.addInput(videoInput)
-            print("✅ Video input added")
+            print("Video input added")
         } else {
-            print("❌ Could not add video input")
+            print("Could not add video input")
             onError?("Could not add video input")
             captureSession.commitConfiguration()
             return
@@ -131,9 +127,9 @@ final class CameraPreviewView: UIView {
             captureSession.addOutput(videoOutput)
             videoOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
             videoOutput.metadataObjectTypes = [.qr]
-            print("✅ Metadata output added")
+            print("Metadata output added")
         } else {
-            print("❌ Could not add metadata output")
+            print("Could not add metadata output")
             onError?("Could not add metadata output")
             captureSession.commitConfiguration()
             return
@@ -147,7 +143,7 @@ final class CameraPreviewView: UIView {
     }
     
     private func setupPreviewLayer() {
-        print("📱 Setting up preview layer...")
+        print("Setting up preview layer...")
         let previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
         previewLayer.frame = bounds
         previewLayer.videoGravity = .resizeAspectFill
@@ -156,18 +152,18 @@ final class CameraPreviewView: UIView {
             guard let self = self else { return }
             self.layer.addSublayer(previewLayer)
             self.previewLayer = previewLayer
-            print("✅ Preview layer added")
+            print("Preview layer added")
         }
     }
     
     private func startSession() {
-        print("📱 Starting capture session...")
+        print("Starting capture session...")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self, !self.isSessionRunning else { return }
             self.captureSession.startRunning()
             DispatchQueue.main.async {
                 self.isSessionRunning = true
-                print("✅ Capture session started")
+                print("Capture session started")
             }
         }
     }
@@ -203,7 +199,6 @@ extension CameraPreviewView: AVCaptureMetadataOutputObjectsDelegate {
                        didOutput metadataObjects: [AVMetadataObject], 
                        from connection: AVCaptureConnection) {
         
-        // 防止重复扫描
         guard !hasScannedCode,
               let metadataObject = metadataObjects.first,
               let readableObject = metadataObject as? AVMetadataMachineReadableCodeObject,
@@ -212,10 +207,8 @@ extension CameraPreviewView: AVCaptureMetadataOutputObjectsDelegate {
         
         hasScannedCode = true
         
-        // 立即停止会话
         stopSession()
         
-        // 触发回调
         onCodeScanned?(stringValue)
     }
 }

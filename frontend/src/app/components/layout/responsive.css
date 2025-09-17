@@ -1,6 +1,5 @@
-/* 响应式布局样式 */
+/* responsive design */
 
-/* 确保面板和抽屉的平滑动画 */
 .responsive-panel-enter {
   transform: translateX(100%);
 }
@@ -37,27 +36,26 @@
   transition: transform 300ms ease-in;
 }
 
-/* 触控优化 */
+/* touchscreen optimisation */
 @media (max-width: 768px) {
-  /* 增大触控目标 */
   .touch-target {
     min-height: 44px;
     min-width: 44px;
   }
-  
-  /* 优化间距 */
+
+  /* optimise spacing */
   .mobile-spacing {
     padding: 1rem;
     gap: 1rem;
   }
-  
-  /* 优化字体大小 */
+
+  /* optimise font size */
   .mobile-text {
-    font-size: 16px; /* 防止iOS Safari缩放 */
+    font-size: 16px; 
   }
 }
 
-/* 平板优化 */
+/* tablet optimisation */
 @media (min-width: 769px) and (max-width: 1024px) {
   .tablet-grid {
     display: grid;
@@ -66,13 +64,13 @@
   }
 }
 
-/* 焦点可见性增强 */
+/* focus-visible enhancement */
 .focus-visible:focus {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
 }
 
-/* 高对比度模式支持 */
+/* high contrast mode support */
 @media (prefers-contrast: high) {
   .high-contrast-border {
     border-width: 2px;
@@ -80,7 +78,7 @@
   }
 }
 
-/* 动画减少偏好支持 */
+/* reduce motion preference support */
 @media (prefers-reduced-motion: reduce) {
   .responsive-panel-enter-active,
   .responsive-panel-exit-active,
@@ -90,14 +88,14 @@
   }
 }
 
-/* 深色模式支持 */
+/* dark mode support */
 @media (prefers-color-scheme: dark) {
   .responsive-overlay {
     background-color: rgba(0, 0, 0, 0.7);
   }
 }
 
-/* 滚动优化 */
+/* scrolling optimisation */
 .scroll-smooth {
   scroll-behavior: smooth;
 }

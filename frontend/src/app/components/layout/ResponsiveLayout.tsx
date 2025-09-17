@@ -27,19 +27,19 @@ export default function ResponsiveLayout({
   const [devicesOpen, setDevicesOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // 监听屏幕尺寸变化
+  // monitor screen size changes
   useEffect(() => {
     const checkScreenSize = () => {
       const width = window.innerWidth;
       if (width <= 640) {
         setScreenSize('mobile');
-        setDevicesOpen(false); // 手机端关闭设备面板
+        setDevicesOpen(false); // close devices panel on mobile
       } else if (width <= 1024) {
         setScreenSize('tablet');
-        setDevicesOpen(false); // 平板端默认关闭
+        setDevicesOpen(false); // default to closed on tablet
       } else {
         setScreenSize('desktop');
-        setDevicesOpen(false); // 桌面端不需要面板状态
+        setDevicesOpen(false); // default to closed on desktop
       }
     };
 
@@ -48,19 +48,18 @@ export default function ResponsiveLayout({
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  // 关闭设备面板的处理函数
+  // close devices panel
   const closeDevicesPanel = () => {
     setDevicesOpen(false);
     setIsDrawerOpen(false);
   };
 
-  // 键盘事件处理
+  // handle keyboard navigation and focus trap
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         closeDevicesPanel();
       }
-      // Tab 键盘导航陷阱
       if (event.key === 'Tab' && (devicesOpen || isDrawerOpen)) {
         const focusableElements = document.querySelectorAll(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -80,7 +79,7 @@ export default function ResponsiveLayout({
 
     if (devicesOpen || isDrawerOpen) {
       document.addEventListener('keydown', handleKeyDown);
-      // 锁定背景滚动
+      // lock background scrolling
       document.body.style.overflow = 'hidden';
       return () => {
         document.removeEventListener('keydown', handleKeyDown);
@@ -89,7 +88,7 @@ export default function ResponsiveLayout({
     }
   }, [devicesOpen, isDrawerOpen]);
 
-  // 渲染当前选中设备信息
+  // render currently selected device info
   const renderSelectedDeviceInfo = () => {
     return (
       <CompactDeviceSelector 
@@ -100,7 +99,7 @@ export default function ResponsiveLayout({
     );
   };
 
-  // 桌面端布局
+  // desktop layout
   if (screenSize === 'desktop') {
     return (
       <div className={`h-full grid grid-cols-3 gap-6 min-h-0 ${className}`}>
@@ -111,11 +110,11 @@ export default function ResponsiveLayout({
     );
   }
 
-  // 平板端布局
+  // tablet layout
   if (screenSize === 'tablet') {
     return (
       <div className={`h-full relative ${className}`}>
-        {/* 当前选中设备状态栏 */}
+        {/* currenty selected device status bar */}
         <div className="mb-4 p-3 bg-white rounded-lg shadow-sm border border-gray-200 flex items-center justify-between">
           {renderSelectedDeviceInfo()}
           <button
@@ -129,23 +128,22 @@ export default function ResponsiveLayout({
           </button>
         </div>
 
-        {/* 主要内容区域 */}
+        {/* main content */}
         <div className="h-full grid grid-cols-2 gap-6 min-h-0" style={{ height: 'calc(100% - 5rem)' }}>
           {queueSection}
           {activeCasesSection}
         </div>
 
-        {/* 设备面板 Overlay */}
+        {/* equipment overlay */}
         {devicesOpen && (
           <>
-            {/* 毛玻璃背景遮罩 */}
             <div 
               className="fixed inset-0 glass-overlay z-40"
               onClick={closeDevicesPanel}
               aria-hidden="true"
             />
-            
-            {/* 设备面板 */}
+
+            {/* equipment panel */}
             <div 
               className="fixed right-0 top-0 h-full w-96 glass-panel shadow-2xl z-50 transform transition-transform duration-300 ease-in-out focus-within:outline-none border-l border-gray-200/30 rounded-none"
               role="dialog"
@@ -153,9 +151,9 @@ export default function ResponsiveLayout({
               aria-label="Device management panel"
             >
               <div className="h-full flex flex-col">
-                {/* 面板头部 - 重新设计，简化布局 */}
+                {/* panel header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200/50">
-                  {/* 左侧：Pair Device 按钮 */}
+
                   {onPairDevice && (
                     <button
                       onClick={() => {
@@ -167,8 +165,8 @@ export default function ResponsiveLayout({
                       Pair New Device
                     </button>
                   )}
-                  
-                  {/* 右侧：关闭按钮 */}
+
+                  {/* right: close button */}
                   <button
                     onClick={closeDevicesPanel}
                     className="flex items-center space-x-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ml-auto"
@@ -178,8 +176,8 @@ export default function ResponsiveLayout({
                     <span>Close</span>
                   </button>
                 </div>
-                
-                {/* 设备列表内容 */}
+
+                {/* panel content */}
                 <div className="flex-1 overflow-hidden">
                   {isValidElement(devicesSection) 
                     ? cloneElement(devicesSection as any, { 
@@ -197,10 +195,10 @@ export default function ResponsiveLayout({
     );
   }
 
-  // 手机端布局
+  // mobile layout
   return (
     <div className={`h-full flex flex-col space-y-4 ${className}`}>
-      {/* 当前选中设备状态栏 - 手机模式更细 */}
+      {/* current selected device status bar */}
       <div className="flex-shrink-0 p-2 bg-white rounded-lg shadow-sm border border-gray-200 flex items-center justify-between">
         {renderSelectedDeviceInfo()}
         <button
@@ -213,7 +211,7 @@ export default function ResponsiveLayout({
         </button>
       </div>
 
-      {/* 主要内容区域 - 垂直堆叠 */}
+      {/* main content area */}
       <div className="flex-1 space-y-4 min-h-0 overflow-hidden">
         <div className="h-1/2 min-h-0">
           {queueSection}
@@ -223,18 +221,17 @@ export default function ResponsiveLayout({
         </div>
       </div>
 
-      {/* 底部抽屉 */}
+      {/* bottom drawer */}
       {isDrawerOpen && (
         <>
-          {/* 毛玻璃背景遮罩 */}
           <div 
             className="fixed inset-0 glass-overlay z-40"
             onClick={() => setIsDrawerOpen(false)}
             aria-hidden="true"
           />
-          
-          {/* 抽屉内容 */}
-          <div 
+
+          {/* drawer content */}
+          <div
             className="fixed inset-0 glass-panel shadow-2xl z-50 transform transition-transform duration-300 ease-out focus-within:outline-none rounded-none"
             role="dialog"
             aria-modal="true"
@@ -256,8 +253,8 @@ export default function ResponsiveLayout({
                       Pair New Device
                     </button>
                   )}
-                  
-                  {/* 右侧：关闭按钮 */}
+
+                  {/* right: close button */}
                   <button
                     onClick={() => setIsDrawerOpen(false)}
                     className="flex items-center space-x-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm font-medium transition-colors min-h-[44px] min-w-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500 ml-auto"
@@ -268,8 +265,8 @@ export default function ResponsiveLayout({
                   </button>
                 </div>
               </div>
-              
-              {/* 设备列表内容 */}
+
+              {/* drawer content */}
               <div className="flex-1 overflow-hidden">
                 {isValidElement(devicesSection) 
                   ? cloneElement(devicesSection as any, { 

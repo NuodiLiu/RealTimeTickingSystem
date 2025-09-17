@@ -54,7 +54,7 @@ export default function useDevices() {
     );
   }, []);
 
-  // Get devices filtered by mode with proper sorting
+  // Get devices filtered by mode 
   const getDevicesByMode = useCallback((mode: 'FEEDBACK' | 'REGISTRATION') => {
     return devices
       .filter(device => device.mode === mode)
@@ -66,7 +66,6 @@ export default function useDevices() {
   }, [devices]);
 
   useEffect(() => {
-    // Initial load
     loadDevices();
 
     // Set up WebSocket connection for real-time device updates
@@ -78,18 +77,18 @@ export default function useDevices() {
     });
 
     socket.on('connect', () => {
-      console.log('🔌 useDevices: Device WebSocket connected');
+      console.log('useDevices: Device WebSocket connected');
     });
 
     socket.on('event', (event: { type: string; payload: any }) => {
-      console.log('📱 useDevices: Device event received:', event);
-      
+      console.log('useDevices: Device event received:', event);
+
       switch (event.type) {
         case 'device:updated':
           {
             const { id, isBusy, isOnline, currentLock } = event.payload;
             if (id) {
-              console.log(`🔄 useDevices: Real-time device update: ${id} -> busy: ${isBusy}, online: ${isOnline}`);
+              console.log(`useDevices: Real-time device update: ${id} -> busy: ${isBusy}, online: ${isOnline}`);
               
               // Only include fields that are actually provided
               const updates: Partial<Device> = {
@@ -106,7 +105,7 @@ export default function useDevices() {
               
               updateDevice(id, updates);
             } else {
-              console.warn('⚠️ useDevices: Received device:updated event without id:', event);
+              console.warn('useDevices: Received device:updated event without id:', event);
             }
           }
           break;
@@ -141,14 +140,11 @@ export default function useDevices() {
         case 'device:paired':
         case 'device:unpaired':
         case 'device:mode_changed':
-          // For these events, we should reload the entire device list
-          // as they affect the structure/existence of devices
           console.log(`Device structural change [${event.type}], reloading devices...`);
           loadDevices();
           break;
 
         default:
-          // For any other device-related events, do a partial reload if needed
           if (event.type.startsWith('device:')) {
             console.log(`Unknown device event [${event.type}], reloading devices...`);
             loadDevices();
@@ -165,8 +161,8 @@ export default function useDevices() {
       console.error('Device WebSocket connection error:', err);
     });
 
-    // Set up periodic refresh as fallback (less frequent since we have real-time updates)
-    const intervalId = setInterval(loadDevices, 30000); // Every 30 seconds
+    // periodic refresh as fallback 
+    const intervalId = setInterval(loadDevices, 30000); 
 
     return () => {
       console.log('Cleaning up device WebSocket and interval...');

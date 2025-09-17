@@ -34,10 +34,10 @@ export default function CompactDeviceSelector({
 
   return (
     <div className={`flex items-center text-xs sm:text-sm ${className}`}>
-      {/* 设备图标 - 表示设备状态 */}
+      {/* device icon */}
       <Smartphone className={`w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 ${getIconColor()}`} />
       
-      {/* 设备名称 */}
+      {/* device name */}
       <span className="font-medium text-gray-700 truncate flex-1" title={deviceName}>
         {deviceName}
       </span>

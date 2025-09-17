@@ -27,26 +27,23 @@ export default function Tooltip({ content, children, className = '' }: TooltipPr
   };
 
   const handleMouseEnter = () => {
-    // 清除之前的定时器（如果有的话）
+    // clear previous timers
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
     }
     
-    // 设置0.5秒延迟
     hoverTimeoutRef.current = setTimeout(() => {
       updatePosition();
       setIsVisible(true);
     }, 500);
   };
 
-  const handleMouseLeave = () => {
-    // 清除定时器，防止延迟显示
+  const handleMouseLeave = () => {        
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
       hoverTimeoutRef.current = null;
     }
     
-    // 立即隐藏
     setIsVisible(false);
   };
 
@@ -65,7 +62,6 @@ export default function Tooltip({ content, children, className = '' }: TooltipPr
     }
   }, [isVisible]);
 
-  // 清理定时器
   useEffect(() => {
     return () => {
       if (hoverTimeoutRef.current) {

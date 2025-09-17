@@ -34,10 +34,9 @@ export default function DeviceList({
   initiallyExpanded = true,
   emptyMessage = "No devices available."
 }: DeviceListProps) {
-  // Create a unique localStorage key based on the title
   const storageKey = `deviceList_${title.toLowerCase().replace(/\s+/g, '_')}_expanded`;
   
-  // Initialize state from localStorage if available, otherwise use initiallyExpanded
+  // Initialise state from localStorage if available, otherwise use initiallyExpanded
   const [isExpanded, setIsExpanded] = useState(() => {
     if (typeof window !== 'undefined' && collapsible) {
       const saved = localStorage.getItem(storageKey);

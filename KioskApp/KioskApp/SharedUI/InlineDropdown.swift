@@ -9,13 +9,11 @@ struct InlineDropdown<Item: Identifiable & Hashable>: View {
     var placeholder: String = "Select"
     var headerHidden: Bool = false
     
-    // 允许外部控制展开状态
     @Binding var expanded: Bool
 
     var body: some View {
         ZStack(alignment: .topLeading) {            
             VStack(spacing: 8) {
-                // 头部行（可隐藏，便于做 Google Form 风格）
                 if !headerHidden {
                     Button {
                         withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
@@ -32,7 +30,6 @@ struct InlineDropdown<Item: Identifiable & Hashable>: View {
                     .buttonStyle(.plain)
                 }
 
-                // 外观像 Select 框
                 Button {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
                         expanded.toggle()
@@ -110,22 +107,18 @@ struct InlineDropdown<Item: Identifiable & Hashable>: View {
                     )
                     .transition(.opacity.combined(with: .scale(scale: 0.95)).combined(with: .move(edge: .top)))
                     .allowsHitTesting(true)
-                    .zIndex(1000) // 更高的 zIndex
+                    .zIndex(1000) 
                     
                     Spacer()
                 }
-                .zIndex(1001) // 整个下拉容器的最高层级
+                .zIndex(1001) 
             }
         }
     }// MARK: - Convenience Extensions
 }
 extension InlineDropdown {
-    /// 便捷初始化器 - 使用内部管理的展开状态
-    /// 注意：由于 SwiftUI 限制，这个初始化器不能直接提供内部状态管理
-    /// 推荐使用 InlineDropdownWithInternalState 包装器
 }
 
-/// 包装器结构体，用于内部状态管理
 struct InlineDropdownWithInternalState<Item: Identifiable & Hashable>: View {
     let title: String
     let items: [Item]

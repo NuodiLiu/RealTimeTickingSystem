@@ -1,10 +1,7 @@
 import SwiftUI
-// import SharedUI   // 若 InlineDropdown 在独立模块
 
-// MARK: - 全局下拉状态管理
 enum ActiveDropdown: Hashable {
     case category
-    // 可扩展更多下拉项
 }
 
 struct RegistrationView: View {
@@ -13,15 +10,12 @@ struct RegistrationView: View {
     @FocusState private var nameFocused: Bool
     @State private var active: ActiveDropdown? = nil
     
-    // 从环境获取 AppEnvironment，以便访问重置功能
     private let appEnv = AppEnvironment.shared
     
-    // UNSW 主题色
     private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0) // UNSW 黄色
     private let unswDarkBlue = Color(red: 0.0, green: 0.2, blue: 0.4) // UNSW 深蓝色
     private let unswLightGray = Color(red: 0.95, green: 0.95, blue: 0.95) // 浅灰背景
 
-    // 把 categoryId ↔ CategoryItem? 做成绑定，InlineDropdown 才能直接显示所选名称
     private var selectedCategoryBinding: Binding<CategoryItem?> {
         Binding(
             get: { vm.categories.first(where: { $0.id == vm.categoryId }) },
@@ -31,7 +25,6 @@ struct RegistrationView: View {
 
     var body: some View {
         ZStack {
-            // UNSW 主题背景：渐变从浅黄到白色
             LinearGradient(
                 gradient: Gradient(colors: [unswYellow.opacity(0.1), Color.white]),
                 startPoint: .topLeading,
@@ -39,7 +32,6 @@ struct RegistrationView: View {
             )
             .ignoresSafeArea()
             
-            // UNSW Logo 水印背景
             VStack {
                 Spacer()
                 HStack {
@@ -54,17 +46,13 @@ struct RegistrationView: View {
             }
             .ignoresSafeArea(.keyboard)
             
-            // 主体内容 - 使用固定布局，禁用滚动
             VStack(spacing: 32) {
-                // UNSW 顶部标题区域
                 UNSWHeader()
                 
-                // 表单卡片
                 VStack(alignment: .leading, spacing: 28) {
-                        // ZID 字段
                         UNSWFormField(
                             title: "Student ID (zID)",
-                            required: !vm.noZIDChecked, // 当勾选"没有zID"时，不是必填项
+                            required: !vm.noZIDChecked, 
                             content: {
                                 VStack(alignment: .leading, spacing: 16) {
                                     UNSWTextField(
@@ -74,20 +62,19 @@ struct RegistrationView: View {
                                         hasError: vm.shouldShowZIDError,
                                         activeDropdown: $active
                                     )
-                                    .disabled(vm.noZIDChecked) // 当勾选时禁用输入
-                                    .opacity(vm.noZIDChecked ? 0.5 : 1.0) // 当勾选时变灰
+                                    .disabled(vm.noZIDChecked) 
+                                    .opacity(vm.noZIDChecked ? 0.5 : 1.0) 
                                     .onSubmit { 
                                         zidFocused = false
                                         nameFocused = true
                                     }
                                     .onChange(of: vm.noZIDChecked) { _, newValue in
                                         if newValue {
-                                            vm.zID = "" // 勾选时清空zID
-                                            zidFocused = false // 失去焦点
+                                            vm.zID = "" 
+                                            zidFocused = false 
                                         }
                                     }
                                     
-                                    // "I don't have a zID" 复选框
                                     HStack(spacing: 8) {
                                         Button(action: {
                                             vm.noZIDChecked.toggle()
@@ -107,7 +94,7 @@ struct RegistrationView: View {
                             }
                         )
                         
-                        // NAME 字段
+                        // NAME 
                         UNSWFormField(
                             title: "Your Full Name",
                             required: true,
@@ -122,7 +109,7 @@ struct RegistrationView: View {
                             }
                         )
 
-                        // CATEGORY 字段
+                        // CATEGORY 
                         UNSWFormField(
                             title: "What is your enquiry about?",
                             required: true,
@@ -162,34 +149,29 @@ struct RegistrationView: View {
                     )
                     .padding(.horizontal, 24)
                 
-                Spacer() // 填充剩余空间，推送底部按钮到底部
+                Spacer() 
             }
             .frame(maxWidth: 800)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, 20)
 
-            // 底部操作按钮区域
+            
             VStack(spacing: 0) {
                 Spacer()
                 
-                // UNSW 风格的操作按钮区域
                 VStack(spacing: 0) {
-                    // 分割线
                     Rectangle()
                         .fill(unswYellow)
                         .frame(height: 3)
                     
                     HStack(spacing: 20) {
-                        // Clear 按钮
                         Button {
                             vm.zID = ""
                             vm.name = ""
                             vm.noZIDChecked = false // 重置复选框状态
                             if let first = vm.categories.first { vm.categoryId = first.id }
-                            // 不聚焦任何输入框，保持所有输入框失去焦点状态
                             zidFocused = false
                             nameFocused = false
-                            // 同时关闭任何展开的下拉
                             active = nil
                         } label: {
                             HStack(spacing: 8) {
@@ -204,15 +186,13 @@ struct RegistrationView: View {
                         .tint(unswDarkBlue)
                         .controlSize(.large)
 
-                        // Submit 按钮
+                        // Submit 
                         Button {
                             Task { 
                                 await vm.submit()
                                 if vm.lastCreatedCaseId != nil {
-                                    // 提交成功后不聚焦任何输入框
                                     zidFocused = false
                                     nameFocused = false
-                                    // 关闭任何展开的下拉
                                     active = nil
                                 }
                             }
@@ -267,7 +247,6 @@ struct RegistrationView: View {
                 vm.categoryId = first.id
             }
         }
-        // 中心成功提示弹框
         .overlay {
             if vm.lastCreatedCaseId != nil {
                 UNSWSuccessModal(vm: vm)
@@ -280,7 +259,6 @@ struct RegistrationView: View {
                     .ignoresSafeArea(.keyboard)
             }
         }
-        // 错误提示保持在顶部
         .overlay(alignment: .top) {
             if let e = vm.errorMessage {
                 UNSWBanner(text: e, style: .error)
@@ -289,7 +267,6 @@ struct RegistrationView: View {
         }
         // .devResetGesture() // DISABLED
         .onTapGesture {
-            // 只用于收起键盘焦点
             zidFocused = false
             nameFocused = false
             if active != nil {
@@ -301,9 +278,7 @@ struct RegistrationView: View {
     }
 }
 
-// MARK: - UNSW 主题组件
 
-/// UNSW 风格的页面标题
 private struct UNSWHeader: View {
     var body: some View {
             VStack(spacing: 32) {
@@ -323,7 +298,6 @@ private struct UNSWHeader: View {
         }
     }
 
-/// UNSW 风格的表单字段容器
 private struct UNSWFormField<Content: View>: View {
     let title: String
     let required: Bool
@@ -354,13 +328,12 @@ private struct UNSWFormField<Content: View>: View {
     }
 }
 
-/// UNSW 风格的文本输入框
 private struct UNSWTextField: View {
     let placeholder: String
     @Binding var text: String
     @FocusState.Binding var isFirstResponder: Bool
     let hasError: Bool
-    @Binding var activeDropdown: ActiveDropdown? // 新增字段
+    @Binding var activeDropdown: ActiveDropdown? 
     
     private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
     private let unswDarkBlue = Color(red: 0.0, green: 0.2, blue: 0.4)
@@ -397,7 +370,6 @@ private struct UNSWTextField: View {
             .simultaneousGesture(
                 TapGesture().onEnded { _ in
                     isFirstResponder = true
-                    // 关闭下拉菜单
                     if activeDropdown != nil {
                         withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
                             activeDropdown = nil
@@ -408,7 +380,6 @@ private struct UNSWTextField: View {
     }
 }
 
-/// UNSW 风格的空状态提示
 private struct UNSWEmptyHint: View {
     var body: some View {
         HStack(spacing: 12) {
@@ -427,7 +398,6 @@ private struct UNSWEmptyHint: View {
     }
 }
 
-/// UNSW 风格的通知横幅
 private struct UNSWBanner: View {
     enum Style { case success, error }
     let text: String
@@ -456,7 +426,6 @@ private struct UNSWBanner: View {
     }
 }
 
-/// 给 InlineDropdown 应用 UNSW 风格
 private extension View {
     func unswDropdownStyle() -> some View {
         self
@@ -464,8 +433,6 @@ private extension View {
             .padding(.vertical, 2)
     }
 }
-
-// MARK: - 保留原有组件（向后兼容）
 
 private struct Header: View {
     var body: some View {
@@ -492,7 +459,6 @@ private struct FieldTitle: View {
     }
 }
 
-/// 大触控区文本框（kiosk风格，下划线或边框都可，这里用边框）
 private struct KioskTextField: View {
     let placeholder: String
     @Binding var text: String
@@ -521,7 +487,6 @@ private struct KioskTextField: View {
             .submitLabel(.done)
     }
 }
-/// 空分类提示
 private struct EmptyHint: View {
     var body: some View {
         HStack(spacing: 8) {
@@ -534,7 +499,6 @@ private struct EmptyHint: View {
     }
 }
 
-/// 轻量顶部提示条（成功/错误）
 private struct Banner: View {
     enum Style { case success, error }
     let text: String
@@ -555,16 +519,15 @@ private struct Banner: View {
     }
 }
 
-/// 给 InlineDropdown 套一层 kiosk 交互风格（统一触控高度/字体）
 private extension View {
     func kioskControlStyle() -> some View {
         self
             .font(.system(size: 20))
-            .padding(.vertical, 2) // 由控件内部控制主要高度
+            .padding(.vertical, 2)
     }
 }
 
-/// UNSW 风格的成功弹框
+
 private struct UNSWSuccessModal: View {
     let vm: RegistrationViewModel
     private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
@@ -572,16 +535,13 @@ private struct UNSWSuccessModal: View {
     
     var body: some View {
         ZStack {
-            // 半透明背景 - 添加点击手势
             Color.black.opacity(0.4)
                 .ignoresSafeArea()
                 .onTapGesture {
                     vm.clearSuccess()
                 }
             
-            // 成功提示卡片
             VStack(spacing: 32) {
-                // 成功图标
                 ZStack {
                     Circle()
                         .fill(unswYellow)
@@ -607,7 +567,6 @@ private struct UNSWSuccessModal: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 
-                // UNSW Logo 装饰
                 HStack(spacing: 12) {
                     Image(systemName: "graduationcap.fill")
                         .font(.system(size: 24))
@@ -636,7 +595,6 @@ private struct UNSWSuccessModal: View {
             .frame(maxWidth: 500)
             .padding(.horizontal, 32)
             .onTapGesture {
-                // 阻止点击成功卡片时触发背景的清除手势
             }
         }
     }

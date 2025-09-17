@@ -6,7 +6,6 @@ import QRGeneratorModal from "../QRGeneratorModal";
 import { DeviceAPI, FeedbackAPI, PairAPI } from "../../lib/api";
 import { toast } from 'react-hot-toast';
 import { showToastPromise, handleError } from "../../lib/toaster";
-// Real-time device updates hook - enabled for real-time updates
 import useDevices from "../../hooks/useDevices";
 
 interface DevicesSectionProps {
@@ -28,56 +27,8 @@ export default function DevicesSection({
   onPairDevice,
   showHeader = true
 }: DevicesSectionProps) {
-  // Real-time implementation - WebSocket updates enabled
   const { feedbackDevices, registrationDevices, loading: deviceLoading, reload: reloadDevices } = useDevices();
 
-  /* 
-  // Legacy implementation - commented out in favor of real-time updates
-  // Current implementation - devices state managed locally
-  // Devices state - separate for feedback and registration
-  const [feedbackDevices, setFeedbackDevices] = useState<any[]>([]);
-  const [registrationDevices, setRegistrationDevices] = useState<any[]>([]);
-  const [deviceLoading, setDeviceLoading] = useState(true);
-  */
-
-  /* 
-  // Legacy device loading - replaced by real-time hook
-  useEffect(() => {
-    const loadDevices = async () => {
-      setDeviceLoading(true);
-      try {
-        // Load all devices first
-        const allDevicesRes = await DeviceAPI.list();
-        const allDevices = allDevicesRes.items || [];
-        
-        // Filter devices by mode and sort by name
-        const feedbackDevs = allDevices
-          .filter((device: any) => device.mode === 'FEEDBACK')
-          .sort((a: any, b: any) => {
-            const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
-            const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
-            return nameA.localeCompare(nameB);
-          });
-        
-        const registrationDevs = allDevices
-          .filter((device: any) => device.mode === 'REGISTRATION')
-          .sort((a: any, b: any) => {
-            const nameA = (a.name || a.deviceLabel || "iPad Device").toLowerCase();
-            const nameB = (b.name || b.deviceLabel || "iPad Device").toLowerCase();
-            return nameA.localeCompare(nameB);
-          });
-        
-        setFeedbackDevices(feedbackDevs);
-        setRegistrationDevices(registrationDevs);
-      } catch (e) {
-        console.error("Failed to load devices:", e);
-      } finally {
-        setDeviceLoading(false);
-      }
-    };
-    loadDevices();
-  }, []);
-  */
 
   // Unpair device function
   const handleUnpairDevice = async (deviceId: string, deviceName: string) => {
@@ -91,8 +42,7 @@ export default function DevicesSection({
         }
       );
       
-      // Real-time implementation: Device list will update automatically via WebSocket
-      // Optionally trigger a manual reload if needed
+      // Device list will update automatically via WebSocket
       if (reloadDevices) {
         reloadDevices();
       }
@@ -102,7 +52,6 @@ export default function DevicesSection({
         onDeviceUpdate();
       }
     } catch (e: any) {
-      // Don't call handleError here since showToastPromise already handled the error display
       console.error('Unpair device error:', e);
     }
   };
@@ -121,17 +70,14 @@ export default function DevicesSection({
         }
       );
       
-      // Real-time implementation: Device mode changes update automatically via WebSocket
       if (reloadDevices) {
-        reloadDevices(); // Manual reload for mode changes
+        reloadDevices(); 
       }
       
-      // Notify parent about device update
       if (onDeviceUpdate) {
         onDeviceUpdate();
       }
     } catch (e: any) {
-      // Don't call handleError here since showToastPromise already handled the error display
       console.error('Toggle device mode error:', e);
     }
   };
@@ -148,9 +94,8 @@ export default function DevicesSection({
         }
       );
       
-      // Real-time implementation: Device name changes update automatically via WebSocket
       if (reloadDevices) {
-        reloadDevices(); // Manual reload for name changes
+        reloadDevices(); 
       }
       
       // Notify parent about device update
@@ -158,7 +103,6 @@ export default function DevicesSection({
         onDeviceUpdate();
       }
     } catch (e: any) {
-      // Don't call handleError here since showToastPromise already handled the error display
       console.error('Update device name error:', e);
     }
   };
@@ -176,16 +120,13 @@ export default function DevicesSection({
 
   return (
     <>
-      {/* DEVICES SECTION - Mixed Static/Dynamic Content */}
+      {/* DEVICES SECTION */}
       <section className="bg-white rounded-none lg:rounded-lg shadow-sm border border-gray-200 flex flex-col h-full min-h-0 overflow-hidden">
         {showHeader && (
           <div className="px-6 py-4 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">iPad Devices</h2>
-                {/* <p className="text-sm text-gray-600 mt-1">
-                  Device management & pairing
-                </p> */}
               </div>
               {showPairButton && (
                 <div className="flex items-center gap-2">
@@ -202,7 +143,7 @@ export default function DevicesSection({
         )}
 
         <div className="flex-1 p-6 overflow-y-auto space-y-6 min-h-0">
-          {/* FEEDBACK DEVICES SUBSECTION */}
+          {/* FEEDBACK DEVICES */}
           <DeviceList
             title="Feedback Devices"
             devices={feedbackDevices}
@@ -216,7 +157,7 @@ export default function DevicesSection({
             emptyMessage="No feedback devices available."
           />
 
-          {/* REGISTRATION DEVICES SUBSECTION */}
+          {/* REGISTRATION DEVICES */}
           <DeviceList
             title="Registration Devices"
             devices={registrationDevices}

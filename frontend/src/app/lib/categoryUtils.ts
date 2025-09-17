@@ -25,22 +25,13 @@ export const CATEGORIES: CategoryItem[] = [
   { id: "other", name: "Other Issues" }
 ];
 
-/**
- * Get category name by ID
- * @param categoryId - The category ID
- * @returns The human-readable category name, or the ID if not found
- */
+// Get category name by ID
 export function getCategoryName(categoryId: string): string {
   const category = CATEGORIES.find(cat => cat.id === categoryId);
   return category?.name || categoryId;
 }
 
-/**
- * Truncate text and add ellipsis if it exceeds the maximum length
- * @param text - The text to truncate
- * @param maxLength - Maximum number of characters before truncation
- * @returns Truncated text with ellipsis if needed
- */
+// Truncate text and add ... if too long
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) {
     return text;
@@ -48,23 +39,11 @@ export function truncateText(text: string, maxLength: number): string {
   return text.substring(0, maxLength) + '...';
 }
 
-/**
- * Get truncated category name for display
- * @param categoryId - The category ID
- * @param maxLength - Maximum number of characters before truncation (default: 23)
- * @returns Truncated category name
- */
 export function getTruncatedCategoryName(categoryId: string, maxLength: number = 23): string {
   const fullName = getCategoryName(categoryId);
   return truncateText(fullName, maxLength);
 }
 
-/**
- * Get truncated student name for display
- * @param name - The student name
- * @param maxLength - Maximum number of characters before truncation (default: 43)
- * @returns Truncated student name
- */
 export function getTruncatedStudentName(name: string, maxLength: number = 43): string {
   return truncateText(name, maxLength);
 }

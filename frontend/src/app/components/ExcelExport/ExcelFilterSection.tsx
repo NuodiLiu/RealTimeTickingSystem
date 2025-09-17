@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { ExcelFilterParams } from "../../lib/api";
@@ -30,7 +29,6 @@ export default function ExcelFilterSection({
   const handleStartDateChange = (date: Date | null) => {
     onStartDateChange(date);
     
-    // If end date is before start date, clear end date
     if (date && endDate && date > endDate) {
       onEndDateChange(null);
       onFilterChange({ 
@@ -177,25 +175,22 @@ export default function ExcelFilterSection({
                   let start: Date;
                   
                   if (option.isYear) {
-                    start = new Date(end.getFullYear(), 0, 1); // Jan 1st of current year
+                    start = new Date(end.getFullYear(), 0, 1);
                   } else {
                     start = new Date(end);
                     start.setDate(end.getDate() - option.days!);
                   }
                   
-                  // 一次性更新所有状态，避免多次渲染和API调用
+                  // update all states at once 
                   const filterUpdate = {
                     startDate: start.toISOString().split('T')[0],
                     endDate: end.toISOString().split('T')[0]
                   };
                   
-                  // 先更新父组件的过滤器状态，这会触发API调用
                   onFilterChange(filterUpdate);
-                  // 然后使用专门的函数更新本地日期状态，不触发额外的API调用
                   if (onQuickDateChange) {
                     onQuickDateChange(start, end);
                   } else {
-                    // 后备方案，如果没有提供onQuickDateChange
                     onStartDateChange(start);
                     onEndDateChange(end);
                   }
@@ -207,13 +202,10 @@ export default function ExcelFilterSection({
             ))}
             <button
               onClick={() => {
-                // 先更新过滤器状态，这会触发API调用
                 onFilterChange({ startDate: '', endDate: '' });
-                // 然后使用专门的函数更新本地日期状态
                 if (onQuickDateChange) {
                   onQuickDateChange(null, null);
                 } else {
-                  // 后备方案
                   onStartDateChange(null);
                   onEndDateChange(null);
                 }

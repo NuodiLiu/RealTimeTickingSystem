@@ -134,38 +134,36 @@ export default function ActiveCaseRow({
     if (selectedDepartment !== null || resolvedOnSite) {
       try {
         setIsEscalating(true);
-        await onEscalate(item.id, selectedDepartment, resolvedOnSite);
+        onEscalate(item.id, selectedDepartment, resolvedOnSite);
         // Trigger smooth pop animation for the escalated badge
         setShowPopAnimation(true);
         setTimeout(() => setShowPopAnimation(false), 800);
         return true; // Escalation succeeded
       } catch (error) {
         console.error("Failed to escalate case:", error);
-        return false; // Escalation failed
+        return false; 
       } finally {
         setIsEscalating(false);
       }
     }
-    return true; // No escalation needed, proceed
+    return true;
   };
 
   const handleResolveClick = async () => {
     const escalationSucceeded = await handleEscalationIfNeeded();
     if (!escalationSucceeded) {
-      return; // Don't proceed to resolve if escalation fails
+      return; 
     }
     
-    // Then resolve the case
     onResolve(item.id);
   };
 
   const handleFeedbackClick = async () => {
     const escalationSucceeded = await handleEscalationIfNeeded();
     if (!escalationSucceeded) {
-      return; // Don't proceed to feedback if escalation fails
+      return; 
     }
     
-    // Then proceed with feedback
     onFeedback(item.id);
   };
 

@@ -62,12 +62,6 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        // body: JSON.stringify({
-        //   identityKey: 'test|staff',
-        //   upn: 'staff@test.local',
-        //   name: 'Test Staff Member',
-        //   tid: 'test-tenant'
-        // }),
       });
 
       if (response.ok) {

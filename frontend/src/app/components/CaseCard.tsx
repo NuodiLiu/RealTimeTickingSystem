@@ -20,10 +20,8 @@ export default function CaseCard({
   const categoryName = getCategoryName(categoryId);
   const zID = item.zID ?? "";
   
-  // Use text truncation hook
   const { truncatedText: truncatedCategory, isTruncated, elementRef: categoryRef } = useTextTruncation(categoryName);
   
-  // Use createdAt to calculate waiting time
   const createdTime = item.createdAt;
 
   useEffect(() => {
@@ -57,10 +55,8 @@ export default function CaseCard({
       }
     };
 
-    // Update immediately
     updateWaitingTime();
     
-    // Update every minute
     const interval = setInterval(updateWaitingTime, 60000);
     
     return () => clearInterval(interval);
@@ -73,7 +69,7 @@ export default function CaseCard({
             {truncatedStudentName}
           </div>
         
-        {/* ZID section with copy functionality */}
+        {/* ZID */}
         <ZIDWithCopy zID={zID} />
         
         <div className="mb-1 space-y-1">

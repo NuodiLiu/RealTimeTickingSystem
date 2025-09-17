@@ -12,7 +12,7 @@ export function isDeviceAvailableForFeedback(device: DevicesListItem): boolean {
          device.status !== 'BUSY';
 }
 
-// New function to check if device can be used for feedback (including busy devices for override)
+// check if device can be used for feedback (including busy devices for override)
 export function canUseDeviceForFeedback(device: DevicesListItem): boolean {
   return device && 
          (device.mode === 'FEEDBACK') && 

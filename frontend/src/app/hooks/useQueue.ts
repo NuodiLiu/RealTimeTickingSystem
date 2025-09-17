@@ -6,14 +6,12 @@ import { io, Socket } from "socket.io-client";
 import { showToastPromise, handleError } from "../lib/toaster";
 import toast from 'react-hot-toast';
 
-// Accept both the backend's raw array and the helper's {items: []}
 function normalizeCases(res: unknown): CaseItem[] {
   const arr = Array.isArray(res) ? res : (res as any)?.items;
   if (!Array.isArray(arr)) return [];
 
   // Map backend StudentCase -> frontend CaseItem
   return arr.map((c: any) => {
-    // backend returns status as 'QUEUED' | 'IN_PROGRESS' | 'RESOLVED_PENDING_FEEDBACK' | 'RESOLVED'
     const backendStatus = String(c.status || "").toUpperCase();
     let frontendStatus: CaseItem["status"];
     
@@ -42,9 +40,9 @@ function normalizeCases(res: unknown): CaseItem[] {
       status: frontendStatus,
       createdAt: c.createdAt ?? new Date().toISOString(),
       updatedAt: c.updatedAt ?? c.createdAt ?? new Date().toISOString(),
-      startedAt: c.startedAt, // Add this line - map startedAt from backend
-      resolvedAt: c.resolvedAt, // Add this too for completeness
-      escalatedTo: c.escalatedTo, // Add escalatedTo field
+      startedAt: c.startedAt,
+      resolvedAt: c.resolvedAt,
+      escalatedTo: c.escalatedTo,
       deviceId: c.deviceId,
       staffId: c.staffId,
     } as CaseItem;
@@ -62,9 +60,8 @@ export default function useQueue(userId?: string) {
     setLoading(true);
     setError(null);
     try {
-      // Get raw responses
       const [qRaw, ipRaw, pfRaw] = await Promise.all([
-        // @ts-ignore – we want the raw shape back to normalize ourselves
+        // @ts-ignore 
         CasesAPI.list("QUEUED") as unknown as Promise<any>,
         // @ts-ignore
         CasesAPI.list("IN_PROGRESS") as unknown as Promise<any>,
@@ -78,19 +75,16 @@ export default function useQueue(userId?: string) {
     } catch (e: any) {
       console.error("Queue load failed:", e);
       setError(e?.message ?? "Failed to load queue");
-      // keep previous data if any
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    // Don't set up connections or timers if no user
     if (!userId) {
       return;
     }
 
-    // Initial load
     load();
 
     // Set up WebSocket connection for real-time updates
@@ -125,7 +119,7 @@ export default function useQueue(userId?: string) {
           break;
           
         case 'device:updated':
-          console.log('📱 useQueue: Device status updated, reloading queue...', event.payload);
+          console.log('useQueue: Device status updated, reloading queue...', event.payload);
           load();
           break;
           
@@ -148,12 +142,10 @@ export default function useQueue(userId?: string) {
           break;
           
         case 'device:mode_changed':
-          // Device mode changed notification - silently handled
           console.log(`Device mode changed to ${event.payload?.mode || 'new mode'}`);
           break;
           
         default:
-          // For any other case or device related events, reload as fallback
           if (event.type.startsWith('case:') || event.type.startsWith('device:')) {
             console.log(`Other relevant event [${event.type}] received, reloading queue data...`);
             load();
@@ -170,18 +162,16 @@ export default function useQueue(userId?: string) {
       console.error('Socket connection error:', err);
     });
 
-    // Set up periodic refresh (reduced frequency since we have real-time updates)
-    const intervalId = setInterval(load, 10000); // Every 10 seconds instead of 3
+    const intervalId = setInterval(load, 10000); 
 
     return () => {
       console.log('Cleaning up socket and interval...');
       socket.disconnect();
       clearInterval(intervalId);
     };
-  }, [load, userId]); // Include load and userId in dependencies
+  }, [load, userId]); 
 
   const myActive = useMemo(() => {
-    // Create a map to deduplicate cases by ID
     const activeCasesMap = new Map();
     
     // Add in_progress cases
@@ -191,7 +181,6 @@ export default function useQueue(userId?: string) {
       }
     });
     
-    // Add resolved_pending_feedback cases (will override if same ID)
     (pendingFeedback ?? []).forEach(c => {
       if (!userId || c.staffId === userId) {
         activeCasesMap.set(c.id, c);
@@ -199,7 +188,6 @@ export default function useQueue(userId?: string) {
     });
     
     // Convert to array and sort by startedAt to preserve original order
-    // regardless of status change (in_progress -> resolved_pending_feedback)
     return Array.from(activeCasesMap.values()).sort((a, b) => {
       const aStarted = a.startedAt ? new Date(a.startedAt).getTime() : 0;
       const bStarted = b.startedAt ? new Date(b.startedAt).getTime() : 0;
@@ -224,7 +212,6 @@ export default function useQueue(userId?: string) {
     }
     catch (e: any) { 
       console.error('Take error:', e);
-      // Don't call handleError here since showToastPromise already handled it
     }
   }
 
@@ -234,7 +221,7 @@ export default function useQueue(userId?: string) {
       const result = await CasesAPI.takeNext();
       
       if (result.case) {
-        // Case was successfully taken - show success toast
+        // Case was successfully taken
         toast.success(result.message || 'Case taken successfully.', {
           duration: 3000,
           style: {
@@ -250,7 +237,6 @@ export default function useQueue(userId?: string) {
         });
         await load(); 
       }
-      // If no case available (result.case is null), do nothing - no toast
     }
     catch (e: any) { 
       console.error('Take next error:', e);
@@ -271,7 +257,6 @@ export default function useQueue(userId?: string) {
       await load(); 
     }
     catch (e: any) { 
-      // Don't call handleError here since showToastPromise already handled it
       console.error('Resolve error:', e);
     }
   }
@@ -289,9 +274,7 @@ export default function useQueue(userId?: string) {
       await load(); 
     }
     catch (e: any) { 
-      // Don't call handleError here since showToastPromise already handled it
       console.error('Escalate error:', e);
-      // Don't re-throw to prevent unhandled promise rejections
     }
   }
 

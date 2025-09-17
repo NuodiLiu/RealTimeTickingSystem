@@ -8,7 +8,6 @@
 import Foundation
 import Combine
 
-/// 负责把 SocketService 的委托回调翻译成 Published 事件，供 VM 订阅。
 final class GatewayCenter: ObservableObject, DeviceGatewayDelegate {
     @Published var isConnected: Bool = false
     @Published var showFeedback: FeedbackShowPayload?
@@ -20,9 +19,9 @@ final class GatewayCenter: ObservableObject, DeviceGatewayDelegate {
     func gatewayDidDisconnect() { isConnected = false }
 
     func gatewayShowFeedback(_ payload: FeedbackShowPayload, raw: [String : Any]) {
-        print("📱 GatewayCenter: gatewayShowFeedback called")
-        print("📱 GatewayCenter: Payload: \(payload)")
-        print("📱 GatewayCenter: Setting showFeedback = payload")
+        print("GatewayCenter: gatewayShowFeedback called")
+        print("GatewayCenter: Payload: \(payload)")
+        print("GatewayCenter: Setting showFeedback = payload")
         showFeedback = payload
     }
 
@@ -39,12 +38,11 @@ final class GatewayCenter: ObservableObject, DeviceGatewayDelegate {
     }
     
     func gatewayDeviceUnpaired() {
-        print("📱 GatewayCenter: Device unpaired by server - setting deviceUnpaired = true")
+        print("GatewayCenter: Device unpaired by server - setting deviceUnpaired = true")
         deviceUnpaired = true
         
-        // 1秒后自动重置状态，避免重复触发
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            print("📱 GatewayCenter: Resetting deviceUnpaired flag")
+            print("GatewayCenter: Resetting deviceUnpaired flag")
             self.deviceUnpaired = false
         }
     }

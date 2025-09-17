@@ -63,14 +63,14 @@ final class ApiClient {
         _ endpoint: Endpoint<Response>,
         body: Body? = nil
     ) async throws -> Response {
-        // --- Build URL
+        //  Build URL
         var url = baseURL
         url.appendPathComponent(endpoint.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
         guard var comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else { throw ApiError.badURL }
         comps.queryItems = endpoint.query.isEmpty ? nil : endpoint.query
         guard let finalURL = comps.url else { throw ApiError.badURL }
 
-        // --- Build Request
+        //  Build Request
         var req = URLRequest(url: finalURL)
         req.httpMethod = endpoint.method.rawValue
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -86,7 +86,6 @@ final class ApiClient {
             req.httpBody = try JSONEncoder().encode(body)
         }
 
-        // --- Do request with tiny retry on transient network errors
         let maxAttempts = 2
         var attempt = 0
         var lastError: Error?
@@ -126,7 +125,6 @@ final class ApiClient {
         guard let http = response as? HTTPURLResponse else { throw ApiError.unknown("No HTTPURLResponse") }
         let status = http.statusCode
 
-        // Try decode `{ error: string }`
         
         if !(200...299).contains(status) {
             let msg = (try? JSONDecoder().decode(ErrorBox.self, from: data).error)

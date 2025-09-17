@@ -1,11 +1,8 @@
 import toast from "react-hot-toast";
 import React from "react";
 import {
-  AppError, TokenError, NetworkError, PermissionError, SessionError,
-  HandshakeError, ApiRequestError, DeviceError, DeviceNotFoundError,
-  DeviceOfflineError, DeviceUnpairError, DevicePairingError, DeviceModeSwitchError,
-  CaseError, CaseNotFoundError, CaseTakeError, CaseResolveError, CaseEscalateError,
-  FeedbackError, FeedbackSendError, FeedbackDeviceNotSelectedError, FeedbackSubmissionError,
+  AppError, TokenError, NetworkError, PermissionError, SessionError, DeviceNotFoundError,
+  DeviceOfflineError, DeviceUnpairError, DevicePairingError, DeviceModeSwitchError, CaseNotFoundError, CaseTakeError, CaseResolveError, CaseEscalateError, FeedbackSendError, FeedbackDeviceNotSelectedError, FeedbackSubmissionError,
   FieldError, ValidationError, DataLoadError, ExportError,
   QRGenerationError, PairingTimeoutError, WebSocketError, ConnectionLostError
 } from "./errors";
@@ -50,7 +47,7 @@ export function showToastPromise<T>(
   // Check if the same operation is already running
   if (isRecentDuplicate(`loading:${loadingMessage}`)) {
     console.log('Skipping duplicate toast for:', loadingMessage);
-    return promise; // Return the original promise without showing duplicate toast
+    return promise;
   }
   
   const queued = toastQueue.then(() =>
@@ -60,7 +57,6 @@ export function showToastPromise<T>(
         loading: loadingMessage,
         success: messages.success ?? "Operation completed successfully",
         error: (error: unknown) => {
-          // Handle network/connectivity issues properly
           if (error instanceof TypeError && (
             error.message.includes('fetch') || 
             error.message.includes('timed out') ||
@@ -73,14 +69,11 @@ export function showToastPromise<T>(
             return "Unable to connect to server. Please check your internet connection and try again.";
           }
           
-          // Handle API errors from backend
           if (error instanceof ApiError) {
-            // Network/connectivity issues
             if (error.status === 0 || error.status >= 500) {
               return "Unable to connect to server. Please check your internet connection and try again.";
             }
             
-            // Server gateway errors (common when backend is down)
             if (error.status === 502 || error.status === 503 || error.status === 504) {
               return "Unable to connect to server. Please check your internet connection and try again.";
             }
@@ -103,11 +96,9 @@ export function showToastPromise<T>(
               return "Unable to connect to server. Please check your internet connection and try again.";
             }
             
-            // Use the API error message if available
             return error.message || "Operation failed";
           }
           
-          // Default error message
           const message = typeof messages.error === 'function' 
             ? messages.error(error) 
             : messages.error ?? "Operation failed";
@@ -171,16 +162,14 @@ export function showToastPromise<T>(
   return promise;
 }
 
-/**
- * Centralized error handler that maps error types to user-friendly messages
- */
+
 export function handleError(error: unknown): void {
   if (!error) {
     showError("An unexpected error occurred");
     return;
   }
 
-  // Handle network/connectivity issues first (most common when offline)
+  // Handle network/connectivity issues
   if (error instanceof TypeError && (
     error.message.includes('fetch') || 
     error.message.includes('timed out') ||
@@ -192,14 +181,12 @@ export function handleError(error: unknown): void {
 
   // Handle API errors from backend
   if (error instanceof ApiError) {
-    // Network/connectivity issues
     if (error.status === 0 || error.status >= 500) {
-      // Status 0 usually means network error, 500+ means server issues
       showError("Unable to connect to server. Please check your internet connection and try again.");
       return;
     }
     
-    // Server gateway errors (common when backend is down)
+    // Server gateway errors
     if (error.status === 502 || error.status === 503 || error.status === 504) {
       showError("Unable to connect to server. Please check your internet connection and try again.");
       return;
@@ -235,7 +222,7 @@ export function handleError(error: unknown): void {
       return;
     }
     
-    // Client errors (400-499) - show the backend message but sanitize it
+    // Client errors 
     if (error.status >= 400 && error.status < 500) {
       const message = typeof error.message === 'string' ? error.message : "Request failed. Please try again.";
       showError(message);
@@ -257,7 +244,7 @@ export function handleError(error: unknown): void {
     return;
   }
 
-  // Authentication & Authorization
+  // Authentication & Authorisation
   if (error instanceof TokenError || error instanceof SessionError) {
     showError(error.message);
     return;
@@ -274,10 +261,6 @@ export function handleError(error: unknown): void {
     return;
   }
 
-//   if (error instanceof HandshakeError) {
-//     showError("Connection error. Please check your internet connection and try again.");
-//     return;
-//   }
 
   if (error instanceof ConnectionLostError) {
     createManagedToast(() => 
@@ -418,7 +401,6 @@ export function handleError(error: unknown): void {
 
   // Handle string errors
   if (typeof error === "string") {
-    // Filter out technical database/internal error strings
     if (error.toLowerCase().includes('database') || 
         error.toLowerCase().includes('connection') ||
         error.toLowerCase().includes('prisma') ||
@@ -433,7 +415,6 @@ export function handleError(error: unknown): void {
 
   // Handle generic Error objects
   if (error instanceof Error) {
-    // Check for network-related error messages
     if (error.message.toLowerCase().includes('fetch') ||
         error.message.toLowerCase().includes('network') ||
         error.message.toLowerCase().includes('connection') ||
@@ -461,11 +442,8 @@ export function handleError(error: unknown): void {
   showError("Something went wrong. Please try again.");
 }
 
-/**
- * Quick success toast
- */
+
 export function showSuccess(message: string): void {
-  // Success toasts don't enforce limits as they're less intrusive
   toast.success(message, {
     duration: 3000,
     style: {
@@ -481,13 +459,10 @@ export function showSuccess(message: string): void {
   });
 }
 
-/**
- * Quick error toast
- */
+
 export function showError(message: string): void {
-  // Check for recent duplicates before showing error toasts
   if (isRecentDuplicate(`error:${message}`)) {
-    return; // Skip duplicate error messages
+    return; 
   }
   
   createManagedToast(() => 
@@ -507,9 +482,7 @@ export function showError(message: string): void {
   );
 }
 
-/**
- * Quick info toast
- */
+
 export function showInfo(message: string): void {
   createManagedToast(() => 
     toast(message, {
@@ -529,9 +502,7 @@ export function showInfo(message: string): void {
   );
 }
 
-/**
- * Quick warning toast
- */
+
 export function showWarning(message: string): void {
   createManagedToast(() => 
     toast(message, {
@@ -554,18 +525,15 @@ export function showWarning(message: string): void {
 // Track active confirmation dialogs to prevent stacking
 let activeConfirmationId: string | null = null;
 
-// Track active toasts to enforce limits
 let activeToasts: Set<string> = new Set();
 const MAX_TOASTS = 3;
 
-// Track recent toast messages to prevent duplicates
 let recentToastMessages: Map<string, number> = new Map();
 const DUPLICATE_PREVENTION_WINDOW = 2000; // 2 seconds
 
 // Helper function to enforce toast limits
 function enforceToastLimit(): void {
   if (activeToasts.size >= MAX_TOASTS) {
-    // Get the oldest toast and dismiss it
     const oldestToastId = Array.from(activeToasts)[0];
     toast.dismiss(oldestToastId);
     activeToasts.delete(oldestToastId);
@@ -578,17 +546,15 @@ function isRecentDuplicate(message: string): boolean {
   const lastShown = recentToastMessages.get(message);
   
   if (lastShown && (now - lastShown) < DUPLICATE_PREVENTION_WINDOW) {
-    return true; // This is a recent duplicate
+    return true; 
   }
   
-  // Clean up old entries
   for (const [msg, timestamp] of recentToastMessages.entries()) {
     if (now - timestamp > DUPLICATE_PREVENTION_WINDOW) {
       recentToastMessages.delete(msg);
     }
   }
   
-  // Record this message
   recentToastMessages.set(message, now);
   return false;
 }
@@ -616,16 +582,13 @@ function createManagedToast(
     // Set a timeout to clean up in case the toast auto-dismisses
     setTimeout(() => {
       cleanup();
-    }, 5000); // Adjust based on your toast durations
+    }, 5000);
   }
   
   return toastId;
 }
 
-/**
- * Confirmation toast with promise return for async handling
- * Returns a promise that resolves to true if confirmed, false if cancelled
- */
+// Confirmation dialog with promise resolution
 export function showConfirmation(
   message: string,
   options?: {
@@ -642,7 +605,6 @@ export function showConfirmation(
     activeConfirmationId = null;
   }
   
-  // Parse message for bold formatting (**text**)
   const parseMessage = (text: string) => {
     const parts = text.split(/(\*\*[^*]+\*\*)/);
     return parts.map((part, index) => {

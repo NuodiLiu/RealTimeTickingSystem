@@ -1,22 +1,13 @@
-/**
- * Centralised API client for your Express backend
- * - Works in Next.js App Router (client or server)
- * - Uses fetch with credentials for httpOnly cookie JWT flows
- * - Auto-refreshes access token on 401 via /auth/refresh then retries once
- * - Base URL from NEXT_PUBLIC_API_BASE_URL (fallback http://localhost:3000)
- */
+// src/lib/api.ts
 
-// -----------------------------
+
 // Config
-// -----------------------------
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000";
 
 // Helper to join URL segments safely
 const join = (base: string, path: string) => `${base.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
 
-// -----------------------------
-// Types (adjust to match your backend DTOs as needed)
-// -----------------------------
+// Types 
 export type InviteRole = "staff" | "admin";
 
 export interface CreateInviteReq { email: string; role?: InviteRole }
@@ -24,8 +15,6 @@ export interface CreateInviteRes { inviteId: string; email: string; code: string
 
 export interface RegisterReq { email: string; password: string; username?: string; inviteCode?: string }
 export interface LoginReq { email: string; password: string }
-// export interface AuthRes { user: { id: string; email: string; username?: string; role?: InviteRole }; }
-// Update this interface to match your backend response
 export interface AuthRes { 
   staff: { 
     id: string; 
@@ -41,12 +30,11 @@ export interface AuthRes {
   };
 }
 
-// Keep a separate User type for your frontend state
 export interface User {
   id: string;
   email: string;
   username: string;
-  role: 'ADMIN' | 'STAFF'; // Ensure role is part of the user object
+  role: 'ADMIN' | 'STAFF'; 
   token?: string;
 }
 export type CaseStatus = "QUEUED" | "IN_PROGRESS" | "RESOLVED_PENDING_FEEDBACK" | "RESOLVED";
@@ -67,7 +55,6 @@ export interface CaseItem {
   payload?: any }
 export interface CasesListRes extends Array<CaseItem> {}
 
-// Public queue item type (non-sensitive information only)
 export interface PublicQueueItem {
   id: string;
   studentName: string;
@@ -110,7 +97,6 @@ export interface FeedbackSendReq { caseId: string; deviceId: string; }
 export interface FeedbackOverrideReq { caseId: string; deviceId: string; expectedLockId: string; expectedVersion: number; }
 export interface FeedbackSubmitReq { sessionId: string; rating: number; comment?: string }
 
-// export interface PairCompleteReq { deviceId: string; secret: string }
 export interface PairCompleteReq {
   pairingToken: string;
   deviceName: string;
@@ -149,7 +135,7 @@ export interface UpdateDeviceNameRes {
 export interface HealthPing {
   status: 'ok' | 'error';
   version?: string;
-  uptime?: number; // seconds
+  uptime?: number; 
 }
 
 export interface HealthRes {
@@ -163,8 +149,8 @@ export interface HealthRes {
 export interface ExcelFilterParams {
   startDate?: string;
   endDate?: string;
-  hasFeedback?: 'yes' | 'no' | 'both'; // New filter for feedback presence
-  resolvedOnly?: boolean; // Filter for resolved cases only
+  hasFeedback?: 'yes' | 'no' | 'both';
+  resolvedOnly?: boolean; 
 }
 
 export interface ExcelPreviewResponse {
@@ -180,7 +166,6 @@ export interface ExcelPreviewResponse {
   estimatedFileSize: string;
 }
 
-// Generic API Error shape your backend sends like { error: string }
 export class ApiError extends Error {
   status: number;
   details?: unknown;
@@ -191,16 +176,12 @@ export class ApiError extends Error {
   }
 }
 
-// -----------------------------
-// Core request with 401 auto-refresh once
-// -----------------------------
+// request with 401 auto-refresh once
 let isRefreshing = false;
 let pending401Queue: Array<() => void> = [];
 
 // Timeout wrapper for fetch requests
-// Wrapper function to add timeout to fetch requests
 function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  // 3 second timeout for faster offline detection
   const timeoutMs = 3000;
   return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
@@ -225,7 +206,7 @@ async function baseFetch<T>(path: string, init?: RequestInit & { skipRefreshRetr
   try {
     const res = await fetchWithTimeout(url, {
       ...init,
-      credentials: "include", // send cookies
+      credentials: "include", 
       headers: {
         "Content-Type": "application/json",
         ...(init?.headers ?? {}),
@@ -241,7 +222,6 @@ async function baseFetch<T>(path: string, init?: RequestInit & { skipRefreshRetr
       // Try refresh on 401 once
       if (res.status === 401 && !init?.skipRefreshRetry) {
         await handle401Refresh();
-        // Retry original once, but mark to skip loop
         return baseFetch<T>(path, { ...init, skipRefreshRetry: true });
       }
       const message = (data && (data.error || data.message)) ?? res.statusText;
@@ -250,7 +230,6 @@ async function baseFetch<T>(path: string, init?: RequestInit & { skipRefreshRetr
 
     return (data as T);
   } catch (error) {
-    // Convert network errors to a more specific error type
     if (error instanceof TypeError && (
       error.message.includes('fetch') || 
       error.message.includes('timed out') ||
@@ -263,7 +242,6 @@ async function baseFetch<T>(path: string, init?: RequestInit & { skipRefreshRetr
 }
 
 async function handle401Refresh() {
-  // If a refresh is ongoing, await its completion via a promise
   if (isRefreshing) {
     await new Promise<void>((resolve) => pending401Queue.push(resolve));
     return;
@@ -277,21 +255,17 @@ async function handle401Refresh() {
     });
   } finally {
     isRefreshing = false;
-    // release queued requests regardless of success; next call may still fail and bubble
     pending401Queue.forEach((fn) => fn());
     pending401Queue = [];
   }
 }
 
-// Convenience helpers for HTTP verbs
+// helpers for HTTP verbs
 const get = <T>(path: string) => baseFetch<T>(path, { method: "GET" });
 const del = <T>(path: string) => baseFetch<T>(path, { method: "DELETE" });
 const post = <T>(path: string, body?: unknown) => baseFetch<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined });
 const patch = <T>(path: string, body?: unknown) => baseFetch<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined });
 
-// -----------------------------
-// API groups mapped to your Express routers
-// -----------------------------
 export const AuthAPI = {
   // POST /auth/invites (staff only)
   createInvite: (body: CreateInviteReq) => post<CreateInviteRes>("/auth/invites", body),
@@ -309,7 +283,6 @@ export const AuthAPI = {
 export const CasesAPI = {
   // GET /cases?status=queued|in_progress|resolved (authenticated)
   list: (status?: CaseStatus) => {
-    // Convert uppercase status to lowercase for API call
     const apiStatus = status?.toLowerCase();
     return get<CasesListRes>(`/cases${apiStatus ? `?status=${encodeURIComponent(apiStatus)}` : ""}`);
   },
@@ -347,7 +320,7 @@ export const ExcelAPI = {
     return get<ExcelPreviewResponse>(`/excel/preview${queryString ? `?${queryString}` : ''}`);
   },
   
-  // GET /excel/cases/json - Export as JSON (compatibility)
+  // GET /excel/cases/json - Export as JSON 
   exportAsJson: (filters?: ExcelFilterParams) => {
     const params = new URLSearchParams();
     if (filters?.startDate) params.append('startDate', filters.startDate);
@@ -398,13 +371,6 @@ export const ExcelAPI = {
 export const DeviceAPI = {
   // GET /device 
   list: () => get<DevicesListRes>("/device"),
-  // list: async () => {
-  //   const response = await fetch(`${API_BASE}/device`);
-  //   if (!response.ok) {
-  //     throw new Error("Failed to fetch devices");
-  //   }
-  //   return await response.json();
-  // },
   // GET /device/by-mode/:mode 
   getByMode: (mode: string) => get<DevicesListRes>(`/device/by-mode/${encodeURIComponent(mode)}`),
   // GET /device/online/:mode 
@@ -439,7 +405,7 @@ export const PairAPI = {
     post<PairGenerateQrRes>("/pair/generate-qr", body),
   
   complete: (body: PairCompleteReq) =>
-    post<PairCompleteRes>("/pair/complete", body), // Correct response
+    post<PairCompleteRes>("/pair/complete", body), 
 };
 
 export const HealthAPI = {
@@ -454,4 +420,3 @@ export const HealthAPI = {
   },
 };
 
-// src/lib/api.ts

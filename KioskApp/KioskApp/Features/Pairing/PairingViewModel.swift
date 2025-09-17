@@ -10,7 +10,6 @@ import Combine
 import AVFoundation
 import UIKit
 
-/// 首次进入/未配对时的 VM：选择 mode -> 扫码 -> 调用 /pair/complete
 final class PairingViewModel: ObservableObject {
     @Published var selectedMode: DeviceMode = .REGISTRATION
     @Published var isScanning = false
@@ -30,7 +29,6 @@ final class PairingViewModel: ObservableObject {
         self.onPaired = onPaired
     }
     
-    /// 检查相机权限状态
     func checkCameraPermissionStatus() {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         DispatchQueue.main.async { [weak self] in
@@ -45,20 +43,20 @@ final class PairingViewModel: ObservableObject {
         
         switch status {
         case .authorized:
-            print("📱 Camera authorized, starting scan")
+            print("Camera authorized, starting scan")
             cameraPermissionDenied = false
             isScanning = true
             
         case .notDetermined:
-            print("📱 Requesting camera permission")
+            print("Requesting camera permission")
             AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
                 DispatchQueue.main.async {
                     if granted {
-                        print("📱 Camera permission granted")
+                        print("Camera permission granted")
                         self?.cameraPermissionDenied = false
                         self?.isScanning = true
                     } else {
-                        print("📱 Camera permission denied by user")
+                        print("Camera permission denied by user")
                         self?.cameraPermissionDenied = true
                         self?.errorMessage = "Camera access is required to scan QR codes"
                     }
@@ -66,18 +64,17 @@ final class PairingViewModel: ObservableObject {
             }
             
         case .denied, .restricted:
-            print("📱 Camera permission previously denied or restricted")
+            print("Camera permission previously denied or restricted")
             cameraPermissionDenied = true
             errorMessage = "Camera access has been denied. Please enable it in Settings to scan QR codes."
             
         @unknown default:
-            print("📱 Unknown camera permission status")
+            print("Unknown camera permission status")
             cameraPermissionDenied = true
             errorMessage = "Unable to access camera"
         }
     }
     
-    /// 打开系统设置页面
     func openCameraSettings() {
         guard let settingsUrl = URL(string: UIApplication.openSettingsURLString),
               UIApplication.shared.canOpenURL(settingsUrl) else {
@@ -94,7 +91,6 @@ final class PairingViewModel: ObservableObject {
         }
     }
     
-    /// 扫码拿到 token 后调用
     @MainActor
     func handleScanned(token: String) async {
         isScanning = false
@@ -109,18 +105,18 @@ final class PairingViewModel: ObservableObject {
         errorMessage = nil
         defer { isPairing = false }
         
-        print("📱 PairingViewModel: Starting pairing process...")
-        print("📱 PairingViewModel: Selected mode: \(selectedMode.rawValue)")
+        print("PairingViewModel: Starting pairing process...")
+        print("PairingViewModel: Selected mode: \(selectedMode.rawValue)")
         
         do {
             struct EPResp: Decodable {
                 let deviceId: String
                 let deviceSecret: String
                 let apiKey: String
-                let wsToken: String?        // WebSocket JWT 认证 token
+                let wsToken: String?       
                 let deviceName: String
-                let mode: DeviceMode        // 统一使用DeviceMode枚举类型，非可选
-                let wsEndpoint: String?     // WebSocket 端点 URL
+                let mode: DeviceMode       
+                let wsEndpoint: String?    
             }
             let ep = Endpoint<EPResp>(path: "/pair/complete", method: .POST, needsDeviceAuth: false)
             let deviceName = UIDevice.current.name
@@ -130,21 +126,21 @@ final class PairingViewModel: ObservableObject {
                 mode: selectedMode.rawValue
             )
             
-            print("🔄 Pairing request:")
+            print("   Pairing request:")
             print("   Token: \(token)")
             print("   Device: \(deviceName)")
             print("   Mode: \(selectedMode.rawValue)")
             
             let resp: EPResp = try await env.apiClient.request(ep, body: body)
             
-            print("📱 PairingViewModel: Received response from server:")
+            print("   PairingViewModel: Received response from server:")
             print("   Device ID: \(resp.deviceId)")
             print("   Server returned mode: \(resp.mode.rawValue)")
             print("   Has WS Token: \(resp.wsToken != nil)")
             print("   Has WS Endpoint: \(resp.wsEndpoint != nil)")
             
             let finalMode = resp.mode
-            print("📱 PairingViewModel: Final mode determined: \(finalMode.rawValue)")
+            print("PairingViewModel: Final mode determined: \(finalMode.rawValue)")
             
             let creds = DeviceCredentials(
                 deviceId: resp.deviceId, 
@@ -154,19 +150,19 @@ final class PairingViewModel: ObservableObject {
                 mode: finalMode
             )
             
-            print("📱 PairingViewModel: About to store device credentials...")
+            print("PairingViewModel: About to store device credentials...")
             try env.authProvider.storeDevice(credentials: creds)
             print("Stored device, id:", creds.deviceId.prefix(6), "mode:", creds.mode.rawValue)
             
-            print("📱 PairingViewModel: About to save mode to store...")
+            print("PairingViewModel: About to save mode to store...")
             modeStore.save(finalMode)
             
-            print("📱 PairingViewModel: About to call onPaired callback...")
+            print("PairingViewModel: About to call onPaired callback...")
             onPaired(finalMode)
-            print("📱 PairingViewModel: onPaired callback completed")
+            print("PairingViewModel: onPaired callback completed")
             
         } catch {
-            print("❌ PairingViewModel: Pairing failed with error: \(error)")
+            print("PairingViewModel: Pairing failed with error: \(error)")
             errorMessage = error.localizedDescription
         }
     }

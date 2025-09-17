@@ -6,7 +6,7 @@ export class AppError extends Error {
   }
 }
 
-// Authentication & Authorization Errors
+// Authentication & Authorisation Errors
 export class TokenError extends AppError {
   constructor(message: string = "Authentication token is invalid or expired") {
     super(message);

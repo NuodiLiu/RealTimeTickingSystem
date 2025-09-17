@@ -51,13 +51,11 @@ export function useTextTruncation(originalText: string): {
     return { text: truncated, isTruncated: false };
   };
 
-  // Update truncated text when component mounts or originalText changes
   useEffect(() => {
     const updateTruncation = () => {
       if (elementRef.current && originalText) {
-        // Get the actual available width for text (excluding padding)
         const containerWidth = elementRef.current.clientWidth;
-        if (containerWidth > 0) { // Ensure the element is rendered
+        if (containerWidth > 0) { 
           const result = truncateByWords(originalText, containerWidth);
           setTruncatedText(result.text);
           setIsTruncated(result.isTruncated);
@@ -65,7 +63,6 @@ export function useTextTruncation(originalText: string): {
       }
     };
 
-    // Use a small delay to ensure the element is fully rendered
     const timeoutId = setTimeout(updateTruncation, 0);
     return () => clearTimeout(timeoutId);
   }, [originalText]);
@@ -74,7 +71,6 @@ export function useTextTruncation(originalText: string): {
   useEffect(() => {
     const handleResize = () => {
       if (elementRef.current && originalText) {
-        // Get the actual available width for text (excluding padding)
         const containerWidth = elementRef.current.clientWidth;
         if (containerWidth > 0) {
           const result = truncateByWords(originalText, containerWidth);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AuthAPI, ApiError, User } from "../lib/api";
+import { AuthAPI, User } from "../lib/api";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 
 
@@ -14,7 +14,7 @@ export default function useAuth() {
     let mounted = true;
     (async () => {
       try {
-        // First try to refresh/check existing session
+        // try to refresh/check existing session
         const meResponse = await fetch(`${API_BASE}/auth/me`, {
           credentials: 'include',
         });
@@ -27,14 +27,13 @@ export default function useAuth() {
               id: data.user.staffId,
               email: data.user.upn,
               username: data.user.name,
-              role: data.user.role,  // Ensure role is included
+              role: data.user.role, 
             });
             setBooting(false);
             return;
           }
         }
 
-        // If no session, user is not logged in
         if (mounted) {
           setUser(null);
           setBooting(false);
@@ -52,7 +51,6 @@ export default function useAuth() {
   async function login(employeeNo: string) {
     try {
       const res = await AuthAPI.login({ employeeNo });
-      // Ensure the response includes role
       if (res.staff.role != "STAFF" && res.staff.role != "ADMIN") {
         throw new Error("Must be admin or staff");
       }
@@ -60,7 +58,7 @@ export default function useAuth() {
         id: res.staff.id,
         email: res.staff.email,
         username: res.staff.name,
-        role: res.staff.role, // Ensure role is set
+        role: res.staff.role,
       });
     } catch (error) {
       throw error;
@@ -74,7 +72,6 @@ export default function useAuth() {
       console.error('Logout error:', e);
     } finally {
       setUser(null);
-      // Immediately redirect to login page to prevent any lingering API calls
       window.location.href = '/login';
     }
   }

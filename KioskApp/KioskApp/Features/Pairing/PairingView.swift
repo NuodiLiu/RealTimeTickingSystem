@@ -3,7 +3,6 @@ import SwiftUI
 struct PairingView: View {
     @StateObject var vm: PairingViewModel
     
-    // UNSW 主题色
     private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
     private let unswDarkBlue = Color(red: 0.0, green: 0.2, blue: 0.4)
     private let unswLightGray = Color(red: 0.95, green: 0.95, blue: 0.95)
@@ -18,7 +17,6 @@ struct PairingView: View {
     
     var body: some View {
         ZStack {
-            // UNSW 主题背景：渐变从浅黄到白色
             LinearGradient(
                 gradient: Gradient(colors: [unswYellow.opacity(0.1), Color.white]),
                 startPoint: .topLeading,
@@ -26,7 +24,6 @@ struct PairingView: View {
             )
             .ignoresSafeArea()
             
-            // UNSW Logo 水印背景
             VStack {
                 Spacer()
                 HStack {
@@ -41,12 +38,9 @@ struct PairingView: View {
             }
             .ignoresSafeArea()
             
-            // 主体内容
             VStack(spacing: 0) {
-                // UNSW 顶部标题区域
                 UNSWPairingHeader()
                 
-                // 主要内容区域
                 VStack(spacing: 40) {
                     // Mode 选择区域
                     VStack(alignment: .leading, spacing: 20) {
@@ -57,7 +51,6 @@ struct PairingView: View {
                         UNSWSegmentedPicker(selection: $vm.selectedMode)
                     }
                     
-                    // 描述文本
                     Text("Select a working mode above, then scan a QR code to pair this device.")
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(.secondary)
@@ -67,7 +60,6 @@ struct PairingView: View {
                     
                     Spacer(minLength: 40)
                     
-                    // 扫描按钮
                     UNSWPairButton(
                         isPairing: vm.isPairing,
                         cameraPermissionDenied: vm.cameraPermissionDenied,
@@ -89,8 +81,7 @@ struct PairingView: View {
             vm.checkCameraPermissionStatus()
         }
         .showToast(message: $vm.errorMessage, style: .error, duration: 4.0)
-        // .devResetGesture() // 添加开发者重置手势 - DISABLED
-        // 全屏相机
+
         .fullScreenCover(isPresented: $vm.isScanning) {
             ZStack {
                 Color.black.ignoresSafeArea()
@@ -112,9 +103,8 @@ struct PairingView: View {
                     
                     VStack(spacing: 10) {
                         Button("Simulate QR Scan (Dev Token)") {
-                            // 使用后端预设的开发环境测试令牌
                             let simulatedToken = "test-token-123"
-                            print("🧪 Simulating scan with token: \(simulatedToken)")
+                            print("Simulating scan with token: \(simulatedToken)")
                             Task { await vm.handleScanned(token: simulatedToken) }
                         }
                         .buttonStyle(.borderedProminent)
@@ -149,7 +139,6 @@ struct PairingView: View {
                     }
                     Spacer()
                     
-                    // 底部指导文本
                     VStack(spacing: 12) {
                         Text("Align the QR code within the frame")
                             .foregroundColor(.white)
@@ -167,13 +156,10 @@ struct PairingView: View {
     }
 }
 
-// MARK: - UNSW 主题组件
 
-/// UNSW 风格的配对页面标题
 private struct UNSWPairingHeader: View {
     var body: some View {
         VStack(spacing: 24) {
-            // UNSW College Logo
             Image("UnswCollegeLogo")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
@@ -185,7 +171,6 @@ private struct UNSWPairingHeader: View {
     }
 }
 
-/// UNSW 风格的表单字段容器
 private struct UNSWFormField<Content: View>: View {
     let title: String
     let required: Bool
@@ -216,7 +201,7 @@ private struct UNSWFormField<Content: View>: View {
     }
 }
 
-/// UNSW 风格的分段选择器 - 重新设计为更大更显眼的卡片式
+/// UNSW style segmented picker for device modes
 private struct UNSWSegmentedPicker: View {
     @Binding var selection: DeviceMode
     private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
@@ -224,7 +209,6 @@ private struct UNSWSegmentedPicker: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // Registration 卡片
             ModeCard(
                 mode: .REGISTRATION,
                 title: "Registration",
@@ -237,7 +221,6 @@ private struct UNSWSegmentedPicker: View {
                 selection = .REGISTRATION
             }
             
-            // Feedback 卡片
             ModeCard(
                 mode: .FEEDBACK,
                 title: "Feedback",
@@ -254,7 +237,6 @@ private struct UNSWSegmentedPicker: View {
     }
 }
 
-/// 模式选择卡片
 private struct ModeCard: View {
     let mode: DeviceMode
     let title: String
@@ -268,12 +250,10 @@ private struct ModeCard: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 16) {
-                // 图标
                 Image(systemName: icon)
                     .font(.system(size: 36, weight: .semibold))
                     .foregroundColor(isSelected ? unswDarkBlue : .secondary)
                 
-                // 标题和副标题
                 VStack(spacing: 6) {
                     Text(title)
                         .font(.system(size: 22, weight: .bold))
@@ -306,7 +286,6 @@ private struct ModeCard: View {
     }
 }
 
-/// UNSW 风格的配对按钮
 private struct UNSWPairButton: View {
     let isPairing: Bool
     let cameraPermissionDenied: Bool
@@ -319,7 +298,6 @@ private struct UNSWPairButton: View {
     var body: some View {
         VStack(spacing: 16) {
             if cameraPermissionDenied {
-                // 相机权限被拒绝时显示设置按钮
                 VStack(spacing: 12) {
                     Button {
                         onSettingsTapped()
@@ -345,7 +323,6 @@ private struct UNSWPairButton: View {
                         .multilineTextAlignment(.center)
                 }
             } else {
-                // 正常扫描按钮
                 Button {
                     onScanTapped()
                 } label: {

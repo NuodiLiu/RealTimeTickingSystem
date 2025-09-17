@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { 
-  isDeviceAvailableForFeedback,
-  canUseDeviceForFeedback,
-} from "../lib/caseUtils";
+import { isDeviceAvailableForFeedback } from "../lib/caseUtils";
 
 interface DeviceCardProps {
   device: any;
@@ -28,15 +25,14 @@ export default function DeviceCard({
   const [showDropdown, setShowDropdown] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingName, setEditingName] = useState("");
-  const [pendingName, setPendingName] = useState(""); // 用于存储待更新的名称
-  const [isUpdating, setIsUpdating] = useState(false); // 跟踪API调用状态
-  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 用于清理timeout
+  const [pendingName, setPendingName] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isAvailable = showSelectButton ? isDeviceAvailableForFeedback(device) : true;
   const canBeSelected = showSelectButton ? (device && device.mode === 'FEEDBACK') : true;
   const isClickable = showSelectButton && canBeSelected && onSelect;
-  // 显示逻辑：如果正在更新且有待处理的名称，显示待处理的名称；否则显示设备名称
   const deviceDisplayName = (isUpdating && pendingName) ? pendingName : (device.name || device.deviceLabel || "iPad Device");
 
   // Handle name editing
@@ -51,20 +47,17 @@ export default function DeviceCard({
     const originalDeviceName = device.name || device.deviceLabel || "iPad Device";
     
     if (trimmedName && trimmedName !== originalDeviceName && onUpdateName) {
-      // 清理之前的timeout
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
       }
       
-      // 立即设置pending状态
+      // set to pending
       setIsUpdating(true);
       setPendingName(trimmedName);
       setIsEditingName(false);
       
-      // 调用API
       onUpdateName(device.deviceId, trimmedName);
       
-      // 设置较短的清理timeout (1.5秒)，WebSocket通常很快
       updateTimeoutRef.current = setTimeout(() => {
         setPendingName("");
         setIsUpdating(false);

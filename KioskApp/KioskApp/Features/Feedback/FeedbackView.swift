@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Constants
+// Constants
 private let MAX_FEEDBACK_LENGTH = 800
 
 struct FeedbackView: View {
@@ -9,14 +9,12 @@ struct FeedbackView: View {
 
     @FocusState private var textFocused: Bool
     
-    // UNSW 主题色
     private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
     private let unswDarkBlue = Color(red: 0.0, green: 0.2, blue: 0.4)
     private let unswLightGray = Color(red: 0.95, green: 0.95, blue: 0.95)
 
     var body: some View {
         ZStack {
-            // UNSW 主题背景：渐变从浅黄到白色
             LinearGradient(
                 gradient: Gradient(colors: [unswYellow.opacity(0.1), Color.white]),
                 startPoint: .topLeading,
@@ -24,7 +22,7 @@ struct FeedbackView: View {
             )
             .ignoresSafeArea()
             
-            // UNSW Logo 水印背景
+            // UNSW Logo 
             VStack {
                 Spacer()
                 HStack {
@@ -39,14 +37,10 @@ struct FeedbackView: View {
             }
             .ignoresSafeArea(.keyboard)
             
-            // 主体内容 - 使用固定布局，禁用滚动
             VStack(spacing: 32) {
-                // UNSW 顶部标题区域
                 UNSWFeedbackHeader()
                 
-                // 表单卡片
                 VStack(alignment: .leading, spacing: 28) {
-                    // Rating 字段
                     UNSWFormField(
                         title: "Rate your experience",
                         required: true,
@@ -56,7 +50,7 @@ struct FeedbackView: View {
                         }
                     )
 
-                    // Comment 字段
+                    // Comment 
                     UNSWFormField(
                         title: "Additional comments (optional)",
                         content: {
@@ -69,7 +63,6 @@ struct FeedbackView: View {
                             )
                             .onSubmit { textFocused = false }
 
-                            // 字符计数显示
                             HStack {
                                 Spacer()
                                 Text("\(vm.text.count)/\(MAX_FEEDBACK_LENGTH)")
@@ -92,17 +85,15 @@ struct FeedbackView: View {
                 )
                 .padding(.horizontal, 24)
                 
-                Spacer() // 填充剩余空间，推送底部按钮到底部
+                Spacer() 
             }
             .frame(maxWidth: 800)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, 20)
 
-            // 底部操作按钮区域
             VStack(spacing: 0) {
                 Spacer()
                 
-                // UNSW 风格的操作按钮区域
                 VStack(spacing: 0) {
                     // 分割线
                     Rectangle()
@@ -110,10 +101,9 @@ struct FeedbackView: View {
                         .frame(height: 3)
                     
                     HStack(spacing: 20) {
-                        // Close 按钮（如果有 onDismiss）
                         if onDismiss != nil {
                             Button {
-                                vm.cancel() // 发送取消消息到后端
+                                vm.cancel() 
                                 onDismiss?()
                             } label: {
                                 HStack(spacing: 8) {
@@ -129,7 +119,6 @@ struct FeedbackView: View {
                             .controlSize(.large)
                         }
 
-                        // Submit 按钮
                         Button {
                             Task {
                                 await vm.submit()
@@ -178,7 +167,6 @@ struct FeedbackView: View {
                 .foregroundColor(unswYellow)
             }
         }
-        // 中心成功提示弹框
         .overlay {
             if vm.submitted {
                 UNSWFeedbackSuccessModal()
@@ -190,24 +178,19 @@ struct FeedbackView: View {
                     .animation(.spring(response: 0.6, dampingFraction: 0.8), value: vm.submitted)
             }
         }
-        // 错误提示保持在顶部
         .overlay(alignment: .top) {
             if let e = vm.errorMessage {
                 UNSWBanner(text: e, style: .error)
                     .padding(.top, 12)
             }
         }
-        // .devResetGesture() // 添加开发者重置手势 - DISABLED
-        // 添加点击手势来取消键盘焦点
         .onTapGesture {
             textFocused = false
         }
     }
 }
 
-// MARK: - UNSW 主题组件
 
-/// UNSW 风格的反馈页面标题
 private struct UNSWFeedbackHeader: View {
     var body: some View {
         VStack(spacing: 32) {
@@ -227,7 +210,6 @@ private struct UNSWFeedbackHeader: View {
     }
 }
 
-/// UNSW 风格的表单字段容器
 private struct UNSWFormField<Content: View>: View {
     let title: String
     let required: Bool
@@ -258,7 +240,6 @@ private struct UNSWFormField<Content: View>: View {
     }
 }
 
-/// UNSW 风格的文本编辑器
 private struct UNSWTextEditor: View {
     let placeholder: String
     @Binding var text: String
@@ -283,7 +264,6 @@ private struct UNSWTextEditor: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // Placeholder
             if text.isEmpty {
                 Text(placeholder)
                     .foregroundStyle(.secondary)
@@ -300,7 +280,6 @@ private struct UNSWTextEditor: View {
                 .padding(12)
                 .scrollBounceBehavior(.basedOnSize)
                 .onChange(of: text) { _, newValue in
-                    // 限制字符数
                     if newValue.count > maxLength {
                         text = String(newValue.prefix(maxLength))
                     }

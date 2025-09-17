@@ -28,7 +28,6 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   
-  // 滚动容器的引用，用于保持滚动位置
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollPositionRef = useRef<number>(0);
 
@@ -36,7 +35,6 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
   const loadPreview = useCallback(async (filtersToUse: ExcelFilterParams) => {
     if (!isOpen) return;
     
-    // 保存当前滚动位置
     if (scrollContainerRef.current) {
       scrollPositionRef.current = scrollContainerRef.current.scrollTop;
     }
@@ -64,7 +62,6 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
       const previewData = await ExcelAPI.getPreview(filtersToUse);
       setPreview(previewData);
       
-      // 恢复滚动位置
       setTimeout(() => {
         if (scrollContainerRef.current) {
           scrollContainerRef.current.scrollTop = scrollPositionRef.current;
@@ -76,14 +73,13 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
     } finally {
       setIsLoadingPreview(false);
     }
-  }, [isOpen]); // 只依赖 isOpen，避免循环依赖
+  }, [isOpen]);
 
   // Handle filter change and reload preview
   const handleFilterChange = useCallback((newFilters: Partial<ExcelFilterParams>) => {
     setFilters(currentFilters => {
       const updatedFilters = { ...currentFilters, ...newFilters };
       
-      // Only show loading if we have both dates
       if (updatedFilters.startDate && updatedFilters.endDate) {
         setIsLoadingPreview(true);
       }
@@ -93,7 +89,6 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
     });
   }, [loadPreview]);
 
-  // 专门用于快速日期按钮的日期更新，不触发额外的API调用
   const handleQuickDateChange = useCallback((start: Date | null, end: Date | null) => {
     setStartDate(start);
     setEndDate(end);
@@ -127,14 +122,13 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
 
       const blob = await ExcelAPI.exportAsExcel(filters);
       
-      // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       
       // Generate filename with timestamp
       const now = new Date();
-      const timestamp = now.toISOString().split('T')[0]; // YYYY-MM-DD
+      const timestamp = now.toISOString().split('T')[0];
       link.download = `cases_detailed_export_${timestamp}.xlsx`;
       
       // Trigger download
@@ -161,10 +155,8 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
     }
   };
 
-  // Initialize preview when modal opens
   useEffect(() => {
     if (isOpen) {
-      // Set default date range to last 30 days when modal opens
       const end = new Date();
       const start = new Date(end);
       start.setDate(end.getDate() - 30);
@@ -176,12 +168,12 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
         resolvedOnly: true
       };
       
-      // Set all states together to avoid glitches
+      // Set all states together 
       setStartDate(start);
       setEndDate(end);
       setFilters(defaultFilters);
       setIsLoadingPreview(true);
-      scrollPositionRef.current = 0; // 重置滚动位置
+      scrollPositionRef.current = 0; 
       loadPreview(defaultFilters);
     } else {
       // Reset when modal closes
@@ -197,7 +189,7 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
       setIsLoadingPreview(false);
       scrollPositionRef.current = 0;
     }
-  }, [isOpen]); // 只依赖 isOpen
+  }, [isOpen]); 
 
   if (!isOpen) return null;
 
@@ -256,7 +248,7 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
                   Ready to export {preview.totalCases} cases
                   {preview.totalCases > 500 && (
                     <span className="text-amber-600 ml-2">
-                      ⚠️ Large dataset - export may take a few minutes
+                      Large dataset - export may take a few minutes
                     </span>
                   )}
                 </>
