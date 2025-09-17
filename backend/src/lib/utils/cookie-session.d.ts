@@ -4,7 +4,7 @@ declare module "cookie-session" {
   interface CookieSessionObject {
     user?: {
       identityKey: string;               // `${iss}|${sub}`
-      tid?: string | null;               // 租户ID
+      tid?: string | null;               // tenantId
       oid?: string | null;
       upn?: string | null;
       name?: string | null;

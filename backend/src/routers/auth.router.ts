@@ -2,7 +2,7 @@
 import { Router } from "express";
 import crypto from "crypto";
 import { msalClient, authParams } from "../auth/azure";
-import { AuthError, BadRequestError } from "../error"; // <- 用你的错误类
+import { AuthError, BadRequestError } from "../error"; 
 import { prisma } from "../lib/prisma";
 
 const router = Router();
@@ -29,12 +29,12 @@ if (process.env.NODE_ENV === 'development') {
         tid: 'dev-tenant',
         upn: 'dev@test.local',
         name: 'Dev User',
-        staffId: devStaff.id, // Use the actual database ID
+        staffId: devStaff.id, // Use actual database ID
         role: 'ADMIN',
         employeeNo: 'DEV001',
         _staffCachedAt: Date.now()
       };
-      console.log('Dev login - session set:', (req.session as any).user); // Add this line
+      console.log('Dev login - session set:', (req.session as any).user);
 
 
       res.json({ ok: true, user: (req.session as any).user });
@@ -46,7 +46,6 @@ if (process.env.NODE_ENV === 'development') {
   // Add staff user for testing admin restrictions
   router.post('/dev-login-staff', async (req, res) => {
     try {
-      // Create or find the test staff member
       const testStaff = await prisma.staff.upsert({
         where: { identityKey: 'dev|staff' },
         update: {},
@@ -97,11 +96,11 @@ if (process.env.NODE_ENV === "test") {
   });
 }
 
-// GET /auth/login -> 重定向微软登录页
+// GET /auth/login - redirect to microsoft login
 router.get("/login", async (req, res, next) => {
   try {
     if ((req.session as any)?.user) {
-      return res.status(204).end(); // 已登录：不算错误，直接 204/或重定向前端
+      return res.status(204).end(); // already logged in
     }
 
     const state = crypto.randomBytes(16).toString("hex");
@@ -120,18 +119,15 @@ router.get("/login", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// GET /auth/redirect -> 用授权码换 token, 保存 session
+// GET /auth/redirect - exchange code for token and save session
 router.get("/redirect", async (req, res, next) => {
   try {
-    // Azure 回传错误时，交给 errorHandler
     if (req.query.error) {
       const err = String(req.query.error);
       const desc = String(req.query.error_description || "");
-      // 用户点取消多数是 access_denied，更贴近鉴权错误 → 401
       if (err === "access_denied") {
         return next(new AuthError(desc || "Access denied", 401));
       }
-      // 其它统一当作 400
       return next(new BadRequestError(desc ? `${err}: ${desc}` : err));
     }
 
@@ -149,7 +145,6 @@ router.get("/redirect", async (req, res, next) => {
 
     const claims: any = tokenResponse?.idTokenClaims || {};
 
-    // 可选 nonce 二次校验（更显式）
     const expectedNonce = (req.session as any).oauth_nonce;
     if (expectedNonce && claims.nonce && claims.nonce !== expectedNonce) {
       return next(new BadRequestError("Invalid nonce"));
@@ -161,16 +156,14 @@ router.get("/redirect", async (req, res, next) => {
       oid: claims.oid ?? null,
       upn: claims.preferred_username || claims.upn || claims.email || null,
       name: claims.name || null,
-      // attachReqUser 之后会把 staffId/role/employeeNo 写回 session.user
     };
 
-    // 清理一次性字段
+    // clear temp. fields 
     (req.session as any).oauth_state = undefined;
     (req.session as any).oauth_nonce = undefined;
 
     res.redirect(process.env.FRONTEND_URL || "/");
   } catch (e: any) {
-    // MSAL 抛出的错误（如 AADSTS50011 等）更贴近鉴权失败
     if (e && (e.errorMessage || e.message)) {
       return next(new AuthError(e.errorMessage || e.message, 401));
     }
@@ -178,10 +171,10 @@ router.get("/redirect", async (req, res, next) => {
   }
 });
 
-// POST /auth/logout -> 本地登出 + 可选全局登出
+// POST /auth/logout 
 router.post("/logout", (req, res) => {
   const global = String(req.query.global || "").toLowerCase() === "true";
-  req.session = null; // cookie-session 置空
+  req.session = null; 
 
   if (global) {
     const tenant = process.env.AZURE_AD_TENANT_ID || "common";
@@ -195,19 +188,17 @@ router.post("/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-// POST /auth/refresh -> 刷新会话（对于 cookie-session 来说，这主要是检查会话有效性）
+// POST /auth/refresh 
 router.post("/refresh", (req, res) => {
-  // 对于 cookie-session，我们主要是检查当前会话是否有效
   const user = (req.session as any)?.user;
   if (!user) {
     return res.status(401).json({ error: "No valid session" });
   }
   
-  // 会话有效，返回成功
   res.json({ ok: true });
 });
 
-// GET /auth/me -> 返回当前用户（SSO claims）
+// GET /auth/me - return current user (SSO claims)
 router.get("/me", (req, res) => {
   res.json({ user: (req.session as any).user ?? null });
 });

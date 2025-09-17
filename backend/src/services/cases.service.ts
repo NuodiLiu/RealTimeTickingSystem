@@ -3,13 +3,12 @@ import { BadRequestError, ConflictError, MissingFieldError, NotFoundError } from
 import { DeviceGateway } from "../websocket/deviceSocket";
 
 export class CasesService {
-    // Public method for display screens - returns only non-sensitive information
+    // Public method for display screens
     static async getPublicQueueData() {
         const queuedCases = await prisma.studentCase.findMany({
             where: { status: 'QUEUED' },
             orderBy: { createdAt: 'asc' },
             select: {
-                // Only select non-sensitive fields for public display
                 id: true,
                 studentName: true,
                 createdAt: true,
@@ -17,11 +16,10 @@ export class CasesService {
             }
         });
 
-        // Return sanitized data
         return queuedCases.map((caseItem, index) => ({
             id: caseItem.id,
             studentName: caseItem.studentName,
-            position: index + 1, // Add position in queue
+            position: index + 1, 
             createdAt: caseItem.createdAt,
             status: caseItem.status
         }));
@@ -56,7 +54,7 @@ export class CasesService {
             } 
         });
         
-        // Real-time notification: Notify dashboard that a new case was created
+        // Real-time notification
         DeviceGateway.notifyDashboard({
             type: "case:created",
             payload: { 
@@ -75,7 +73,7 @@ export class CasesService {
     static async takeCase(id: string, staffId: string) {
         console.log('takeCase called with:', { id, staffId });
         
-        // First check if the staff exists (for debugging)
+        // check if the staff exists first
         const staffExists = await prisma.staff.findUnique({ where: { id: staffId } });
         console.log('Staff exists?', staffExists ? 'YES' : 'NO');
         
@@ -90,7 +88,7 @@ export class CasesService {
             data: { 
                 status: 'IN_PROGRESS', 
                 staffId,
-                startedAt: now  // Set the started timestamp
+                startedAt: now  
             },
         });
         
@@ -107,7 +105,6 @@ export class CasesService {
             startedAt: taken.startedAt 
         });
 
-        // Real-time notification: Notify dashboard that case status changed
         DeviceGateway.notifyDashboard({
             type: "case:updated",
             payload: { 
@@ -122,14 +119,12 @@ export class CasesService {
     }
 
     static async takeNextCase(staffId: string, maxAttempts = 3) {
-        // Check if staff exists first
         const staffExists = await prisma.staff.findUnique({ where: { id: staffId } });
         if (!staffExists) {
             throw new BadRequestError(`Staff member with ID ${staffId} not found`);
         }
         
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-            // 1) Find the next queued case
             const next = await prisma.studentCase.findFirst({
                 where: { status: "QUEUED" },
                 orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -137,25 +132,22 @@ export class CasesService {
             });
             
             if (!next) {
-                // Return a special response indicating no cases are available
-                // instead of throwing an error
                 return { case: null, message: "No queued cases available" };
             }
 
             const now = new Date();
             
-            // 2) Try to update it
             const updated = await prisma.studentCase.updateMany({
                 where: { id: next.id, status: "QUEUED" },
                 data: { 
                     status: "IN_PROGRESS", 
                     staffId,
-                    startedAt: now  // Set the started timestamp
+                    startedAt: now 
                 },
             });
 
             if (updated.count > 0) {
-                // 3) Successfully taken → return the full case
+                // Successfully taken → return the full case
                 const taken = await prisma.studentCase.findUnique({ where: { id: next.id } });
                 console.log('Next case taken successfully:', { 
                     id: taken?.id, 
@@ -163,7 +155,6 @@ export class CasesService {
                     startedAt: taken?.startedAt 
                 });
 
-                // Real-time notification: Notify dashboard that case status changed
                 if (taken) {
                     DeviceGateway.notifyDashboard({
                         type: "case:updated",
@@ -179,7 +170,7 @@ export class CasesService {
                 return { case: taken, message: "Case taken successfully" };
             }
 
-            // 4) Someone else took it → retry
+            // 4) Someone else took it, retry
             console.log(`Attempt ${attempt} failed, retrying...`);
         }
 
@@ -190,7 +181,7 @@ export class CasesService {
         try {
             const now = new Date();
             
-            // 首先获取case的当前状态
+            // retrieve existing case status
             const existingCase = await prisma.studentCase.findUnique({
                 where: { id },
                 select: { id: true, status: true }
@@ -202,10 +193,10 @@ export class CasesService {
             
             const wasPendingFeedback = existingCase.status === 'RESOLVED_PENDING_FEEDBACK';
             let deviceId = null;
-            
-            // 如果case处于RESOLVED_PENDING_FEEDBACK状态，需要特殊处理
+
+            // If the case is in RESOLVED_PENDING_FEEDBACK, special handling is needed
             if (wasPendingFeedback) {
-                // 查找相关的活动反馈会话和设备锁
+                // locate relevant active feedback session and device locks
                 const activeFeedbackSession = await prisma.feedbackSession.findFirst({
                     where: {
                         caseId: id,
@@ -221,9 +212,8 @@ export class CasesService {
                 deviceId = activeFeedbackSession?.deviceId;
                 
                 if (activeFeedbackSession) {
-                    // 在事务中处理所有更新
+                    // process updates in a transaction
                     const updatedCase = await prisma.$transaction(async (tx) => {
-                        // 1. 更新case状态
                         const updatedCase = await tx.studentCase.update({
                             where: { id },
                             data: { 
@@ -232,7 +222,7 @@ export class CasesService {
                             },
                         });
                         
-                        // 2. 取消反馈会话
+                        // cancel feedback session
                         await tx.feedbackSession.updateMany({
                             where: {
                                 caseId: id,
@@ -244,7 +234,7 @@ export class CasesService {
                             }
                         });
                         
-                        // 3. 释放设备锁
+                        // release lock
                         const activeLock = await tx.kioskLock.findFirst({
                             where: {
                                 caseId: id,
@@ -262,7 +252,7 @@ export class CasesService {
                                 }
                             });
                             
-                            // 4. 释放设备
+                            // release device
                             await tx.kioskDevice.updateMany({
                                 where: { 
                                     currentLockId: activeLock.id 
@@ -278,19 +268,19 @@ export class CasesService {
                     
                     // Real-time notifications for RESOLVED_PENDING_FEEDBACK case
                     if (deviceId) {
-                        // 通知iPad关闭反馈界面  
+                        // notify iPad to close feedback interface
                         DeviceGateway.publish(deviceId, {
                             type: "DISMISS"
                         });
                         
-                        // 通知dashboard更新device状态
+                        // notify dashboard to update device status
                         DeviceGateway.notifyDashboard({
                             type: "device:updated", 
                             payload: { id: deviceId, isBusy: false, isOnline: true }
                         });
                     }
-                    
-                    // 通知dashboard更新case状态
+
+                    // notify dashboard to update case status
                     DeviceGateway.notifyDashboard({
                         type: "case:updated",
                         payload: { id: id, status: "RESOLVED", resolvedAt: updatedCase.resolvedAt }
@@ -298,7 +288,7 @@ export class CasesService {
                     
                     return updatedCase;
                 } else {
-                    // 没有活动反馈会话，直接更新case
+                    // No active feedback session, directly update case
                     const updatedCase = await prisma.studentCase.update({
                         where: { id },
                         data: { 
@@ -307,7 +297,6 @@ export class CasesService {
                         },
                     });
                     
-                    // Real-time notification: Notify dashboard that case was resolved
                     DeviceGateway.notifyDashboard({
                         type: "case:updated",
                         payload: { id: id, status: "RESOLVED", resolvedAt: updatedCase.resolvedAt }
@@ -316,7 +305,7 @@ export class CasesService {
                     return updatedCase;
                 }
             } else {
-                // 非pending_feedback状态，正常处理
+                // No active feedback session, directly update case
                 const updatedCase = await prisma.studentCase.update({
                     where: { id },
                     data: { 
@@ -325,7 +314,6 @@ export class CasesService {
                     },
                 });
                 
-                // Real-time notification: Notify dashboard that case was resolved
                 DeviceGateway.notifyDashboard({
                     type: "case:updated",
                     payload: { id: id, status: "RESOLVED", resolvedAt: updatedCase.resolvedAt }

@@ -107,25 +107,23 @@ export class DeviceService {
     return lastSeenAt.getTime() > thresholdTime;
   }
 
-  // 更动态的在线检测 - 业务必须通过WebSocket，没有连接就是离线
+  // services must use websocket, no connection = offline
   static isDeviceOnlineDynamic(deviceId: string, lastSeenAt: Date, thresholdMinutes = 1): boolean {
-    // 1. 首先检查WebSocket连接状态 - 这是业务通信的关键
+    // check connection to websocket
     const wsConnected = this.isDeviceConnectedViaWebSocket(deviceId);
     
     if (wsConnected) {
-      console.log(`✅ Device ${deviceId.slice(0, 8)} is ONLINE - WebSocket connected`);
+      console.log(`Device ${deviceId.slice(0, 8)} is ONLINE - WebSocket connected`);
       return true;
     }
     
-    // 2. 没有WebSocket连接 = 无法进行业务通信 = 离线
+    // no websocket connection
     const minutesAgo = Math.floor((Date.now() - lastSeenAt.getTime()) / (1000 * 60));
-    console.log(`❌ Device ${deviceId.slice(0, 8)} is OFFLINE - No WebSocket connection (last seen ${minutesAgo}min ago)`);
+    console.log(`Device ${deviceId.slice(0, 8)} is OFFLINE - No WebSocket connection (last seen ${minutesAgo}min ago)`);
     return false;
-    
-    // 注意：我们不再依赖心跳时间作为在线判断，因为业务通信需要WebSocket
   }
 
-  // 检查设备是否通过WebSocket连接
+  // check if device has any active websocket connections
   static isDeviceConnectedViaWebSocket(deviceId: string): boolean {
     try {
       const { DeviceGateway } = require('../websocket/deviceSocket');
@@ -134,15 +132,14 @@ export class DeviceService {
       const sockets = io.sockets.adapter.rooms.get(room);
       const isConnected = sockets && sockets.size > 0;
       
-      // 只在调试模式下记录详细连接信息
       if (process.env.NODE_ENV === 'development') {
-        console.log(`🔌 Device ${deviceId.slice(0, 8)} WebSocket: ${isConnected ? 'CONNECTED' : 'DISCONNECTED'} (${sockets?.size || 0} sockets)`);
+        console.log(`Device ${deviceId.slice(0, 8)} WebSocket: ${isConnected ? 'CONNECTED' : 'DISCONNECTED'} (${sockets?.size || 0} sockets)`);
       }
       
       return isConnected;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.log(`⚠️ WebSocket check failed for device ${deviceId.slice(0, 8)}: ${errorMsg}`);
+      console.log(`WebSocket check failed for device ${deviceId.slice(0, 8)}: ${errorMsg}`);
       return false; // WebSocket服务未初始化 = 设备离线
     }
   }
@@ -151,7 +148,7 @@ export class DeviceService {
   static async listDevices(filters: ListFilters = {}): Promise<DeviceWithStatus[]> {
     const { mode, status, thresholdMinutes = 2 } = filters;
   
-    // DB-side filter for mode (cheap); online/busy needs app logic
+    // DB-side filter for mode
     const rows = await prisma.kioskDevice.findMany({
       where: { ...(mode ? { mode } : {}), deletedAt: null },
       include: {
@@ -314,24 +311,23 @@ export class DeviceService {
     }
 
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // 1) 清空指针，避免外键问题
       await tx.kioskDevice.update({
         where: { id: deviceId },
         data: { currentLockId: null },
       });
 
-      // 2) 软删除：标记 deletedAt，并让旧凭证立即失效
+      // mark deleted at, invlalidate old credentials
       await tx.kioskDevice.update({
         where: { id: deviceId },
         data: {
           deletedAt: new Date(),
-          secretHash: "",      // ✅ 直接让旧 API key 失效
+          secretHash: "",      // invalidate old api key
         },
       });
     });
 
-    // 3) 通知 iPad 客户端自退（若在线）
-    try { 
+    // notify iPad client to unpair (if online)
+    try {
       DeviceGateway.publish(deviceId, { type: "UNPAIRED" });
     } catch {
       // ignore

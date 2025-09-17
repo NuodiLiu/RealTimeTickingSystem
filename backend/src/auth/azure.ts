@@ -24,5 +24,5 @@ export const msalClient = new ConfidentialClientApplication({
 const baseUrl = process.env.BASE_URL || "http://localhost:3000";
 export const authParams = {
   redirectUri: `${baseUrl}/auth/redirect`,
-  scopes: ["openid", "profile", "email"], // 只登录拿 ID Token 即可；需要 Graph 可再加 "User.Read"
+  scopes: ["openid", "profile", "email"], 
 };

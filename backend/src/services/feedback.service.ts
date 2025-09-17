@@ -28,21 +28,21 @@ export class FeedbackService {
       throw new BadRequestError("caseId, deviceId, staffId are required");
     }
 
-    // 1) 读取并校验（非事务）
+    // read and validate
     const { scase, device, staff } = await loadBasics(prisma, { caseId, deviceId, staffId });
     assertModeAllowsFeedback(device.mode);
     assertOnline(device.lastSeenAt);
 
-    // 2) 忙闲判断
+    // Busy/Idle Check
     const activeLock = await findActiveLock(prisma, deviceId);
     if (activeLock) throwBusy(activeLock);
 
-    // 2.5) 检查是否已有其他设备正在处理这个case的feedback
+    // check if other devices are processing this case
     const existingActiveFeedback = await prisma.feedbackSession.findFirst({
       where: {
         caseId,
         status: { in: ['CREATED', 'DELIVERED'] },
-        deviceId: { not: deviceId } // 不是当前设备
+        deviceId: { not: deviceId }
       },
       select: {
         id: true,
@@ -59,11 +59,10 @@ export class FeedbackService {
       throw err;
     }
 
-    // 3) 事务：创建 session + 锁 + CAS 绑定 + 置 case 等待反馈
+    // create session + lock + binding + pending feedback
     const { now, leaseExpireAt, sessionExpireAt } = computeTimes();
     const { session, lock } = await prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
-        // 再次校验 mode
         const d = await tx.kioskDevice.findUnique({ where: { id: deviceId }, select: { id: true, mode: true } });
         if (!d) throw new NotFoundError("Device not found");
         assertModeAllowsFeedback(d.mode);
@@ -77,7 +76,7 @@ export class FeedbackService {
       }
     );
 
-    // 4) 推送设备
+    // push to device
     DeviceGateway.publish(deviceId, {
       type: "SHOW_FEEDBACK",
       payload: {
@@ -88,13 +87,12 @@ export class FeedbackService {
       },
     });
 
-    // 5) 通知portal/dashboard：设备现在忙碌
+    // notify dashboard device is now busy
     DeviceGateway.notifyDashboard({
       type: "device:updated",
       payload: { id: deviceId, isBusy: true, isOnline: true }
     });
 
-    // 6) 返回
     return {
       session: { id: session.id, status: "CREATED", deviceId, caseId, expireAt: sessionExpireAt },
       lock: { id: lock.id, status: "ACTIVE", version: lock.version, leaseExpireAt },
@@ -109,12 +107,10 @@ export class FeedbackService {
       throw new BadRequestError("caseId, deviceId, staffId, expectedLockId, expectedVersion are required");
     }
 
-    // 1) 读取并校验
     const { scase, device, staff } = await loadBasics(prisma, { caseId, deviceId, staffId });
     assertModeAllowsFeedback(device.mode);
     assertOnline(device.lastSeenAt);
 
-    // 2) 必须存在 ACTIVE 锁，且与预期匹配
     const currentLock = await findActiveLock(prisma, deviceId);
     if (!currentLock) {
       const err = new ConflictError("Device is not busy");
@@ -125,7 +121,7 @@ export class FeedbackService {
       preconditionFailed(currentLock);
     }
 
-    // 3) 事务：清指针 → 旧锁 OVERRIDDEN → 作废旧会话 → resolve原始case → 新会话/新锁 → CAS 绑定 → 置新case等待反馈
+    // override old lock and session, create new lock + session, bind, pending feedback
     const { now, leaseExpireAt, sessionExpireAt } = computeTimes();
     const { newSession, newLock } = await prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
@@ -149,12 +145,10 @@ export class FeedbackService {
       }
     );
 
-    // 4) 推送到设备：override的核心 - 替换设备上的反馈请求
-    // Step 1: DISMISS - 强制关闭iPad上当前的反馈界面（原case）
-    // 注意：DISMISS消息不包含payload，iPad会关闭当前显示的任何反馈界面
+    // replace feedback request on device
     DeviceGateway.publish(deviceId, { type: "DISMISS" });
     
-    // Step 2: SHOW_FEEDBACK - 立即在同一iPad上显示新的反馈请求（新case）
+    // show feedback 
     DeviceGateway.publish(deviceId, {
       type: "SHOW_FEEDBACK",
       payload: {
@@ -165,15 +159,15 @@ export class FeedbackService {
       },
     });
 
-    // 5) 通知dashboard：设备仍然忙碌，但处理的是新的case
+    // device is busy with new case
     DeviceGateway.notifyDashboard({
       type: "device:updated",
       payload: { 
         id: deviceId, 
         isBusy: true,
         isOnline: true,
-        currentCaseId: caseId, // 新的case ID
-        overriddenCaseId: currentLock.caseId // 被覆盖的原case ID
+        currentCaseId: caseId, 
+        overriddenCaseId: currentLock.caseId
       }
     });
 
@@ -182,7 +176,7 @@ export class FeedbackService {
         lockId: expectedLockId, 
         status: "OVERRIDDEN" as const,
         caseId: currentLock.caseId,
-        caseStatus: "RESOLVED" as const // 原始case被直接resolve
+        caseStatus: "RESOLVED" as const
       },
       session: { id: newSession.id, status: "CREATED" as const, deviceId, caseId, expireAt: sessionExpireAt },
       lock: { id: newLock.id, status: "ACTIVE" as const, version: newLock.version, leaseExpireAt },
@@ -197,7 +191,6 @@ export class FeedbackService {
       throw new BadRequestError("rating must be an integer in [1..5]");
     }
 
-    // 0) 读会话
     const session = await prisma.feedbackSession.findUnique({
       where: { id: sessionId },
       select: {
@@ -206,13 +199,12 @@ export class FeedbackService {
     });
     if (!session) throw new NotFoundError("Feedback session not found");
 
-    // 会话必须是活动态
+    // session must be active
     if (session.status === "OVERRIDDEN" || session.status === "CANCELLED" || session.status === "EXPIRED") {
       const err = new ConflictError("Session inactive");
       (err as any).code = "session_inactive";
       throw err;
     }
-    // 若已提交则幂等成功返回（读已有反馈）
     if (session.status === "SUBMITTED") {
       const existing = await prisma.feedback.findUnique({ where: { caseId: session.caseId } });
       return {
@@ -221,16 +213,14 @@ export class FeedbackService {
       };
     }
 
-    // 1~5) 事务内原子更新
     const now = new Date();
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // 1) Feedback 写入（幂等：若已存在则当作成功）
       let feedbackId: string | null = null;
       try {
         const created = await tx.feedback.create({
           data: {
             caseId: session.caseId,
-            staffId: session.staffId, // 归属处理此 case 的 staff
+            staffId: session.staffId, 
             rating,
             comment,
           },
@@ -238,17 +228,16 @@ export class FeedbackService {
         });
         feedbackId = created.id;
       } catch (e: any) {
-        // P2002: unique constraint (`caseId`) 冲突，说明已经提交过；视为幂等成功
         if (e?.code !== "P2002") throw e;
       }
 
-      // 2) Session → SUBMITTED
+      // sesssion submitted
       await tx.feedbackSession.update({
         where: { id: session.id },
         data: { status: "SUBMITTED", submittedAt: now },
       });
 
-      // 3) 锁 → COMPLETED（找到这台设备、这个 case 的 ACTIVE 锁并完成它）
+      // lock completed
       const activeLock = await tx.kioskLock.findFirst({
         where: { deviceId: session.deviceId, caseId: session.caseId, status: "ACTIVE" },
         select: { id: true },
@@ -264,7 +253,7 @@ export class FeedbackService {
         });
       }
 
-      // 4) Case → RESOLVED
+      // case resolved
       await tx.studentCase.update({
         where: { id: session.caseId },
         data: { status: "RESOLVED", resolvedAt: now },
@@ -273,12 +262,12 @@ export class FeedbackService {
       return { feedbackId };
     });
 
-    // 6) 通知设备端：提交成功，可以回到空闲状态
+    // nogtify device, if submission successful, go back to idle
     DeviceGateway.publish(session.deviceId, {
-      type: "DISMISS", // 或者可以用其他消息类型
+      type: "DISMISS",
     });
 
-    // 7) 通知portal/dashboard：案例已解决，设备已空闲
+    // device idle again after notifying dashboard
     DeviceGateway.notifyDashboard({
       type: "case:updated",
       payload: { id: session.caseId, status: "RESOLVED" }

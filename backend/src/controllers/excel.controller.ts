@@ -4,18 +4,13 @@ import { BadRequestError } from '../error';
 
 export class ExcelController {
   
-  /**
-   * 导出案例数据为JSON格式（原有功能，兼容性保留）
-   */
+  // export case data to JSON format
   static async exportCasesJson(req: Request, res: Response, next: NextFunction) {
     try {
-      // 解析查询参数
       const filters = ExcelController.parseFilters(req.query);
       
-      // 获取数据
       const data = await ExcelService.getCasesForExport(filters);
       
-      // 简化格式用于JSON导出（保持与原有API兼容）
       const result = data.map(row => ({
         zID: row.zID,
         studentName: row.studentName,
@@ -38,15 +33,11 @@ export class ExcelController {
     }
   }
 
-  /**
-   * 导出案例数据为Excel文件
-   */
+  // export case data to Excel format
   static async exportCasesExcel(req: Request, res: Response, next: NextFunction) {
     try {
-      // 解析查询参数
       const filters = ExcelController.parseFilters(req.query);
       
-      // 获取数据
       const data = await ExcelService.getCasesForExport(filters);
       
       if (data.length === 0) {
@@ -55,21 +46,15 @@ export class ExcelController {
         });
       }
       
-      // 生成Excel工作簿
       const workbook = await ExcelService.generateExcelWorkbook(data);
-      
-      // 转换为Buffer
       const buffer = ExcelService.workbookToBuffer(workbook);
-      
-      // 生成文件名
       const fileName = ExcelService.generateFileName('cases_detailed_export');
       
-      // 设置响应头
+      // response headers
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.setHeader('Content-Length', buffer.length);
       
-      // 发送文件
       res.send(buffer);
       
     } catch (error) {
@@ -78,18 +63,13 @@ export class ExcelController {
     }
   }
 
-  /**
-   * 获取导出数据的预览（不生成文件，仅返回统计信息）
-   */
+  // export data preview (doesnt generate a file, just return statistics)
   static async getExportPreview(req: Request, res: Response, next: NextFunction) {
     try {
-      // 解析查询参数
       const filters = ExcelController.parseFilters(req.query);
       
-      // 获取数据
       const data = await ExcelService.getCasesForExport(filters);
       
-      // 生成预览统计
       const preview = {
         totalCases: data.length,
         dateRange: {
@@ -111,19 +91,15 @@ export class ExcelController {
     }
   }
 
-  /**
-   * 解析查询参数为过滤条件
-   */
+  // parse and validate filters from query parameters
   private static parseFilters(query: any) {
     const filters: any = {};
     
-    // 状态过滤
     if (query.status) {
       const statuses = Array.isArray(query.status) ? query.status : [query.status];
       filters.status = statuses.map((s: string) => s.toUpperCase());
     }
-    
-    // 日期范围过滤
+
     if (query.startDate) {
       const startDate = new Date(query.startDate);
       if (isNaN(startDate.getTime())) {
@@ -137,22 +113,18 @@ export class ExcelController {
       if (isNaN(endDate.getTime())) {
         throw new BadRequestError('Invalid endDate format');
       }
-      // 设置为当天结束时间
       endDate.setHours(23, 59, 59, 999);
       filters.endDate = endDate;
     }
     
-    // 工作人员过滤
     if (query.staffId) {
       filters.staffId = query.staffId;
     }
     
-    // 分类过滤
     if (query.category) {
       filters.category = query.category;
     }
     
-    // 反馈过滤
     if (query.hasFeedback && (query.hasFeedback === 'yes' || query.hasFeedback === 'no')) {
       filters.hasFeedback = query.hasFeedback === 'yes';
     }
@@ -160,9 +132,7 @@ export class ExcelController {
     return filters;
   }
 
-  /**
-   * 获取状态分布统计
-   */
+  // get status distribution statistics
   private static getStatusBreakdown(data: any[]) {
     const breakdown: Record<string, number> = {};
     data.forEach(item => {
@@ -171,9 +141,7 @@ export class ExcelController {
     return breakdown;
   }
 
-  /**
-   * 获取分类分布统计
-   */
+  // get category distribution statistics
   private static getCategoryBreakdown(data: any[]) {
     const breakdown: Record<string, number> = {};
     data.forEach(item => {
@@ -182,9 +150,7 @@ export class ExcelController {
     return breakdown;
   }
 
-  /**
-   * 获取工作人员分布统计
-   */
+  // get staff distribution statistics
   private static getStaffBreakdown(data: any[]) {
     const breakdown: Record<string, number> = {};
     data.forEach(item => {

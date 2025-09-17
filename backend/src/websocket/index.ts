@@ -1,5 +1,5 @@
 import type { Server } from "socket.io";
-import type { DeviceToServer, AuthedDevice, ServerToDevice } from "./types";
+import type { ServerToDevice } from "./types";
 import { verifySocketHandshake } from "./auth";
 import { prisma } from "../lib/prisma";
 import { addLeaseSeconds } from "./lease";
@@ -28,13 +28,13 @@ async function handleFeedbackCancellation(deviceId: string, sessionId: string) {
     // Only cancel if session is still active
     if (session.status === 'CREATED' || session.status === 'DELIVERED') {
       await prisma.$transaction(async (tx) => {
-        // 1. Cancel the feedback session
+        // Cancel the feedback session
         await tx.feedbackSession.update({
           where: { id: sessionId },
           data: { status: 'CANCELLED' }
         });
         
-        // 2. Find and complete any associated lock
+        // Find and complete any associated lock
         const associatedLock = await tx.kioskLock.findFirst({
           where: {
             deviceId: deviceId,
@@ -61,7 +61,7 @@ async function handleFeedbackCancellation(deviceId: string, sessionId: string) {
           });
         }
         
-        // 3. Resolve the case (since user cancelled feedback, we still resolve it)
+        //  Resolve case
         await tx.studentCase.update({
           where: { id: session.caseId },
           data: { 
@@ -113,7 +113,6 @@ async function handleFeedbackSubmission(deviceId: string, sessionId: string, rat
     // Only process if session is still active
     if (session.status === 'DELIVERED' || session.status === 'CREATED') {
       await prisma.$transaction(async (tx) => {
-        // 1. Update session status to SUBMITTED
         await tx.feedbackSession.update({
           where: { id: sessionId },
           data: { 
@@ -122,7 +121,6 @@ async function handleFeedbackSubmission(deviceId: string, sessionId: string, rat
           }
         });
         
-        // 2. Create the actual feedback record if rating is provided
         if (rating !== undefined && rating !== null) {
           await tx.feedback.create({
             data: {
@@ -134,7 +132,6 @@ async function handleFeedbackSubmission(deviceId: string, sessionId: string, rat
           });
         }
         
-        // 3. Resolve the case automatically (since feedback is submitted, no review needed)
         await tx.studentCase.update({
           where: { id: session.caseId },
           data: { 
@@ -143,7 +140,6 @@ async function handleFeedbackSubmission(deviceId: string, sessionId: string, rat
           }
         });
         
-        // 4. Find and complete any associated lock
         const associatedLock = await tx.kioskLock.findFirst({
           where: {
             deviceId: deviceId,
@@ -173,7 +169,6 @@ async function handleFeedbackSubmission(deviceId: string, sessionId: string, rat
       
       console.log(`Successfully processed feedback submission and resolved case ${session.caseId}`);
       
-      // Notify dashboard that case is resolved
       DeviceGateway.notifyDashboard({
         type: "case:updated",
         payload: { 
@@ -182,7 +177,6 @@ async function handleFeedbackSubmission(deviceId: string, sessionId: string, rat
         }
       });
       
-      // Notify dashboard that device is now free
       DeviceGateway.notifyDashboard({
         type: "device:updated",
         payload: { 
@@ -209,10 +203,8 @@ type SocketData = {
 
 // origin url white list
 function checkOrigin(origin?: string): boolean {
-  // Always allow in development
   if (process.env.NODE_ENV === 'development') return true;
   
-  // Always allow in test
   if (process.env.NODE_ENV === 'test') return true;
   
   // Allow no origin (mobile apps, Postman, etc.)
@@ -235,9 +227,9 @@ function checkOrigin(origin?: string): boolean {
 }
 
 export function bindRealtime(io: Server) {
-  // 底层心跳（配合 socket.io 自带心跳），增强鲁棒性
+  // heartbeat
   io.engine.on("connection_error", (err) => {
-    // 可加日志
+
   });
 
   io.use(async (socket, next) => {
@@ -262,7 +254,7 @@ export function bindRealtime(io: Server) {
         console.log('Dashboard disconnected');
       });
       
-      return; // Dashboard connections don't need device-specific logic
+      return; 
     }
     
     // Handle device connections
@@ -284,7 +276,7 @@ export function bindRealtime(io: Server) {
 
     await socket.join(room);
 
-    // 设备上线：刷新 lastSeenAt（吸收你 ws 版）
+    // refresh last seen at 
     await prisma.kioskDevice.update({ where: { id: deviceId }, data: { lastSeenAt: new Date() } });
 
     // Real-time update: Notify dashboard that device is now online
@@ -293,10 +285,8 @@ export function bindRealtime(io: Server) {
       payload: { deviceId, isOnline: true }
     });
 
-    // 发送一次 PING，设备可立即 PONG
     socket.emit("message", { type: "PING", payload: { now: new Date().toISOString() } } as ServerToDevice);
 
-    // 多连接：Socket.IO 的 room 天然支持“同设备多连接”——无需你自己维护 Map/Set
     socket.on("disconnect", async () => {
       clearInterval(timer);
       console.log(`Device ${deviceId} disconnected.`);
@@ -316,7 +306,7 @@ export function bindRealtime(io: Server) {
           console.log(`Device ${deviceId} had an active lock ${lock.id} for case ${caseId}. Cleaning up due to disconnect.`);
 
           await prisma.$transaction(async (tx) => {
-            // 1. Resolve the associated case if it's not already resolved
+            // Resolve case if it's not already resolved
             const currentCase = await tx.studentCase.findUnique({ where: { id: caseId } });
             if (currentCase?.status !== 'RESOLVED') {
               await tx.studentCase.update({
@@ -328,19 +318,18 @@ export function bindRealtime(io: Server) {
               });
             }
 
-            // 2. Mark the lock as EXPIRED
             await tx.kioskLock.update({
               where: { id: lock.id },
               data: { status: 'EXPIRED' },
             });
 
-            // 3. Release the device
+            // Release the device
             await tx.kioskDevice.update({
               where: { id: deviceId },
               data: { currentLockId: null },
             });
 
-            // 4. Cancel any pending feedback sessions for this case/device
+            // Cancel any pending feedback sessions for this case
             await tx.feedbackSession.updateMany({
                 where: {
                     caseId: caseId,
@@ -355,12 +344,10 @@ export function bindRealtime(io: Server) {
 
           console.log(`Cleaned up resources for case ${caseId} and device ${deviceId}.`);
           
-          // Notify dashboard clients
           io.emit("event", { type: "case:updated", payload: { id: caseId, status: "RESOLVED" } });
           io.emit("event", { type: "device:updated", payload: { id: deviceId, isBusy: false } });
         }
         
-        // Real-time update: Always notify that the device went offline
         DeviceGateway.notifyDashboard({
           type: "device:online_status_changed",
           payload: { deviceId, isOnline: false }
@@ -372,7 +359,6 @@ export function bindRealtime(io: Server) {
 
     socket.on("message", async (raw: unknown) => {
       try {
-        // 1) 只接受 object 且有 string 类型的 "type" 字段
         const msg = (raw && typeof raw === "object") ? (raw as any) : undefined;
         const type = (msg && typeof msg.type === "string") ? (msg.type as string) : undefined;
 
@@ -403,7 +389,6 @@ export function bindRealtime(io: Server) {
                 data: { status: "DELIVERED", deliveredAt: new Date() },
               });
               
-              // Real-time update: Notify dashboard that device is actively being used for feedback
               DeviceGateway.notifyDashboard({
                 type: "device:feedback_progress",
                 payload: { 
@@ -435,16 +420,13 @@ export function bindRealtime(io: Server) {
             break;
           }
           default: {
-            // unknown type -- should ignore and no throw
             return;
           }
         }
       } catch (e) {
-        // logger.warn?.("ws message handling error", e);
       }
     });
 
-    // —— 服务器侧定时 PING（增强稳态；Socket.IO 自带心跳，但我们保留业务 PING）——
     const timer = setInterval(() => {
       if (socket.connected) {
         socket.emit("message", { type: "PING", payload: { now: new Date().toISOString() } } as ServerToDevice);

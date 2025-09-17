@@ -18,7 +18,7 @@ export class FeedbackController {
       const { caseId, deviceId } = (req.body ?? {}) as SendFeedbackBody;
       const staffId = req.user?.id;
 
-      if (!staffId) throw new BadRequestError("Unauthorized: missing staffId");
+      if (!staffId) throw new BadRequestError("Unauthorised: missing staffId");
       if (!caseId || !deviceId) throw new BadRequestError("caseId and deviceId are required");
 
       const result = await FeedbackService.sendFeedback({ caseId, deviceId, staffId });
@@ -34,7 +34,7 @@ export class FeedbackController {
         (req.body ?? {}) as OverrideBody;
       const staffId = req.user?.id;
 
-      if (!staffId) throw new BadRequestError("Unauthorized: missing staffId");
+      if (!staffId) throw new BadRequestError("Unauthorised: missing staffId");
       if (!caseId || !deviceId || !expectedLockId || expectedVersion == null) {
         throw new BadRequestError("caseId, deviceId, expectedLockId, expectedVersion are required");
       }
@@ -67,7 +67,6 @@ export class FeedbackController {
         comment: normalizedComment,
       });
 
-      // 200 返回结果也行；如果你喜欢 204，可改为 204 并不返回 body
       res.status(200).json(result);
     } catch (err) {
       next(err);

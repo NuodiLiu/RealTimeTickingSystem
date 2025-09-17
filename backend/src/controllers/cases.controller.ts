@@ -2,7 +2,7 @@ import { BadRequestError } from '../error';
 import { CasesService } from '../services/cases.service';
 
 export class CasesController {
-  // Public endpoint for display screens - returns only non-sensitive queue info
+  // Public endpoint for display screens 
   static async getPublicQueue(req: any, res: any, next: any) {
     try {
       const publicQueueData = await CasesService.getPublicQueueData();
@@ -68,7 +68,6 @@ export class CasesController {
     try {
       const caseId = req.params.id;
       
-      // 执行resolve操作（Service层会处理所有通知逻辑）
       const updated = await CasesService.resolveCase(caseId);
       
       res.status(200).json(updated);
@@ -80,7 +79,6 @@ export class CasesController {
   static async escalateCase(req: any, res: any, next: any) {
     try {
       const { department, resolvedOnSite } = req.body;
-      // department and resolvedOnSite can both be null - frontend controls the values
       const updated = await CasesService.escalateCase(req.params.id, department, resolvedOnSite);
       res.status(200).json(updated);
     } catch (err) {

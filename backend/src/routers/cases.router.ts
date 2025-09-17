@@ -10,7 +10,7 @@ router.post("/", requireDevice, CasesController.postCase);
 // Public: get queue for public display (no auth required)
 router.get("/public-queue", CasesController.getPublicQueue);
 
-// Staff: list cases by status (?status=queued|in_progress|resolved)
+// Staff: list cases by status 
 router.get("/", requireAuth, requireStaff, CasesController.getQueuedCases);
 
 // Staff: take next case (FIFO)

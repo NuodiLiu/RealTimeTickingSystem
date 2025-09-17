@@ -6,10 +6,9 @@ export class DeviceGateway {
 
   static init(httpServer: any) {
     const io = new Server(httpServer, {
-      path: "/ws",                                 // 统一 WS 路径
+      path: "/ws",                              
       cors: {
         origin: (origin, callback) => {
-          // Allow all origins for mobile devices and development
           if (process.env.NODE_ENV === 'development') {
             return callback(null, true);
           }
@@ -31,9 +30,9 @@ export class DeviceGateway {
         },
         credentials: true,
       },
-      maxHttpBufferSize: 256 * 1024,               // ~= maxPayload
-      transports: ["websocket"],                   // 明确用 WS
-      allowEIO3: true,                             // 兼容性
+      maxHttpBufferSize: 256 * 1024,               //  maxPayload
+      transports: ["websocket"],                  
+      allowEIO3: true,                        
     });
 
     DeviceGateway._io = io;
@@ -45,20 +44,21 @@ export class DeviceGateway {
     return DeviceGateway._io;
   }
 
-  // 与业务层的唯一入口（保持你原调用方式）
+  // entry point to business layer 
   static publish(deviceId: string, message: ServerToDevice) {
     DeviceGateway.io().to(`device:${deviceId}`).emit("message", message);
   }
 
-  // 通知所有dashboard连接的客户端
+  // notify all dashboard-connected clients
   static notifyDashboard(event: { type: string; payload: any }) {
     DeviceGateway.io().emit("event", event);
   }
 
-  // 方便你按你 ws 版命名调用（等价封装）
+  // wrapper for WS naming
   static notifyFeedback(deviceId: string, payload: FeedbackShowPayload) {
     DeviceGateway.publish(deviceId, { type: "SHOW_FEEDBACK", payload });
   }
+
   static dismiss(deviceId: string) {
     DeviceGateway.publish(deviceId, { type: "DISMISS" });
   }

@@ -24,7 +24,7 @@ export class PairService {
       await prisma.pairingSession.upsert({
         where: { pairingToken: 'test-token-123' },
         update: {
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1h valid
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
           status: 'PENDING',
         },
         create: {
@@ -47,7 +47,7 @@ export class PairService {
     pairingToken: string;
     deviceName: string;
     mode?: DeviceMode;
-    deviceId?: string; // 可选：重新配对已存在的设备
+    deviceId?: string; 
   }) {
     const { pairingToken, deviceName, mode = 'REGISTRATION', deviceId } = data;
 
@@ -67,7 +67,7 @@ export class PairService {
       session = await prisma.pairingSession.create({
         data: {
           pairingToken: 'test-token-123',
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1h valid
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
           status: 'PENDING',
         },
       });
@@ -86,7 +86,7 @@ export class PairService {
           status: 'PENDING',
           deviceId: null,
           completedAt: null,
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // Extend expiry
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
         },
       });
     } else if (!isTestToken && (session.expiresAt < new Date() || session.status !== 'PENDING')) {
@@ -98,14 +98,14 @@ export class PairService {
 
     let device;
     
-    // 检查是否为重新配对现有设备
+    // check if re pairing of existing device
     if (deviceId) {
       const existingDevice = await prisma.kioskDevice.findUnique({
         where: { id: deviceId }
       });
       
       if (existingDevice && !existingDevice.deletedAt) {
-        // 更新现有设备的配对信息
+        // update pairing info for existing devices
         device = await prisma.kioskDevice.update({
           where: { id: deviceId },
           data: {
@@ -119,7 +119,7 @@ export class PairService {
         throw new BadRequestError('Device not found or has been deleted');
       }
     } else {
-      // 检查是否已有同名设备（可能是重新安装的app）
+      // check if device with same name exists 
       const existingDevice = await prisma.kioskDevice.findFirst({
         where: { 
           name: deviceName,
@@ -128,7 +128,7 @@ export class PairService {
       });
       
       if (existingDevice) {
-        // 重新配对现有设备而不是创建新的
+        // re pair existing devices 
         device = await prisma.kioskDevice.update({
           where: { id: existingDevice.id },
           data: {
@@ -138,7 +138,7 @@ export class PairService {
           },
         });
       } else {
-        // 创建新设备
+        // create new device
         device = await prisma.kioskDevice.create({
           data: {
             name: deviceName,
@@ -178,8 +178,8 @@ export class PairService {
     return {
       deviceId: device.id,
       deviceSecret,
-      apiKey: `${device.id}:${deviceSecret}`, // Combined for Authorization header
-      wsToken, // JWT token for WebSocket authentication
+      apiKey: `${device.id}:${deviceSecret}`, 
+      wsToken, 
       deviceName: device.name,
       mode: device.mode,
       wsEndpoint: `${process.env.WS_BASE_URL || 'ws://localhost:3000'}/ws`,

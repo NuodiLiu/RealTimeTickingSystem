@@ -1,9 +1,8 @@
 import { prisma } from "../lib/prisma";
 
 export class DeviceCleanupService {
-  /**
-   * Clean up active locks and sessions when a device disconnects
-   */
+
+  // Clean up active locks and sessions when a device disconnects
   static async cleanupDeviceOnDisconnect(deviceId: string) {
     try {
       // Check if this device has any active locks that should be expired
@@ -51,25 +50,23 @@ export class DeviceCleanupService {
             });
             
             if (updatedCase.count > 0) {
-              console.log(`📋 Auto-resolved case ${activeLock.caseId} due to device disconnect`);
+              console.log(`Auto-resolved case ${activeLock.caseId} due to device disconnect`);
             }
           }
         });
 
-        console.log(`✅ Device ${deviceId.slice(0, 8)} cleanup completed`);
+        console.log(`Device ${deviceId.slice(0, 8)} cleanup completed`);
         return true;
       }
       
       return false;
     } catch (error) {
-      console.error(`❌ Error cleaning up device ${deviceId} on disconnect:`, error);
+      console.error(`Error cleaning up device ${deviceId} on disconnect:`, error);
       return false;
     }
   }
 
-  /**
-   * Clean up expired locks and sessions (can be called periodically)
-   */
+  // Clean up expired locks and sessions 
   static async cleanupExpiredSessions() {
     try {
       const now = new Date();
@@ -128,12 +125,12 @@ export class DeviceCleanupService {
       }
 
       if (expiredSessions.length > 0) {
-        console.log(`🧹 Cleaned up ${expiredSessions.length} expired feedback sessions`);
+        console.log(`Cleaned up ${expiredSessions.length} expired feedback sessions`);
       }
 
       return expiredSessions.length;
     } catch (error) {
-      console.error("❌ Error cleaning up expired sessions:", error);
+      console.error("Error cleaning up expired sessions:", error);
       return 0;
     }
   }

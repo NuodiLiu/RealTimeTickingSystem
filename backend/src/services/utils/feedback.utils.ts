@@ -1,6 +1,4 @@
 import { prisma } from "../../lib/prisma";
-// 如果你的类型来自自定义输出路径，改成下面这一行
-// import type { Prisma } from "../generated/prisma";
 import type { Prisma } from "@prisma/client";
 
 import {
@@ -15,10 +13,9 @@ import {
   SESSION_EXPIRE_MINUTES,
 } from "./feedback.constants";
 
-// 让 tx 与 prisma 共用同一组函数
 export type DB = Prisma.TransactionClient | typeof prisma;
 
-/** 读取 case/device/staff，统一 404 处理 */
+// read case/device/staff  (for validation and response)
 export async function loadBasics(db: DB, args: {
   caseId: string; deviceId: string; staffId: string;
 }) {
@@ -33,14 +30,14 @@ export async function loadBasics(db: DB, args: {
   return { scase, device, staff };
 }
 
-/** 设备模式必须允许 FEEDBACK */
+// device mode must allow feedback
 export function assertModeAllowsFeedback(mode: string) {
   if (mode === "REGISTRATION") {
     throw new ForbiddenError("Device mode does not allow feedback");
   }
 }
 
-/** 在线判定（lastSeenAt + 容忍窗口） */
+// last seen at + tolerance window 
 export function assertOnline(lastSeenAt: Date) {
   const online = Date.now() - new Date(lastSeenAt).getTime() <= ONLINE_GRACE_MS;
   if (!online) {
@@ -50,7 +47,7 @@ export function assertOnline(lastSeenAt: Date) {
   }
 }
 
-/** 查找当前 ACTIVE 锁（含 staff/case 信息，便于报错时返回） */
+// find active lock 
 export async function findActiveLock(db: DB, deviceId: string) {
   return db.kioskLock.findFirst({
     where: { deviceId, status: "ACTIVE", leaseExpireAt: { gt: new Date() } },
@@ -61,7 +58,7 @@ export async function findActiveLock(db: DB, deviceId: string) {
   });
 }
 
-/** 抛 Busy 错（带详情，给前端 UI 展示） */
+// throw busy error with lock info
 export function throwBusy(lock: {
   id: string; version: number; caseId: string;
   staff: { name: string }; case: { studentName: string };
@@ -78,7 +75,7 @@ export function throwBusy(lock: {
   throw err;
 }
 
-/** 生成锁/会话的时间戳 */
+// generate timestamp
 export function computeTimes(now = new Date()) {
   return {
     now,
@@ -87,7 +84,7 @@ export function computeTimes(now = new Date()) {
   };
 }
 
-/** 创建 FeedbackSession (CREATED) */
+// create feedback session
 export function createSessionTx(db: DB, args: {
   caseId: string; staffId: string; deviceId: string; expireAt: Date;
 }) {
@@ -102,7 +99,7 @@ export function createSessionTx(db: DB, args: {
   });
 }
 
-/** 创建 KioskLock (ACTIVE, version=1) */
+// create kiosk lock
 export function createLockTx(db: DB, args: {
   deviceId: string; staffId: string; caseId: string; leaseExpireAt: Date;
 }) {
@@ -118,7 +115,7 @@ export function createLockTx(db: DB, args: {
   });
 }
 
-/** CAS 绑定 device.currentLockId（仅当为 null 时成功） */
+// binding device.currentLockId to new lock (if not busy)
 export async function casBindCurrentLock(db: DB, deviceId: string, lockId: string, codeWhenFail: "busy" | "precondition_failed" = "busy") {
   const updated = await db.kioskDevice.updateMany({
     where: { id: deviceId, currentLockId: null },
@@ -131,7 +128,7 @@ export async function casBindCurrentLock(db: DB, deviceId: string, lockId: strin
   }
 }
 
-/** 置 Case 为 RESOLVED_PENDING_FEEDBACK（若尚未 RESOLVED） */
+// set case to resolved_pending_feedback (if not already resolved)
 export async function markCasePendingIfNeeded(db: DB, caseId: string, currentStatus: string) {
   if (currentStatus !== "RESOLVED") {
     await db.studentCase.update({
@@ -141,7 +138,7 @@ export async function markCasePendingIfNeeded(db: DB, caseId: string, currentSta
   }
 }
 
-/** 覆盖前的“预条件校验”失败错误（412 语义，用 409 + code 表达） */
+// precondition failed error with lock info
 export function preconditionFailed(current: {
   id: string; version: number; caseId: string; staff: { name: string }; case: { studentName: string };
 }) {
@@ -157,7 +154,7 @@ export function preconditionFailed(current: {
   throw err;
 }
 
-/** 覆盖：清空 device 指针（保证指向的就是预期旧锁） */
+// overwrite: clear device.currentLockId if it points to expectedLockId
 export async function clearDevicePointerToLock(db: DB, deviceId: string, expectedLockId: string) {
   const cleared = await db.kioskDevice.updateMany({
     where: { id: deviceId, currentLockId: expectedLockId },
@@ -170,7 +167,7 @@ export async function clearDevicePointerToLock(db: DB, deviceId: string, expecte
   }
 }
 
-/** 将旧锁标记为 OVERRIDDEN（要求版本匹配） */
+// mark old lock as overriden
 export async function overrideOldLockTx(db: DB, lockId: string, expectedVersion: number, now = new Date()) {
   const upd = await db.kioskLock.updateMany({
     where: { id: lockId, status: "ACTIVE", version: expectedVersion },
@@ -183,7 +180,7 @@ export async function overrideOldLockTx(db: DB, lockId: string, expectedVersion:
   }
 }
 
-/** 作废设备上仍处于 CREATED/DELIVERED 的活动会话 */
+// active sessions still in create/delivered status
 export function overrideActiveSessionsOnDevice(db: DB, deviceId: string, staffId: string, now = new Date()) {
   return db.feedbackSession.updateMany({
     where: { deviceId, status: { in: ["CREATED", "DELIVERED"] } },
@@ -191,7 +188,7 @@ export function overrideActiveSessionsOnDevice(db: DB, deviceId: string, staffId
   });
 }
 
-/** Resolve原始case（当被override时，原case直接resolve，无需feedback） */
+// resolve original case (if not already resolved)
 export async function resolveOriginalCase(db: DB, caseId: string, now = new Date()) {
   return db.studentCase.update({
     where: { id: caseId },

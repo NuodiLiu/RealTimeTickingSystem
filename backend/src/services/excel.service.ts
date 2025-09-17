@@ -3,32 +3,26 @@ import * as XLSX from 'xlsx';
 import { BadRequestError, NotFoundError } from "../error";
 
 export interface CaseExportData {
-  // 基础信息
   zID: string | null;
   studentName: string;
   category: string;
   status: string;
   
-  // 时间信息
   createdAt: Date;
   startedAt: Date | null;
   resolvedAt: Date | null;
   
-  // 工作人员信息
   staffId: string | null;
   staffName: string | null;
   staffEmail: string | null;
   staffRole: string | null;
   
-  // 升级信息
   escalatedTo: string | null;
   
-  // 反馈信息
   feedbackRating: number | null;
   feedbackComment: string | null;
   feedbackCreatedAt: Date | null;
   
-  // 计算的衍生指标
   waitingTimeSeconds: number | null;
   processingTimeSeconds: number | null;
   totalTimeSeconds: number | null;
@@ -36,7 +30,6 @@ export interface CaseExportData {
   processingTimeFormatted: string | null;
   totalTimeFormatted: string | null;
   
-  // 状态标志
   hasEscalation: boolean;
   hasFeedback: boolean;
   isComplete: boolean;
@@ -44,9 +37,7 @@ export interface CaseExportData {
 
 export class ExcelService {
   
-  /**
-   * 格式化时间为可读字符串 (例如: "2h 30m" 或 "45m 20s")
-   */
+  // format time as h min s 
   static formatDuration(seconds: number): string {
     if (seconds < 60) {
       return `${Math.round(seconds)}s`;
@@ -72,16 +63,12 @@ export class ExcelService {
     return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
   }
 
-  /**
-   * 计算时间差（秒）
-   */
+  // calculate time difference in seconds
   static calculateTimeDifference(startTime: Date, endTime: Date): number {
     return (endTime.getTime() - startTime.getTime()) / 1000;
   }
 
-  /**
-   * 获取所有案例数据进行导出
-   */
+  // get all case data for export
   static async getCasesForExport(filters?: {
     status?: string[];
     startDate?: Date;
@@ -91,7 +78,6 @@ export class ExcelService {
     hasFeedback?: boolean;
   }): Promise<CaseExportData[]> {
     
-    // 构建查询条件
     const whereClause: any = {};
     
     if (filters?.status && filters.status.length > 0) {
@@ -116,7 +102,6 @@ export class ExcelService {
       whereClause.category = filters.category;
     }
 
-    // 查询数据库
     const cases = await prisma.studentCase.findMany({
       where: whereClause,
       include: {
@@ -141,7 +126,6 @@ export class ExcelService {
       }
     });
 
-    // 根据反馈过滤进行后处理过滤（因为Prisma不能直接基于关联存在性过滤）
     let filteredCases = cases;
     if (filters?.hasFeedback !== undefined) {
       filteredCases = cases.filter(caseData => {
@@ -150,11 +134,10 @@ export class ExcelService {
       });
     }
 
-    // 转换数据并计算衍生指标
+    // convert data and calculate metrics
     return filteredCases.map(caseData => {
       const feedback = caseData.feedback;
       
-      // 计算时间指标
       let waitingTimeSeconds: number | null = null;
       let processingTimeSeconds: number | null = null;
       let totalTimeSeconds: number | null = null;
@@ -172,32 +155,26 @@ export class ExcelService {
       }
 
       return {
-        // 基础信息
         zID: caseData.zID,
         studentName: caseData.studentName,
         category: caseData.category,
         status: caseData.status,
         
-        // 时间信息
         createdAt: caseData.createdAt,
         startedAt: caseData.startedAt,
         resolvedAt: caseData.resolvedAt,
         
-        // 工作人员信息
         staffId: caseData.staffId,
         staffName: caseData.staff?.name || null,
         staffEmail: caseData.staff?.email || null,
         staffRole: caseData.staff?.role || null,
         
-        // 升级信息
         escalatedTo: caseData.escalatedTo,
         
-        // 反馈信息
         feedbackRating: feedback?.rating || null,
         feedbackComment: feedback?.comment || null,
         feedbackCreatedAt: feedback?.createdAt || null,
         
-        // 计算的衍生指标
         waitingTimeSeconds,
         processingTimeSeconds,
         totalTimeSeconds,
@@ -205,7 +182,6 @@ export class ExcelService {
         processingTimeFormatted: processingTimeSeconds ? this.formatDuration(processingTimeSeconds) : null,
         totalTimeFormatted: totalTimeSeconds ? this.formatDuration(totalTimeSeconds) : null,
         
-        // 状态标志
         hasEscalation: !!caseData.escalatedTo,
         hasFeedback: !!feedback,
         isComplete: !!(caseData.startedAt && caseData.resolvedAt)
@@ -213,13 +189,11 @@ export class ExcelService {
     });
   }
 
-  /**
-   * 生成Excel工作簿
-   */
+  // generate Excel workbook
   static async generateExcelWorkbook(data: CaseExportData[]): Promise<XLSX.WorkBook> {
     const workbook = XLSX.utils.book_new();
-    
-    // 主数据表 - 包含所有详细信息
+
+    // main data sheet contains all details
     const mainSheetData = data.map(row => ({
       'Case ID': row.zID || 'N/A',
       'Student Name': row.studentName,
@@ -248,33 +222,33 @@ export class ExcelService {
     
     const mainSheet = XLSX.utils.json_to_sheet(mainSheetData);
     XLSX.utils.book_append_sheet(workbook, mainSheet, 'All Cases');
-    
-    // 汇总统计表
+
+    // summary sheet
     const summaryData = this.generateSummaryStats(data);
     const summarySheet = XLSX.utils.json_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
-    
-    // 按分类统计表
+
+    // category stats sheet
     const categoryStats = this.generateCategoryStats(data);
     const categorySheet = XLSX.utils.json_to_sheet(categoryStats);
     XLSX.utils.book_append_sheet(workbook, categorySheet, 'By Category');
-    
-    // 按工作人员统计表
+
+    // staff stats sheet
     const staffStats = this.generateStaffStats(data);
     const staffSheet = XLSX.utils.json_to_sheet(staffStats);
     XLSX.utils.book_append_sheet(workbook, staffSheet, 'By Staff');
-    
-    // 时间分析表
+
+    // time analysis sheet
     const timeAnalysisStats = this.generateTimeAnalysisStats(data);
     const timeAnalysisSheet = XLSX.utils.json_to_sheet(timeAnalysisStats);
     XLSX.utils.book_append_sheet(workbook, timeAnalysisSheet, 'Time Analysis');
-    
-    // 反馈质量分析表
+
+    // feedback quality sheet
     const feedbackQualityStats = this.generateFeedbackQualityStats(data);
     const feedbackQualitySheet = XLSX.utils.json_to_sheet(feedbackQualityStats);
     XLSX.utils.book_append_sheet(workbook, feedbackQualitySheet, 'Feedback Quality');
-    
-    // 日期趋势分析表
+
+    // date trends sheet
     const dateStats = this.generateDateTrendStats(data);
     const dateSheet = XLSX.utils.json_to_sheet(dateStats);
     XLSX.utils.book_append_sheet(workbook, dateSheet, 'Date Trends');
@@ -282,9 +256,6 @@ export class ExcelService {
     return workbook;
   }
 
-  /**
-   * 生成汇总统计数据
-   */
   static generateSummaryStats(data: CaseExportData[]) {
     const total = data.length;
     const resolved = data.filter(c => c.status === 'RESOLVED').length;
@@ -314,9 +285,6 @@ export class ExcelService {
     ];
   }
 
-  /**
-   * 生成按分类统计数据
-   */
   static generateCategoryStats(data: CaseExportData[]) {
     const categoryMap = new Map<string, CaseExportData[]>();
     
@@ -353,9 +321,7 @@ export class ExcelService {
     });
   }
 
-  /**
-   * 生成按工作人员统计数据
-   */
+ 
   static generateStaffStats(data: CaseExportData[]) {
     const staffMap = new Map<string, CaseExportData[]>();
     
@@ -393,17 +359,13 @@ export class ExcelService {
     });
   }
 
-  /**
-   * 计算平均值
-   */
+
   static calculateAverage(numbers: number[]): number | null {
     if (numbers.length === 0) return null;
     return numbers.reduce((sum, num) => sum + num, 0) / numbers.length;
   }
 
-  /**
-   * 生成时间分析统计数据
-   */
+
   static generateTimeAnalysisStats(data: CaseExportData[]) {
     const completeData = data.filter(c => c.isComplete);
     
@@ -449,9 +411,7 @@ export class ExcelService {
     return [...waitingTimeAnalysis, ...processingTimeAnalysis];
   }
 
-  /**
-   * 生成反馈质量分析统计数据
-   */
+
   static generateFeedbackQualityStats(data: CaseExportData[]) {
     const feedbackData = data.filter(c => c.hasFeedback && c.feedbackRating !== null);
     
@@ -459,7 +419,7 @@ export class ExcelService {
       return [{ 'Analysis': 'No feedback data available', 'Value': '' }];
     }
     
-    // 按评分分组
+    // group by rating
     const ratingBreakdown = [1, 2, 3, 4, 5].map(rating => {
       const count = feedbackData.filter(c => c.feedbackRating === rating).length;
       return {
@@ -471,8 +431,8 @@ export class ExcelService {
     
     const avgRating = this.calculateAverage(feedbackData.map(c => c.feedbackRating!));
     const medianRating = this.calculateMedian(feedbackData.map(c => c.feedbackRating!));
-    
-    // 按分类的平均评分
+
+    // group by category
     const categoryRatings = this.generateCategoryRatingStats(feedbackData);
     
     const summaryStats = [
@@ -484,22 +444,20 @@ export class ExcelService {
     
     return [
       ...summaryStats,
-      { 'Metric': '', 'Value': '' }, // 空行分隔
+      { 'Metric': '', 'Value': '' },
       ...ratingBreakdown.map(r => ({ 'Metric': r.Rating, 'Value': `${r.Count} (${r.Percentage})` })),
-      { 'Metric': '', 'Value': '' }, // 空行分隔
+      { 'Metric': '', 'Value': '' },
       ...categoryRatings
     ];
   }
 
-  /**
-   * 生成日期趋势分析统计数据
-   */
+
   static generateDateTrendStats(data: CaseExportData[]) {
     if (data.length === 0) {
       return [{ 'Period': 'No data available', 'Cases': 0 }];
     }
-    
-    // 按日期分组 (按天)
+
+    // group by date (daily)
     const dateMap = new Map<string, CaseExportData[]>();
     
     data.forEach(caseData => {
@@ -536,9 +494,6 @@ export class ExcelService {
     return dailyStats;
   }
 
-  /**
-   * 生成按分类的评分统计
-   */
   static generateCategoryRatingStats(feedbackData: CaseExportData[]) {
     const categoryMap = new Map<string, number[]>();
     
@@ -558,9 +513,6 @@ export class ExcelService {
     });
   }
 
-  /**
-   * 计算中位数
-   */
   static calculateMedian(numbers: number[]): number | null {
     if (numbers.length === 0) return null;
     
@@ -580,9 +532,7 @@ export class ExcelService {
     }
   }
 
-  /**
-   * 将Excel工作簿转换为Buffer
-   */
+
   static workbookToBuffer(workbook: XLSX.WorkBook): Buffer {
     return XLSX.write(workbook, { 
       type: 'buffer', 
@@ -591,12 +541,9 @@ export class ExcelService {
     });
   }
 
-  /**
-   * 生成文件名
-   */
   static generateFileName(prefix: string = 'cases_export'): string {
     const now = new Date();
-    const timestamp = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const timestamp = now.toISOString().split('T')[0]; 
     return `${prefix}_${timestamp}.xlsx`;
   }
 }

@@ -6,6 +6,8 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import http from "http";
 import cookieSession from "cookie-session";
+import swaggerUi from "swagger-ui-express";
+import * as YAML from "yamljs";
 
 import authRouter from "./routers/auth.router";
 import casesRouter from "./routers/cases.router";
@@ -24,7 +26,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 
-// Trust proxies (e.g. for secure cookies behind reverse proxy)
+// Trust proxies 
 app.set("trust proxy", 1);
 app.use(cookieSession({
   name: "sid",
@@ -47,6 +49,21 @@ app.use(
   })
 );
 
+// API Documentation (Swagger UI)
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    const swaggerDocument = YAML.load('./docs/api.yaml');
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+      explorer: true,
+      customCss: '.swagger-ui .topbar { display: none }',
+      customSiteTitle: "Real-Time Ticketing System API"
+    }));
+    console.log('API documentation available at: http://localhost:3000/api-docs');
+  } catch (error) {
+    console.warn('Could not load API documentation:', error);
+  }
+}
+
 // Routers
 app.use("/auth", authRouter);
 app.use("/cases", casesRouter);
@@ -55,20 +72,19 @@ app.use("/device", deviceRouter);
 app.use("/feedback", feedbackRouter);
 app.use("/excel", excelRouter);
 
-// Error handler (must be last)
+// Error handler 
 app.use(errorHandler);
 
 // Socket.IO init and bind
 const io = DeviceGateway.init(server);
 bindRealtime(io);
 
-// /health 基于 room 统计在线设备（房间名形如 device:{deviceId}）
+// /health 
 app.get("/health", (_req, res) => {
   const rooms = DeviceGateway.io().of("/").adapter.rooms; // Map<string, Set<SocketId>>
   const onlineDeviceIds: string[] = [];
 
   for (const [name, sockets] of rooms) {
-    // Socket.IO 也会为每个 socketId 建一个同名 room；我们只取自定义的 device:{id}
     if (name.startsWith("device:") && sockets && sockets.size > 0) {
       onlineDeviceIds.push(name.slice("device:".length));
     }

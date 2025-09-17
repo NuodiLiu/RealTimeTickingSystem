@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { BadRequestError } from "../error";
 import { DeviceService } from "../services/device.service";
 import { DeviceMode, ListFilters } from '../lib/utils/type';
-// Import auth types to ensure Request interface extension is available
 import '../middlewares/auth.middleware';
 
 export class DeviceController {
@@ -64,7 +63,6 @@ export class DeviceController {
       next(err);
     }
   }
-
 
   static async getOnlineDevicesByMode(req: Request, res: Response, next: NextFunction) {
     try {

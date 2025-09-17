@@ -35,7 +35,7 @@ export async function verifyDeviceHandshake(socket: Socket): Promise<{ deviceId:
   return { deviceId: device.id, mode: device.mode as string };
 }
 
-// New function to handle both device and dashboard connections
+// handle both device and dashboard connections
 export async function verifySocketHandshake(socket: Socket): Promise<{ type: 'device' | 'dashboard'; deviceId?: string; mode?: string; userId?: string; }> {
   const bearer = String(socket.handshake.headers.authorization || "");
   const fromHeader = bearer.replace(/^Bearer\s+/i, "");
@@ -45,7 +45,6 @@ export async function verifySocketHandshake(socket: Socket): Promise<{ type: 'de
 
   const token = fromAuth || fromHeader;
   
-  // If no token, assume it's a dashboard connection (for now, we'll allow anonymous dashboard connections)
   if (!token) {
     return { type: 'dashboard' };
   }
@@ -54,7 +53,6 @@ export async function verifySocketHandshake(socket: Socket): Promise<{ type: 'de
   try {
     payload = jwt.verify(token, process.env.JWT_SECRET!) as DeviceJwt | StaffJwt;
   } catch {
-    // If token is invalid, still allow dashboard connection
     return { type: 'dashboard' };
   }
 
@@ -76,12 +74,10 @@ export async function verifySocketHandshake(socket: Socket): Promise<{ type: 'de
       mode: device.mode as string 
     };
   } else {
-    // Assume it's a staff/dashboard connection
     return { type: 'dashboard', userId: payload.sub };
   }
 }
 
-// 与你 ws 版一致：生成 token 的函数（在配对/注册成功后发给设备端）
 export function signDeviceToken(deviceId: string, mode: string) {
   return jwt.sign({ sub: deviceId, mode, typ: "device" }, process.env.JWT_SECRET!, { expiresIn: "30d" });
 }

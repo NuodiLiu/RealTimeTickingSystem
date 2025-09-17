@@ -59,8 +59,8 @@ const ExcelPreviewSection = React.memo(function ExcelPreviewSection({
         {/* Date Range Display */}
         <DateRangeDisplay startDate={startDate} endDate={endDate} />
 
-        {/* Additional Export Info */}
-        {preview.totalCases > 0 && <ExportInfoCard />}
+        {/* Additional Export Info
+        {preview.totalCases > 0 && <ExportInfoCard />} */}
 
         {/* No data message */}
         {preview.totalCases === 0 && <NoDataMessage />}
@@ -118,24 +118,6 @@ const DateRangeDisplay = React.memo(function DateRangeDisplay({
       <div className="text-sm text-yellow-700">
         Please select a start and end date to see available data for export.
       </div>
-    </div>
-  );
-});
-
-// 导出信息卡片组件，这个是静态的，不需要重新渲染
-const ExportInfoCard = React.memo(function ExportInfoCard() {
-  return (
-    <div className="text-sm text-gray-600 bg-blue-50/50 p-4 rounded-lg border border-blue-100/50 backdrop-blur-sm">
-      <p className="font-medium text-blue-900 mb-2">📊 Your export will include comprehensive data analysis across multiple worksheets:</p>
-      <ul className="space-y-1 text-xs text-blue-800">
-        <li>• All Cases - Complete case details with calculated metrics</li>
-        <li>• Summary Analysis - Overview statistics and trends</li>
-        <li>• Category Analysis - Breakdown by case categories</li>
-        <li>• Staff Performance - Individual staff metrics</li>
-        <li>• Time Analysis - Response and resolution times</li>
-        <li>• Feedback Quality - Customer satisfaction data</li>
-        <li>• Date Trends - Time-based analysis</li>
-      </ul>
     </div>
   );
 });

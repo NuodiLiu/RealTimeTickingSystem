@@ -3,11 +3,11 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function checkDatabaseState() {
-  console.log('🔍 Checking database state for feedback sessions and locks...');
+  console.log('Checking database state for feedback sessions and locks:');
   
   try {
     // Check for active feedback sessions
-    console.log('\n📝 Checking feedback sessions:');
+    console.log('\nChecking feedback sessions:');
     const feedbackSessions = await prisma.feedbackSession.findMany({
       where: {
         status: { in: ['CREATED', 'DELIVERED'] }
@@ -30,11 +30,11 @@ async function checkDatabaseState() {
         console.log(`     Session status: ${session.status}`);
       });
     } else {
-      console.log('   ✅ No active feedback sessions found');
+      console.log('   No active feedback sessions found');
     }
 
     // Check for active locks
-    console.log('\n🔒 Checking device locks:');
+    console.log('\nChecking device locks:');
     const activeLocks = await prisma.kioskLock.findMany({
       where: {
         status: 'ACTIVE'
@@ -57,11 +57,11 @@ async function checkDatabaseState() {
         console.log(`     Lock status: ${lock.status}`);
       });
     } else {
-      console.log('   ✅ No active locks found');
+      console.log('   No active locks found');
     }
 
     // Check device states
-    console.log('\n📱 Checking device states:');
+    console.log('\nChecking device states:');
     const devices = await prisma.kioskDevice.findMany({
       where: {
         deletedAt: null
@@ -91,11 +91,11 @@ async function checkDatabaseState() {
         }
       });
     } else {
-      console.log('   ✅ No devices found');
+      console.log('   No devices found');
     }
 
     // Check for pending feedback cases
-    console.log('\n📋 Checking cases with pending feedback:');
+    console.log('\nChecking cases with pending feedback:');
     const pendingCases = await prisma.studentCase.findMany({
       where: {
         status: 'RESOLVED_PENDING_FEEDBACK'
@@ -116,17 +116,16 @@ async function checkDatabaseState() {
         console.log(`     Status: ${case_.status}, Resolved: ${case_.resolvedAt}`);
       });
     } else {
-      console.log('   ✅ No cases pending feedback');
+      console.log('   No cases pending feedback');
     }
 
   } catch (error) {
-    console.error('❌ Error checking database state:', error);
+    console.error('Error checking database state:', error);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-// Run the check
 checkDatabaseState().catch((error) => {
   console.error('💥 Script failed:', error);
   process.exit(1);
