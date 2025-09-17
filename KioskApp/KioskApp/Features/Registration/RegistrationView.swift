@@ -1,4 +1,6 @@
 import SwiftUI
+import WebKit
+// import SharedUI   
 
 enum ActiveDropdown: Hashable {
     case category
@@ -12,9 +14,9 @@ struct RegistrationView: View {
     
     private let appEnv = AppEnvironment.shared
     
-    private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0) // UNSW 黄色
-    private let unswDarkBlue = Color(red: 0.0, green: 0.2, blue: 0.4) // UNSW 深蓝色
-    private let unswLightGray = Color(red: 0.95, green: 0.95, blue: 0.95) // 浅灰背景
+    private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0) 
+    private let unswDarkBlue = Color(red: 0.0, green: 0.2, blue: 0.4) 
+    private let unswLightGray = Color(red: 0.95, green: 0.95, blue: 0.95) 
 
     private var selectedCategoryBinding: Binding<CategoryItem?> {
         Binding(
@@ -85,11 +87,12 @@ struct RegistrationView: View {
                                                     .foregroundColor(vm.noZIDChecked ? unswDarkBlue : .gray)
                                                 Text("I don't have a zID")
                                                     .font(.system(size: 16, weight: .medium))
-                                                    .foregroundColor(unswDarkBlue)
+                                                    .foregroundColor(.gray)
                                             }
                                         }
                                         .buttonStyle(PlainButtonStyle())
                                     }
+                                    .padding(.leading, 2)
                                 }
                             }
                         )
@@ -132,7 +135,6 @@ struct RegistrationView: View {
                                     .unswDropdownStyle()
                                     .simultaneousGesture(
                                         TapGesture().onEnded { _ in
-                                            // 点击下拉时让所有输入框失去焦点
                                             zidFocused = false
                                             nameFocused = false
                                         }
@@ -160,6 +162,39 @@ struct RegistrationView: View {
                 Spacer()
                 
                 VStack(spacing: 0) {
+                    // Privacy Policy 
+                    HStack(spacing: 8) {
+                        // Checkbox button
+                        Button(action: {
+                            vm.privacyPolicyAccepted.toggle()
+                        }) {
+                            Image(systemName: vm.privacyPolicyAccepted ? "checkmark.square.fill" : "square")
+                                .font(.system(size: 22))
+                                .foregroundColor(vm.privacyPolicyAccepted ? unswDarkBlue : .gray)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        // Text with separate link
+                        HStack(spacing: 4) {
+                            Text("I have read and agree to")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.primary.opacity(0.6)) // Dark gray
+                            
+                            Button(action: {
+                                vm.openPrivacyPolicy()
+                            }) {
+                                Text("Privacy Policy")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.secondary) // Secondary color (blue)
+                                    .underline()
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 16)
+                    
+                    // 分割线
                     Rectangle()
                         .fill(unswYellow)
                         .frame(height: 3)
@@ -168,7 +203,8 @@ struct RegistrationView: View {
                         Button {
                             vm.zID = ""
                             vm.name = ""
-                            vm.noZIDChecked = false // 重置复选框状态
+                            vm.noZIDChecked = false 
+                            vm.privacyPolicyAccepted = false 
                             if let first = vm.categories.first { vm.categoryId = first.id }
                             zidFocused = false
                             nameFocused = false
@@ -189,7 +225,7 @@ struct RegistrationView: View {
                         // Submit 
                         Button {
                             Task { 
-                                await vm.submit()
+                                await vm.submitWithPrivacyCheck()
                                 if vm.lastCreatedCaseId != nil {
                                     zidFocused = false
                                     nameFocused = false
@@ -259,6 +295,30 @@ struct RegistrationView: View {
                     .ignoresSafeArea(.keyboard)
             }
         }
+        .overlay {
+            if vm.showPrivacyPolicyModal {
+                UNSWPrivacyPolicyModal(vm: vm)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.8)).combined(with: .move(edge: .top)),
+                        removal: .opacity.combined(with: .scale(scale: 0.9))
+                    ))
+                    .zIndex(1001)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: vm.showPrivacyPolicyModal)
+                    .ignoresSafeArea(.keyboard)
+            }
+        }
+        .overlay {
+            if vm.showPrivacyPolicyWebView {
+                UNSWPrivacyPolicyWebView(vm: vm)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.8)).combined(with: .move(edge: .bottom)),
+                        removal: .opacity.combined(with: .scale(scale: 0.9))
+                    ))
+                    .zIndex(1002)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: vm.showPrivacyPolicyWebView)
+                    .ignoresSafeArea(.keyboard)
+            }
+        }
         .overlay(alignment: .top) {
             if let e = vm.errorMessage {
                 UNSWBanner(text: e, style: .error)
@@ -269,6 +329,7 @@ struct RegistrationView: View {
         .onTapGesture {
             zidFocused = false
             nameFocused = false
+            vm.showPrivacyPolicyModal = false
             if active != nil {
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
                     active = nil
@@ -595,6 +656,185 @@ private struct UNSWSuccessModal: View {
             .frame(maxWidth: 500)
             .padding(.horizontal, 32)
             .onTapGesture {
+            }
+        }
+    }
+}
+
+
+private struct UNSWPrivacyPolicyModal: View {
+    let vm: RegistrationViewModel
+    private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
+    private let unswDarkBlue = Color(red: 0.0, green: 0.2, blue: 0.4)
+    
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 32) {
+                ZStack {
+                    Circle()
+                        .fill(unswYellow)
+                        .frame(width: 100, height: 100)
+                        .shadow(color: unswYellow.opacity(0.3), radius: 20, x: 0, y: 8)
+                    
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 50, weight: .bold))
+                        .foregroundColor(unswDarkBlue)
+                }
+                
+                VStack(spacing: 20) {
+                    Text("Privacy Policy Agreement Required")
+                        .font(.system(size: 28, weight: .heavy, design: .rounded))
+                        .foregroundColor(unswDarkBlue)
+                        .multilineTextAlignment(.center)
+                    
+                    VStack(spacing: 8) {
+                        HStack(spacing: 4) {
+                            Text("Please read and agree to our")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(.secondary)
+                            
+                            Button(action: {
+                                vm.openPrivacyPolicy()
+                            }) {
+                                Text("Privacy Policy")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundColor(.blue)
+                                    .underline()
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                        
+                        Text("to continue with your registration.")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+                
+                HStack(spacing: 16) {
+                    Button("Disagree") {
+                        vm.disagreeToPrivacyPolicy()
+                    }
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.gray)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.gray.opacity(0.1))
+                    )
+                    
+                    Button("Agree") {
+                        Task {
+                            await vm.agreeToPrivacyPolicyAndSubmit()
+                        }
+                    }
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(unswDarkBlue)
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(unswYellow)
+                    )
+                    .shadow(color: unswYellow.opacity(0.3), radius: 8, x: 0, y: 4)
+                }
+            }
+            .padding(40)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(.regularMaterial)
+                    .background(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .fill(Color.white)
+                    )
+                    .shadow(color: Color.black.opacity(0.15), radius: 30, x: 0, y: 15)
+            )
+            .frame(maxWidth: 450)
+            .padding(.horizontal, 32)
+            .onTapGesture {
+            }
+        }
+    }
+}
+
+/// SwiftUI WebView wrapper
+struct WebView: UIViewRepresentable {
+    let url: URL
+    
+    func makeUIView(context: Context) -> WKWebView {
+        let webView = WKWebView()
+        webView.load(URLRequest(url: url))
+        return webView
+    }
+    
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+    }
+}
+
+private struct UNSWPrivacyPolicyWebView: View {
+    let vm: RegistrationViewModel
+    private let unswYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
+    private let unswDarkBlue = Color(red: 0.0, green: 0.2, blue: 0.4)
+    
+    var body: some View {
+        ZStack {
+            Color.white
+                .ignoresSafeArea(.all)
+            
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Privacy Policy")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(unswDarkBlue)
+                    
+                    Spacer()
+                    
+                    Button("Close") {
+                        vm.closePrivacyPolicyWebView()
+                    }
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(unswDarkBlue)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(unswYellow)
+                    )
+                    .shadow(color: unswYellow.opacity(0.3), radius: 4, x: 0, y: 2)
+                }
+                .padding(24)
+                .background(Color.white)
+                .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 2)
+                
+                if let url = URL(string: "https://www.unsw.edu.au/privacy") {
+                    WebView(url: url)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            Text("Privacy Policy")
+                                .font(.system(size: 32, weight: .bold))
+                                .foregroundColor(unswDarkBlue)
+                            
+                            Text("Privacy policy content would be displayed here.")
+                                .font(.system(size: 18))
+                                .multilineTextAlignment(.center)
+                            
+                            Text("For demonstration purposes, this would typically load the actual privacy policy from UNSW's website.")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(40)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.white)
+                }
             }
         }
     }

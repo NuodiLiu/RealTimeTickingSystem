@@ -15,7 +15,8 @@ final class RegistrationViewModel: ObservableObject {
     @Published var zID: String = ""
     @Published var name: String = ""
     @Published var categoryId: String = ""
-    @Published var noZIDChecked: Bool = false 
+    @Published var noZIDChecked: Bool = false
+    @Published var privacyPolicyAccepted: Bool = false
 
     @Published private(set) var categories: [CategoryItem] = [
         CategoryItem(id: "activities", name: "Activities and Volunteering"),
@@ -40,6 +41,8 @@ final class RegistrationViewModel: ObservableObject {
     @Published private(set) var lastCreatedCaseId: String?
     @Published var errorMessage: String?
     @Published var showZIDValidation: Bool = false 
+    @Published var showPrivacyPolicyModal: Bool = false 
+    @Published var showPrivacyPolicyWebView: Bool = false 
 
     private let env: AppEnvironment
     private var validationTimer: Timer?
@@ -78,7 +81,6 @@ final class RegistrationViewModel: ObservableObject {
     }
 
     // MARK: - class injection offline
-    /// 从外部（本地常量 / 缓存）注入分类；可传入一个要预选的 id
     func setCategories(_ items: [CategoryItem], preselect id: String? = nil) {
         categories = items
 
@@ -123,7 +125,7 @@ final class RegistrationViewModel: ObservableObject {
     }
     
     private var isValidZID: Bool {
-        guard let normalized = normalizedZID else { return true } // 允许为空
+        guard let normalized = normalizedZID else { return true } 
         return normalized.count == 8 && 
                normalized.hasPrefix("z") && 
                String(normalized.dropFirst()).allSatisfy(\.isNumber)
@@ -132,7 +134,7 @@ final class RegistrationViewModel: ObservableObject {
     var canSubmit: Bool {
         !normalizedName.isEmpty &&
         !categoryId.isEmpty &&
-        (noZIDChecked || isValidZID) && // 如果勾选了"没有zID"或者zID有效
+        (noZIDChecked || isValidZID) && 
         categories.contains(where: { $0.id == categoryId }) &&
         !isSubmitting
     }
@@ -144,7 +146,16 @@ final class RegistrationViewModel: ObservableObject {
         return showZIDValidation && !normalized.isEmpty && !isValidZID
     }
 
-    // MARK: - submit
+    @MainActor
+    func submitWithPrivacyCheck() async {
+        if !privacyPolicyAccepted {
+            showPrivacyPolicyModal = true
+            return
+        }
+        
+        await submit()
+    }
+    
     @MainActor
     func submit(clearOnSuccess: Bool = true) async {
         guard canSubmit else {
@@ -170,6 +181,8 @@ final class RegistrationViewModel: ObservableObject {
                 zID = ""
                 name = ""
                 noZIDChecked = false 
+                privacyPolicyAccepted = false 
+            
             }
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
@@ -185,7 +198,23 @@ final class RegistrationViewModel: ObservableObject {
         lastCreatedCaseId = nil
     }
 
-    // MARK: - convenience methods
+    func agreeToPrivacyPolicyAndSubmit() async {
+        privacyPolicyAccepted = true
+        showPrivacyPolicyModal = false
+        await submit()
+    }
+    
+    func disagreeToPrivacyPolicy() {
+        showPrivacyPolicyModal = false
+    }
+    
+    func openPrivacyPolicy() {
+        showPrivacyPolicyWebView = true
+    }
+    
+    func closePrivacyPolicyWebView() {
+        showPrivacyPolicyWebView = false
+    }
     func prefill(zID: String? = nil, name: String?, categoryId: String? = nil) {
         if let z = zID { self.zID = z }
         if let n = name { self.name = n }

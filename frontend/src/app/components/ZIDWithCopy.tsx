@@ -9,7 +9,7 @@ export default function ZIDWithCopy({
   zID, 
   className = "flex items-center gap-1 mb-3" 
 }: ZIDWithCopyProps) {
-  const displayZID = zID || "N/A";
+  const displayZID = zID || "No zID provided";
   return (
     <div className={className}>
       <span className="text-xs text-gray-500 font-normal">
