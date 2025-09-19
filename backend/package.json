@@ -12,6 +12,8 @@
   "license": "ISC",
   "dependencies": {
     "@azure/msal-node": "^3.7.3",
+    "@azure/web-pubsub": "^1.2.0",
+    "@microsoft/signalr": "^9.0.6",
     "@prisma/client": "^6.16.1",
     "cookie-parser": "^1.4.7",
     "cookie-session": "^2.1.1",

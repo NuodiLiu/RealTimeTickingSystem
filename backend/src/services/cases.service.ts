@@ -1,6 +1,6 @@
 import { prisma } from "../lib/prisma";
 import { BadRequestError, ConflictError, MissingFieldError, NotFoundError } from "../error";
-import { DeviceGateway } from "../websocket/deviceSocket";
+import { SignalRGateway } from "../signalr";
 
 export class CasesService {
     // Public method for display screens
@@ -55,7 +55,7 @@ export class CasesService {
         });
         
         // Real-time notification
-        DeviceGateway.notifyDashboard({
+        SignalRGateway.notifyDashboard({
             type: "case:created",
             payload: { 
                 id: created.id,
@@ -105,7 +105,7 @@ export class CasesService {
             startedAt: taken.startedAt 
         });
 
-        DeviceGateway.notifyDashboard({
+        SignalRGateway.notifyDashboard({
             type: "case:updated",
             payload: { 
                 id: taken.id, 
@@ -156,7 +156,7 @@ export class CasesService {
                 });
 
                 if (taken) {
-                    DeviceGateway.notifyDashboard({
+                    SignalRGateway.notifyDashboard({
                         type: "case:updated",
                         payload: { 
                             id: taken.id, 
@@ -269,19 +269,17 @@ export class CasesService {
                     // Real-time notifications for RESOLVED_PENDING_FEEDBACK case
                     if (deviceId) {
                         // notify iPad to close feedback interface
-                        DeviceGateway.publish(deviceId, {
-                            type: "DISMISS"
-                        });
+                        SignalRGateway.dismissDevice(deviceId);
                         
                         // notify dashboard to update device status
-                        DeviceGateway.notifyDashboard({
+                        SignalRGateway.notifyDashboard({
                             type: "device:updated", 
                             payload: { id: deviceId, isBusy: false, isOnline: true }
                         });
                     }
 
                     // notify dashboard to update case status
-                    DeviceGateway.notifyDashboard({
+                    SignalRGateway.notifyDashboard({
                         type: "case:updated",
                         payload: { id: id, status: "RESOLVED", resolvedAt: updatedCase.resolvedAt }
                     });
@@ -297,7 +295,7 @@ export class CasesService {
                         },
                     });
                     
-                    DeviceGateway.notifyDashboard({
+                    SignalRGateway.notifyDashboard({
                         type: "case:updated",
                         payload: { id: id, status: "RESOLVED", resolvedAt: updatedCase.resolvedAt }
                     });
@@ -314,7 +312,7 @@ export class CasesService {
                     },
                 });
                 
-                DeviceGateway.notifyDashboard({
+                SignalRGateway.notifyDashboard({
                     type: "case:updated",
                     payload: { id: id, status: "RESOLVED", resolvedAt: updatedCase.resolvedAt }
                 });

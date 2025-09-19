@@ -391,6 +391,13 @@ export const DeviceAPI = {
   unpair: (deviceId: string) => del<undefined>(`/device/${encodeURIComponent(deviceId)}`),
 };
 
+export const SignalRAPI = {
+  // GET /signalr/dashboard/connect (get dashboard SignalR connection info)
+  getDashboardConnection: () => get<{ url: string; token: string }>("/signalr/dashboard/connect"),
+  // GET /signalr/device/connect (get device SignalR connection info)
+  getDeviceConnection: () => get<{ url: string; token: string }>("/signalr/device/connect"),
+};
+
 export const FeedbackAPI = {
   // POST /feedback/send (staff) 
   send: (body: FeedbackSendReq) => post<{ ok: true; caseId: string }>("/feedback/send", body),

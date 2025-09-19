@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
-import { io, Socket } from 'socket.io-client';
+import { getDashboardSignalR, SignalREvent } from '../lib/signalr';
 import { PublicQueueItem, CasesAPI } from "../lib/api";
 
 export default function PublicDisplayPage() {
@@ -56,7 +56,7 @@ export default function PublicDisplayPage() {
     await smartUpdateQueue('case:updated');
   }, [smartUpdateQueue]);
 
-  // Socket.io for real-time updates
+  // SignalR for real-time updates
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -79,19 +79,10 @@ export default function PublicDisplayPage() {
 
     fetchInitialData();
 
-    // Set up Socket.io connection for real-time updates
-    const socket: Socket = io(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000', {
-      path: '/ws',
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-    });
-
-    socket.on('connect', () => {
-      console.log('Public Display: Socket connected for real-time updates');
-    });
-
-    socket.on('event', (event: { type: string; payload: any }) => {
+    // Set up SignalR connection for real-time updates
+    const signalR = getDashboardSignalR();
+    
+    const handlePublicDisplayEvent = (event: SignalREvent) => {
       console.log('Public Display: Real-time event received:', event);
       
       switch (event.type) {
@@ -113,19 +104,25 @@ export default function PublicDisplayPage() {
         default:
           break;
       }
-    });
+    };
 
-    socket.on('disconnect', () => {
-      console.log('Public Display: Socket disconnected');
-    });
+    // Subscribe to case events for public display
+    const unsubscribeCreated = signalR.on('case:created', handlePublicDisplayEvent);
+    const unsubscribeUpdated = signalR.on('case:updated', handlePublicDisplayEvent);
+    const unsubscribeFeedback = signalR.on('case:feedback_ready', handlePublicDisplayEvent);
 
-    socket.on('connect_error', (err) => {
-      console.error('Public Display: Socket connection error:', err);
+    // Connect to SignalR
+    signalR.connect().then(() => {
+      console.log('Public Display: SignalR connected for real-time updates');
+    }).catch((error) => {
+      console.error('Public Display: SignalR connection error:', error);
     });
 
     return () => {
-      console.log('Public Display: Cleaning up socket connection...');
-      socket.disconnect();
+      console.log('Public Display: Cleaning up SignalR subscriptions...');
+      unsubscribeCreated();
+      unsubscribeUpdated();
+      unsubscribeFeedback();
       
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);

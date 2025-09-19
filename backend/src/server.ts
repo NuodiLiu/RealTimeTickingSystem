@@ -17,14 +17,15 @@ import feedbackRouter from "./routers/feedback.router";
 import excelRouter from "./routers/excel.router";
 import { errorHandler } from "./middlewares/error.middleware";
 
-import { DeviceGateway } from "./websocket/deviceSocket";
-import { bindRealtime } from "./websocket";
+// Import SignalR for serverless
+import signalRRoutes from "./signalr/routes";
+import { setupWebPubSubWebhooks } from "./signalr/webhook";
+import { SignalRGateway } from "./signalr";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const server = http.createServer(app);
 
 // Trust proxies 
 app.set("trust proxy", 1);
@@ -72,35 +73,49 @@ app.use("/device", deviceRouter);
 app.use("/feedback", feedbackRouter);
 app.use("/excel", excelRouter);
 
+// SignalR routes and webhooks
+app.use("/api/signalr", signalRRoutes);
+setupWebPubSubWebhooks(app);
+
 // Error handler 
 app.use(errorHandler);
 
-// Socket.IO init and bind
-const io = DeviceGateway.init(server);
-bindRealtime(io);
-
-// /health 
-app.get("/health", (_req, res) => {
-  const rooms = DeviceGateway.io().of("/").adapter.rooms; // Map<string, Set<SocketId>>
-  const onlineDeviceIds: string[] = [];
-
-  for (const [name, sockets] of rooms) {
-    if (name.startsWith("device:") && sockets && sockets.size > 0) {
-      onlineDeviceIds.push(name.slice("device:".length));
-    }
+// /health endpoint - serverless compatible
+app.get("/health", async (_req, res) => {
+  try {
+    const stats = await SignalRGateway.getConnectionStats();
+    res.json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(), 
+      signalR: {
+        connections: stats.total,
+        serverless: stats.serverless || false
+      }
+    });
+  } catch (error) {
+    res.json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(), 
+      signalR: {
+        error: "SignalR service unavailable",
+        serverless: true
+      }
+    });
   }
-
-  res.json({ status: "ok", timestamp: new Date().toISOString(), connectedDevices: onlineDeviceIds.length, onlineDeviceIds});
 });
 
 // Only listen when not in test mode / serverless
+// For serverless deployments (AWS Lambda, Vercel, etc.), export the app without listening
 if (
   process.env.NODE_ENV !== "test" &&
-  !process.env.AWS_LAMBDA_FUNCTION_NAME
+  !process.env.AWS_LAMBDA_FUNCTION_NAME &&
+  !process.env.VERCEL &&
+  !process.env.NETLIFY
 ) {
+  const server = http.createServer(app);
   server.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`HTTP listening on http://0.0.0.0:${PORT}`);
-    console.log(`WebSocket (Socket.IO) path: ws://0.0.0.0:${PORT}/ws`);
+    console.log(`SignalR enabled for real-time communication`);
   });
 }
 

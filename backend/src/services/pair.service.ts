@@ -3,7 +3,7 @@ import { prisma } from "../lib/prisma";
 import { BadRequestError, MissingFieldError } from "../error";
 import { DeviceMode } from '../lib/utils/type';
 import { signDeviceToken } from '../websocket/auth';
-import { DeviceGateway } from '../websocket/deviceSocket';
+import { SignalRGateway } from '../signalr';
 
 export class PairService {
   // generate qr for kiosk
@@ -166,7 +166,7 @@ export class PairService {
     }
 
     // Real-time update: Notify dashboard about the new device pairing
-    DeviceGateway.notifyDashboard({
+    SignalRGateway.notifyDashboard({
       type: "device:paired",
       payload: { 
         deviceId: device.id, 

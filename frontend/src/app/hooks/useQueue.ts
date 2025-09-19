@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CaseItem, CasesAPI } from "../lib/api";
-import { io, Socket } from "socket.io-client";
+import { getDashboardSignalR, SignalREvent } from "../lib/signalr";
 import { showToastPromise, handleError } from "../lib/toaster";
 import toast from 'react-hot-toast';
 
@@ -87,19 +87,10 @@ export default function useQueue(userId?: string) {
 
     load();
 
-    // Set up WebSocket connection for real-time updates
-    const socket: Socket = io(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000', {
-      path: '/ws',
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-    });
-
-    socket.on('connect', () => {
-      console.log('Socket connected for real-time updates');
-    });
-
-    socket.on('event', (event: { type: string; payload: any }) => {
+    // Set up SignalR connection for real-time updates
+    const signalR = getDashboardSignalR();
+    
+    const handleSignalREvent = (event: SignalREvent) => {
       console.log('Real-time event received:', event);
       
       switch (event.type) {
@@ -152,22 +143,27 @@ export default function useQueue(userId?: string) {
           }
           break;
       }
+    };
+
+    // Subscribe to all events for real-time updates
+    const unsubscribe = signalR.on('*', handleSignalREvent);
+
+    // Connect to SignalR
+    signalR.connect(userId).then(() => {
+      console.log('SignalR connected for real-time updates');
+    }).catch((error) => {
+      console.error('SignalR connection error:', error);
     });
 
-    socket.on('disconnect', () => {
-      console.log('Socket disconnected');
-    });
-
-    socket.on('connect_error', (err: Error) => {
-      console.error('Socket connection error:', err);
-    });
-
+    // Set up periodic refresh as fallback
     const intervalId = setInterval(load, 10000); 
 
     return () => {
-      console.log('Cleaning up socket and interval...');
-      socket.disconnect();
+      console.log('Cleaning up SignalR and interval...');
+      unsubscribe();
       clearInterval(intervalId);
+      // Note: We don't disconnect SignalR here as it's a singleton
+      // and might be used by other components
     };
   }, [load, userId]); 
 

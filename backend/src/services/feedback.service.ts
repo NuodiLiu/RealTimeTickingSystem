@@ -13,7 +13,7 @@ import {
   preconditionFailed, clearDevicePointerToLock, overrideOldLockTx, overrideActiveSessionsOnDevice,
   resolveOriginalCase,
 } from "./utils/feedback.utils";
-import { DeviceGateway } from "../websocket/deviceSocket";
+import { SignalRGateway } from "../signalr";
 
 export type SendFeedbackArgs = { caseId: string; deviceId: string; staffId: string };
 export type OverrideFeedbackArgs = {
@@ -77,18 +77,15 @@ export class FeedbackService {
     );
 
     // push to device
-    DeviceGateway.publish(deviceId, {
-      type: "SHOW_FEEDBACK",
-      payload: {
+    SignalRGateway.showFeedback(deviceId, {
         sessionId: session.id,
         caseId,
         staff: { id: staff.id, name: staff.name },
         expireAt: sessionExpireAt.toISOString(),
-      },
     });
 
     // notify dashboard device is now busy
-    DeviceGateway.notifyDashboard({
+    SignalRGateway.notifyDashboard({
       type: "device:updated",
       payload: { id: deviceId, isBusy: true, isOnline: true }
     });
@@ -146,21 +143,18 @@ export class FeedbackService {
     );
 
     // replace feedback request on device
-    DeviceGateway.publish(deviceId, { type: "DISMISS" });
+    SignalRGateway.dismissDevice(deviceId);
     
     // show feedback 
-    DeviceGateway.publish(deviceId, {
-      type: "SHOW_FEEDBACK",
-      payload: {
+    SignalRGateway.showFeedback(deviceId, {
         sessionId: newSession.id,
         caseId,
         staff: { id: staff.id, name: staff.name },
         expireAt: sessionExpireAt.toISOString(),
-      },
     });
 
     // device is busy with new case
-    DeviceGateway.notifyDashboard({
+    SignalRGateway.notifyDashboard({
       type: "device:updated",
       payload: { 
         id: deviceId, 
@@ -262,17 +256,15 @@ export class FeedbackService {
       return { feedbackId };
     });
 
-    // nogtify device, if submission successful, go back to idle
-    DeviceGateway.publish(session.deviceId, {
-      type: "DISMISS",
-    });
+    // notify device, if submission successful, go back to idle
+    SignalRGateway.dismissDevice(session.deviceId);
 
     // device idle again after notifying dashboard
-    DeviceGateway.notifyDashboard({
+    SignalRGateway.notifyDashboard({
       type: "case:updated",
       payload: { id: session.caseId, status: "RESOLVED" }
     });
-    DeviceGateway.notifyDashboard({
+    SignalRGateway.notifyDashboard({
       type: "device:updated", 
       payload: { id: session.deviceId, isBusy: false, isOnline: true }
     });

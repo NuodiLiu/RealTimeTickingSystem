@@ -1,9 +1,9 @@
-// Real-time device updates hook with WebSocket functionality
+// Real-time device updates hook with SignalR functionality
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { DeviceAPI } from "../lib/api";
-import { io, Socket } from "socket.io-client";
+import { getDashboardSignalR, SignalREvent } from "../lib/signalr";
 
 export interface Device {
   deviceId: string;
@@ -68,19 +68,10 @@ export default function useDevices() {
   useEffect(() => {
     loadDevices();
 
-    // Set up WebSocket connection for real-time device updates
-    const socket: Socket = io(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000', {
-      path: '/ws',
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-    });
-
-    socket.on('connect', () => {
-      console.log('useDevices: Device WebSocket connected');
-    });
-
-    socket.on('event', (event: { type: string; payload: any }) => {
+    // Set up SignalR connection for real-time device updates
+    const signalR = getDashboardSignalR();
+    
+    const handleDeviceEvent = (event: SignalREvent) => {
       console.log('useDevices: Device event received:', event);
 
       switch (event.type) {
@@ -151,23 +142,36 @@ export default function useDevices() {
           }
           break;
       }
-    });
+    };
 
-    socket.on('disconnect', () => {
-      console.log('Device WebSocket disconnected');
-    });
+    // Subscribe to device events
+    const unsubscribeDevice = signalR.on('device:updated', handleDeviceEvent);
+    const unsubscribeStatus = signalR.on('device:status_changed', handleDeviceEvent);
+    const unsubscribeOnline = signalR.on('device:online_status_changed', handleDeviceEvent);
+    const unsubscribePaired = signalR.on('device:paired', handleDeviceEvent);
+    const unsubscribeUnpaired = signalR.on('device:unpaired', handleDeviceEvent);
+    const unsubscribeModeChanged = signalR.on('device:mode_changed', handleDeviceEvent);
 
-    socket.on('connect_error', (err: Error) => {
-      console.error('Device WebSocket connection error:', err);
+    // Connect to SignalR
+    signalR.connect().then(() => {
+      console.log('useDevices: SignalR connected for device updates');
+    }).catch((error) => {
+      console.error('useDevices: SignalR connection error:', error);
     });
 
     // periodic refresh as fallback 
     const intervalId = setInterval(loadDevices, 30000); 
 
     return () => {
-      console.log('Cleaning up device WebSocket and interval...');
-      socket.disconnect();
+      console.log('Cleaning up device SignalR subscriptions and interval...');
+      unsubscribeDevice();
+      unsubscribeStatus();
+      unsubscribeOnline();
+      unsubscribePaired();
+      unsubscribeUnpaired();
+      unsubscribeModeChanged();
       clearInterval(intervalId);
+      // Note: We don't disconnect SignalR here as it's a singleton
     };
   }, [loadDevices, updateDevice]);
 

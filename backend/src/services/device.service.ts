@@ -3,7 +3,7 @@ import { ConflictError, NotFoundError } from '../error';
 import { prisma } from "../lib/prisma";
 import { DeviceMode, DeviceStatus, DeviceWithStatus, ListFilters } from '../lib/utils/type';
 import jwt from "jsonwebtoken";
-import { DeviceGateway } from '../websocket/deviceSocket';
+import { SignalRGateway } from '../signalr';
 import type { Prisma } from "@prisma/client";
 
 
@@ -73,7 +73,7 @@ export class DeviceService {
 
     if (!device || device.deletedAt) throw new NotFoundError('Device not found');
 
-    const isOnline = this.isDeviceOnlineDynamic(device.id, device.lastSeenAt);
+    const isOnline = await this.isDeviceOnlineDynamic(device.id, device.lastSeenAt);
     const isBusy = device.currentLock?.status === 'ACTIVE';
     const status: 'OFFLINE' | 'IDLE' | 'BUSY' = isOnline ? (isBusy ? 'BUSY' : 'IDLE') : 'OFFLINE';
 
@@ -107,40 +107,36 @@ export class DeviceService {
     return lastSeenAt.getTime() > thresholdTime;
   }
 
-  // services must use websocket, no connection = offline
-  static isDeviceOnlineDynamic(deviceId: string, lastSeenAt: Date, thresholdMinutes = 1): boolean {
-    // check connection to websocket
-    const wsConnected = this.isDeviceConnectedViaWebSocket(deviceId);
+  // services must use SignalR, no connection = offline
+  static async isDeviceOnlineDynamic(deviceId: string, lastSeenAt: Date, thresholdMinutes = 1): Promise<boolean> {
+    // check connection to SignalR
+    const signalRConnected = await this.isDeviceConnectedViaSignalR(deviceId);
     
-    if (wsConnected) {
-      console.log(`Device ${deviceId.slice(0, 8)} is ONLINE - WebSocket connected`);
+    if (signalRConnected) {
+      console.log(`Device ${deviceId.slice(0, 8)} is ONLINE - SignalR connected`);
       return true;
     }
     
-    // no websocket connection
+    // no SignalR connection
     const minutesAgo = Math.floor((Date.now() - lastSeenAt.getTime()) / (1000 * 60));
-    console.log(`Device ${deviceId.slice(0, 8)} is OFFLINE - No WebSocket connection (last seen ${minutesAgo}min ago)`);
+    console.log(`Device ${deviceId.slice(0, 8)} is OFFLINE - No SignalR connection (last seen ${minutesAgo}min ago)`);
     return false;
   }
 
-  // check if device has any active websocket connections
-  static isDeviceConnectedViaWebSocket(deviceId: string): boolean {
+  // check if device has any active SignalR connections
+  static async isDeviceConnectedViaSignalR(deviceId: string): Promise<boolean> {
     try {
-      const { DeviceGateway } = require('../websocket/deviceSocket');
-      const io = DeviceGateway.io();
-      const room = `device:${deviceId}`;
-      const sockets = io.sockets.adapter.rooms.get(room);
-      const isConnected = sockets && sockets.size > 0;
+      const isConnected = await SignalRGateway.isDeviceOnline(deviceId);
       
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Device ${deviceId.slice(0, 8)} WebSocket: ${isConnected ? 'CONNECTED' : 'DISCONNECTED'} (${sockets?.size || 0} sockets)`);
+        console.log(`Device ${deviceId.slice(0, 8)} SignalR: ${isConnected ? 'CONNECTED' : 'DISCONNECTED'}`);
       }
       
       return isConnected;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.log(`WebSocket check failed for device ${deviceId.slice(0, 8)}: ${errorMsg}`);
-      return false; // WebSocket服务未初始化 = 设备离线
+      console.log(`SignalR check failed for device ${deviceId.slice(0, 8)}: ${errorMsg}`);
+      return false; // SignalR服务未初始化 = 设备离线
     }
   }
 
@@ -162,9 +158,10 @@ export class DeviceService {
       orderBy: { lastSeenAt: 'desc' },
     });
   
-    // map to DTO + derive online/busy
+    // map to DTO + derive online/busy (simplified for serverless)
     const mapped: DeviceWithStatus[] = rows.map((row:any): DeviceWithStatus => {
-      const isOnline = this.isDeviceOnlineDynamic(row.id, row.lastSeenAt, thresholdMinutes);
+      // For serverless, use simpler online detection based on lastSeenAt
+      const isOnline = this.isDeviceOnline(row.lastSeenAt, thresholdMinutes);
       const isBusy = row.currentLock?.status === 'ACTIVE';
       const derivedStatus: DeviceStatus = isOnline ? (isBusy ? 'BUSY' : 'IDLE') : 'OFFLINE';
   
@@ -217,7 +214,8 @@ export class DeviceService {
     });
 
     return rows.map((device: any) => {
-      const isOnline = this.isDeviceOnlineDynamic(device.id, device.lastSeenAt);
+      // Use simple online detection for serverless
+      const isOnline = this.isDeviceOnline(device.lastSeenAt);
       const isBusy = device.currentLock?.status === 'ACTIVE';
       const status: 'OFFLINE' | 'IDLE' | 'BUSY' = isOnline ? (isBusy ? 'BUSY' : 'IDLE') : 'OFFLINE';
       return {
@@ -285,13 +283,13 @@ export class DeviceService {
 
     // notify iPad to switch
     try {
-      DeviceGateway.publish(deviceId, { type: "MODE_CHANGED", payload: { mode: newMode } });
+      SignalRGateway.changeModeDevice(deviceId, newMode);
     } catch {
-      // WS ignore error, not blocking api call
+      // SignalR ignore error, not blocking api call
     }
 
     // Real-time update: Notify dashboard about the mode change
-    DeviceGateway.notifyDashboard({
+    SignalRGateway.notifyDashboard({
       type: "device:mode_changed",
       payload: { deviceId, mode: newMode }
     });
@@ -328,13 +326,13 @@ export class DeviceService {
 
     // notify iPad client to unpair (if online)
     try {
-      DeviceGateway.publish(deviceId, { type: "UNPAIRED" });
+      SignalRGateway.unpairDevice(deviceId);
     } catch {
       // ignore
     };
 
     // Real-time update: Notify dashboard about the unpair
-    DeviceGateway.notifyDashboard({
+    SignalRGateway.notifyDashboard({
       type: "device:unpaired",
       payload: { deviceId }
     });
@@ -376,7 +374,7 @@ export class DeviceService {
     });
 
     // Notify dashboard clients about the device name change
-    DeviceGateway.notifyDashboard({
+    SignalRGateway.notifyDashboard({
       type: 'DEVICE_NAME_UPDATED',
       payload: {
         deviceId: updatedDevice.id,
