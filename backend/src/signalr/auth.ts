@@ -106,12 +106,12 @@ export async function getDeviceConnectionUrl(req: SignalRAuthRequest, res: Respo
       return res.status(401).json({ error: 'Device authentication required' });
     }
 
-    const connectionUrl = await signalRConfig.getDeviceConnectionUrl(req.device.deviceId);
+    const connectionInfo = signalRConfig.getConnectionInfo(req.device.deviceId);
     const token = await generateSignalRToken(req.device);
 
     res.json({
-      url: connectionUrl,
-      token,
+      url: connectionInfo.url,
+      accessToken: connectionInfo.accessToken,
       deviceId: req.device.deviceId,
       mode: req.device.mode
     });
@@ -121,19 +121,31 @@ export async function getDeviceConnectionUrl(req: SignalRAuthRequest, res: Respo
   }
 }
 
-export async function getDashboardConnectionUrl(req: SignalRAuthRequest, res: Response) {
+export async function getDashboardConnectionUrl(req: Request, res: Response) {
   try {
-    if (!req.userId) {
+    // Get user ID from Azure AD session
+    const user = (req.session as any)?.user;
+    if (!user) {
       return res.status(401).json({ error: 'User authentication required' });
     }
 
-    const connectionUrl = await signalRConfig.getDashboardConnectionUrl(req.userId);
-    const token = await generateDashboardToken(req.userId);
+    const userId = user.staffId || user.identityKey || user.upn;
+    if (!userId) {
+      return res.status(401).json({ error: 'User ID not found in session' });
+    }
+
+    console.log('Generating SignalR connection for user:', userId);
+
+    // Use Azure SignalR Service connection info
+    const connectionInfo = signalRConfig.getConnectionInfo(userId);
+
+    console.log('Generated SignalR connection URL successfully');
+    console.log('URL:', connectionInfo.url);
 
     res.json({
-      url: connectionUrl,
-      token,
-      userId: req.userId
+      url: connectionInfo.url,
+      accessToken: connectionInfo.accessToken,
+      userId: userId
     });
   } catch (error) {
     console.error('Error generating dashboard connection URL:', error);

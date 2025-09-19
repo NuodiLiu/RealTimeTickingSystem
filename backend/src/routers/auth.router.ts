@@ -1,16 +1,19 @@
 // src/routers/auth.router.ts
 import { Router } from "express";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import { msalClient, authParams } from "../auth/azure";
 import { AuthError, BadRequestError } from "../error"; 
 import { prisma } from "../lib/prisma";
+import { requireJWTAuth, optionalJWTAuth } from "../middlewares/jwt-auth.middleware";
 
 const router = Router();
 
+// Development endpoints for testing (no actual Azure AD required)
 if (process.env.NODE_ENV === 'development') {
+  // Create a mock JWT token for development
   router.post('/dev-login', async (req, res) => {
     try {
-      // Create or find the dev staff member
       const devStaff = await prisma.staff.upsert({
         where: { identityKey: 'dev|user' },
         update: {},
@@ -24,26 +27,43 @@ if (process.env.NODE_ENV === 'development') {
         }
       });
 
-      (req.session as any).user = {
-        identityKey: 'dev|user',
+      // Generate a mock JWT token for development
+      const mockClaims = {
+        iss: 'https://login.microsoftonline.com/dev-tenant/v2.0',
+        sub: 'dev-user-sub',
+        aud: process.env.AZURE_AD_CLIENT_ID || 'dev-client-id',
         tid: 'dev-tenant',
-        upn: 'dev@test.local',
+        oid: 'dev-object-id',
+        preferred_username: 'dev@test.local',
         name: 'Dev User',
-        staffId: devStaff.id, // Use actual database ID
-        role: 'ADMIN',
-        employeeNo: 'DEV001',
-        _staffCachedAt: Date.now()
+        email: 'dev@test.local',
+        identityKey: 'dev|user',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24) // 24 hours
       };
-      console.log('Dev login - session set:', (req.session as any).user);
 
+      const mockAccessToken = jwt.sign(mockClaims, process.env.JWT_SECRET!, { algorithm: 'HS256' });
 
-      res.json({ ok: true, user: (req.session as any).user });
+      res.json({ 
+        ok: true, 
+        message: 'Development login successful. Use this access_token for API calls.',
+        access_token: mockAccessToken,
+        token_type: 'Bearer',
+        expires_in: 86400,
+        user: {
+          identityKey: 'dev|user',
+          staffId: devStaff.id,
+          role: 'ADMIN',
+          employeeNo: 'DEV001',
+          name: 'Dev User',
+          email: 'dev@test.local'
+        }
+      });
     } catch (error) {
       res.status(500).json({ error: 'Failed to create dev user' });
     }
   });
 
-  // Add staff user for testing admin restrictions
   router.post('/dev-login-staff', async (req, res) => {
     try {
       const testStaff = await prisma.staff.upsert({
@@ -59,148 +79,133 @@ if (process.env.NODE_ENV === 'development') {
         }
       });
 
-      (req.session as any).user = {
-        identityKey: 'dev|staff',
+      // Generate a mock JWT token for development
+      const mockClaims = {
+        iss: 'https://login.microsoftonline.com/dev-tenant/v2.0',
+        sub: 'dev-staff-sub',
+        aud: process.env.AZURE_AD_CLIENT_ID || 'dev-client-id',
         tid: 'dev-tenant',
-        upn: 'staff@test.local',
+        oid: 'dev-staff-object-id',
+        preferred_username: 'staff@test.local',
         name: 'Test Staff',
-        staffId: testStaff.id,
-        role: 'STAFF',
-        employeeNo: 'STAFF001',
-        _staffCachedAt: Date.now()
+        email: 'staff@test.local',
+        identityKey: 'dev|staff',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24) // 24 hours
       };
-      
-      console.log('Dev staff login - session set:', (req.session as any).user);
-      res.json({ ok: true, user: (req.session as any).user });
+
+      const mockAccessToken = jwt.sign(mockClaims, process.env.JWT_SECRET!, { algorithm: 'HS256' });
+
+      res.json({ 
+        ok: true, 
+        message: 'Development staff login successful. Use this access_token for API calls.',
+        access_token: mockAccessToken,
+        token_type: 'Bearer',
+        expires_in: 86400,
+        user: {
+          identityKey: 'dev|staff',
+          staffId: testStaff.id,
+          role: 'STAFF',
+          employeeNo: 'STAFF001',
+          name: 'Test Staff',
+          email: 'staff@test.local'
+        }
+      });
     } catch (error) {
       res.status(500).json({ error: 'Failed to create staff user' });
     }
   });
 }
 
+// Test endpoints for automated testing
 if (process.env.NODE_ENV === "test") {
-  router.post("/__test/mock-login", (req, res) => {
-    const body = req.body || {};
-    (req.session as any).user = {
-      identityKey: body.identityKey || "iss|sub",
-      tid: body.tid || process.env.AZURE_AD_TENANT_ID || "common",
-      upn: body.upn || "sam@test.local",
-      name: body.name || "Sam Staff",
-    };
-    res.json({ ok: true });
+  router.post("/__test/mock-user", (req, res) => {
+    // Return success - testing should provide mocked JWT tokens
+    res.json({ ok: true, message: 'Use mocked JWT tokens for testing' });
   });
 
   router.post("/__test/clear", (req, res) => {
-    req.session = null;
-    res.json({ ok: true });
+    // No session to clear in JWT-based auth
+    res.json({ ok: true, message: 'No session to clear - using stateless JWT auth' });
   });
 }
 
-// GET /auth/login - redirect to microsoft login
-router.get("/login", async (req, res, next) => {
-  try {
-    if ((req.session as any)?.user) {
-      return res.status(204).end(); // already logged in
-    }
+// JWT-based authentication endpoints
 
-    const state = crypto.randomBytes(16).toString("hex");
-    const nonce = crypto.randomBytes(16).toString("hex");
-    (req.session as any).oauth_state = state;
-    (req.session as any).oauth_nonce = nonce;
-
-    const url = await msalClient.getAuthCodeUrl({
-      scopes: authParams.scopes,
-      redirectUri: authParams.redirectUri,
-      state,
-      nonce,
-      responseMode: "query",
-    });
-    res.redirect(url);
-  } catch (e) { next(e); }
+// GET /auth/me - return current user info from JWT
+router.get("/me", requireJWTAuth, (req, res) => {
+  res.json({ user: req.user });
 });
 
-// GET /auth/redirect - exchange code for token and save session
-router.get("/redirect", async (req, res, next) => {
+// POST /auth/validate - validate JWT token (for frontend to check if token is still valid)
+router.post("/validate", requireJWTAuth, (req, res) => {
+  res.json({ 
+    valid: true, 
+    user: req.user,
+    message: 'JWT token is valid'
+  });
+});
+
+// GET /auth/profile - get detailed user profile
+router.get("/profile", requireJWTAuth, async (req, res, next) => {
   try {
-    if (req.query.error) {
-      const err = String(req.query.error);
-      const desc = String(req.query.error_description || "");
-      if (err === "access_denied") {
-        return next(new AuthError(desc || "Access denied", 401));
+    if (!req.user) {
+      return next(new AuthError("User not authenticated", 401));
+    }
+
+    const staff = await prisma.staff.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        employeeNo: true,
+        role: true,
+        identityKey: true,
+        createdAt: true
       }
-      return next(new BadRequestError(desc ? `${err}: ${desc}` : err));
-    }
-
-    const code = String(req.query.code || "");
-    const state = String(req.query.state || "");
-    if (!code || state !== (req.session as any).oauth_state) {
-      return next(new BadRequestError("Invalid state or code"));
-    }
-
-    const tokenResponse = await msalClient.acquireTokenByCode({
-      code,
-      scopes: authParams.scopes,
-      redirectUri: authParams.redirectUri,
     });
 
-    const claims: any = tokenResponse?.idTokenClaims || {};
-
-    const expectedNonce = (req.session as any).oauth_nonce;
-    if (expectedNonce && claims.nonce && claims.nonce !== expectedNonce) {
-      return next(new BadRequestError("Invalid nonce"));
+    if (!staff) {
+      return next(new AuthError("Staff member not found", 404));
     }
 
-    (req.session as any).user = {
-      identityKey: `${claims.iss}|${claims.sub}`,
-      tid: claims.tid ?? null,
-      oid: claims.oid ?? null,
-      upn: claims.preferred_username || claims.upn || claims.email || null,
-      name: claims.name || null,
-    };
+    res.json({ user: staff });
+  } catch (error) {
+    next(error);
+  }
+});
 
-    // clear temp. fields 
-    (req.session as any).oauth_state = undefined;
-    (req.session as any).oauth_nonce = undefined;
-
-    res.redirect(process.env.FRONTEND_URL || "/");
-  } catch (e: any) {
-    if (e && (e.errorMessage || e.message)) {
-      return next(new AuthError(e.errorMessage || e.message, 401));
+// Note: Login/logout is now handled by frontend MSAL library
+// These informational endpoints explain the new flow
+router.get("/info/login", (req, res) => {
+  res.json({
+    message: "Login is now handled by MSAL library in the frontend",
+    flow: [
+      "1. Frontend uses MSAL to authenticate with Azure AD",
+      "2. Frontend obtains JWT access token with audience = your API client ID", 
+      "3. Frontend sends requests with 'Authorization: Bearer <token>' header",
+      "4. Backend validates JWT and creates/finds user in database"
+    ],
+    azureConfig: {
+      authority: `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID || 'common'}`,
+      clientId: process.env.AZURE_AD_CLIENT_ID,
+      scopes: ["openid", "profile", "email"]
     }
-    next(e);
-  }
+  });
 });
 
-// POST /auth/logout 
-router.post("/logout", (req, res) => {
-  const global = String(req.query.global || "").toLowerCase() === "true";
-  req.session = null; 
-
-  if (global) {
-    const tenant = process.env.AZURE_AD_TENANT_ID || "common";
-    const postLogout = encodeURIComponent(
-      process.env.FRONTEND_URL || process.env.BASE_URL || "http://localhost:3000"
-    );
-    return res.redirect(
-      `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/logout?post_logout_redirect_uri=${postLogout}`
-    );
-  }
-  res.json({ ok: true });
-});
-
-// POST /auth/refresh 
-router.post("/refresh", (req, res) => {
-  const user = (req.session as any)?.user;
-  if (!user) {
-    return res.status(401).json({ error: "No valid session" });
-  }
-  
-  res.json({ ok: true });
-});
-
-// GET /auth/me - return current user (SSO claims)
-router.get("/me", (req, res) => {
-  res.json({ user: (req.session as any).user ?? null });
+router.get("/info/logout", (req, res) => {
+  res.json({
+    message: "Logout is now handled by MSAL library in the frontend",
+    flow: [
+      "1. Frontend calls MSAL logout method",
+      "2. MSAL redirects to Azure AD logout endpoint", 
+      "3. Azure AD clears the session and redirects back",
+      "4. Frontend discards the JWT token"
+    ],
+    note: "Backend is stateless - no server-side session to clear"
+  });
 });
 
 export default router;

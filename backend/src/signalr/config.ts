@@ -1,71 +1,241 @@
-import { WebPubSubServiceClient } from '@azure/web-pubsub';
-import { SignalRConfig } from './types';
+import { AuthedDevice, DeviceMode } from './types';
 
-export class SignalRConfiguration {
-  private static instance: SignalRConfiguration;
-  private config: SignalRConfig;
-  private serviceClient: WebPubSubServiceClient;
+interface SignalRConnectionInfo {
+  url: string;
+  accessToken: string;
+}
 
-  private constructor() {
-    this.config = {
-      connectionString: process.env.AZURE_WEB_PUBSUB_CONNECTION_STRING || '',
-      hubName: process.env.AZURE_WEB_PUBSUB_HUB_NAME || 'ticketing-hub'
+interface SignalRConfig {
+  generateAccessToken(userId: string, roles?: string[]): string;
+  getConnectionInfo(userId: string, hub?: string): SignalRConnectionInfo;
+  sendToDevice(deviceId: string, message: any): Promise<void>;
+  sendToDashboard(message: any): Promise<void>;
+  sendToGroup(group: string, message: any): Promise<void>;
+  sendToUser(userId: string, message: any): Promise<void>;
+}
+
+import jwt from 'jsonwebtoken';
+
+interface SignalRConnectionInfo {
+  url: string;
+  accessToken: string;
+}
+
+interface SignalRConfig {
+  generateAccessToken(userId: string, roles?: string[]): string;
+  getConnectionInfo(userId: string, hub?: string): SignalRConnectionInfo;
+  sendToDevice(deviceId: string, message: any): Promise<void>;
+  sendToDashboard(message: any): Promise<void>;
+  sendToGroup(group: string, message: any): Promise<void>;
+  sendToUser(userId: string, message: any): Promise<void>;
+}
+
+class AzureSignalRServiceConfig implements SignalRConfig {
+  private connectionString: string;
+  private hubName: string;
+  private endpoint: string;
+  private accessKey: string;
+
+  constructor() {
+    const connectionString = process.env.AZURE_SIGNALR_CONNECTION_STRING;
+    if (!connectionString) {
+      throw new Error('AZURE_SIGNALR_CONNECTION_STRING environment variable is required');
+    }
+
+    this.connectionString = connectionString;
+    this.hubName = process.env.AZURE_SIGNALR_HUB_NAME || 'realtimeticket';
+    
+    // Parse connection string to extract endpoint and access key
+    const parsed = this.parseConnectionString(this.connectionString);
+    this.endpoint = parsed.endpoint;
+    this.accessKey = parsed.accessKey;
+    
+    console.log('Azure SignalR Service initialized with hub:', this.hubName);
+    console.log('Endpoint:', this.endpoint);
+  }
+
+  private parseConnectionString(connectionString: string): { endpoint: string; accessKey: string } {
+    const parts = connectionString.split(';');
+    let endpoint = '';
+    let accessKey = '';
+
+    for (const part of parts) {
+      if (part.startsWith('Endpoint=')) {
+        endpoint = part.substring('Endpoint='.length);
+      } else if (part.startsWith('AccessKey=')) {
+        accessKey = part.substring('AccessKey='.length);
+      }
+    }
+
+    if (!endpoint || !accessKey) {
+      throw new Error('Invalid Azure SignalR connection string format');
+    }
+
+    return { endpoint, accessKey };
+  }
+
+  generateAccessToken(userId: string, roles: string[] = ['signalr.client']): string {
+    const now = Math.floor(Date.now() / 1000);
+    const exp = now + (60 * 60); // 1 hour
+
+    const payload = {
+      aud: this.endpoint,
+      iat: now,
+      exp: exp,
+      nameid: userId,
+      role: roles
     };
 
-    if (!this.config.connectionString) {
-      throw new Error('Azure Web PubSub connection string is required. Please set AZURE_WEB_PUBSUB_CONNECTION_STRING in your environment variables.');
-    }
-
-    this.serviceClient = new WebPubSubServiceClient(
-      this.config.connectionString,
-      this.config.hubName
-    );
+    return jwt.sign(payload, this.accessKey, { algorithm: 'HS256' });
   }
 
-  public static getInstance(): SignalRConfiguration {
-    if (!SignalRConfiguration.instance) {
-      SignalRConfiguration.instance = new SignalRConfiguration();
-    }
-    return SignalRConfiguration.instance;
-  }
+  getConnectionInfo(userId: string, hub?: string): SignalRConnectionInfo {
+    const hubName = hub || this.hubName;
+    const accessToken = this.generateAccessToken(userId);
+    const url = `${this.endpoint}/client/?hub=${hubName}`;
 
-  public getConfig(): SignalRConfig {
-    return this.config;
-  }
-
-  public getServiceClient(): WebPubSubServiceClient {
-    return this.serviceClient;
-  }
-
-  public getDeviceHub(): string {
-    return 'devices';
-  }
-
-  public getDashboardHub(): string {
-    return 'dashboard';
-  }
-
-  public async getConnectionUrl(userId: string, groups?: string[]): Promise<string> {
-    const options: any = {
-      userId,
-      expirationTimeInMinutes: 60
+    console.log(`Generated connection info for user: ${userId}, hub: ${hubName}`);
+    
+    return {
+      url,
+      accessToken
     };
-    
-    if (groups) {
-      options.groups = groups;
+  }
+
+  async sendToDevice(deviceId: string, message: any): Promise<void> {
+    await this.sendToUser(deviceId, message);
+  }
+
+  async sendToDashboard(message: any): Promise<void> {
+    await this.sendToGroup('dashboard', message);
+  }
+
+  async sendToGroup(group: string, message: any): Promise<void> {
+    try {
+      const url = `${this.endpoint}/api/v1/hubs/${this.hubName}/groups/${group}`;
+      const token = this.generateAccessToken('server', ['signalr.service']);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(message)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to send message to group ${group}: ${response.statusText}`);
+      }
+
+      console.log(`Message sent to group ${group}:`, message.type);
+    } catch (error) {
+      console.error(`Failed to send message to group ${group}:`, error);
+      throw error;
     }
-    
-    const token = await this.serviceClient.getClientAccessToken(options);
-    return token.url;
   }
 
-  public async getDeviceConnectionUrl(deviceId: string): Promise<string> {
-    return this.getConnectionUrl(deviceId, ['devices', `device-${deviceId}`]);
+  async sendToUser(userId: string, message: any): Promise<void> {
+    try {
+      const url = `${this.endpoint}/api/v1/hubs/${this.hubName}/users/${userId}`;
+      const token = this.generateAccessToken('server', ['signalr.service']);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(message)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to send message to user ${userId}: ${response.statusText}`);
+      }
+
+      console.log(`Message sent to user ${userId}:`, message.type);
+    } catch (error) {
+      console.error(`Failed to send message to user ${userId}:`, error);
+      throw error;
+    }
   }
 
-  public async getDashboardConnectionUrl(userId: string): Promise<string> {
-    return this.getConnectionUrl(userId, ['dashboard']);
+  async addUserToGroup(userId: string, group: string): Promise<void> {
+    try {
+      const url = `${this.endpoint}/api/v1/hubs/${this.hubName}/groups/${group}/users/${userId}`;
+      const token = this.generateAccessToken('server', ['signalr.service']);
+
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to add user ${userId} to group ${group}: ${response.statusText}`);
+      }
+
+      console.log(`User ${userId} added to group ${group}`);
+    } catch (error) {
+      console.error(`Failed to add user ${userId} to group ${group}:`, error);
+      throw error;
+    }
+  }
+
+  async removeUserFromGroup(userId: string, group: string): Promise<void> {
+    try {
+      const url = `${this.endpoint}/api/v1/hubs/${this.hubName}/groups/${group}/users/${userId}`;
+      const token = this.generateAccessToken('server', ['signalr.service']);
+
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to remove user ${userId} from group ${group}: ${response.statusText}`);
+      }
+
+      console.log(`User ${userId} removed from group ${group}`);
+    } catch (error) {
+      console.error(`Failed to remove user ${userId} from group ${group}:`, error);
+      throw error;
+    }
   }
 }
 
-export const signalRConfig = SignalRConfiguration.getInstance();
+// Export singleton instance
+export const signalRConfig = new AzureSignalRServiceConfig();
+
+// Export for testing or custom configurations
+export { AzureSignalRServiceConfig };
+
+// Environment validation
+export function validateSignalREnvironment(): boolean {
+  const required = [
+    'AZURE_SIGNALR_CONNECTION_STRING'
+  ];
+
+  const missing = required.filter(env => !process.env[env]);
+  
+  if (missing.length > 0) {
+    console.error('Missing required SignalR environment variables:', missing.join(', '));
+    return false;
+  }
+
+  return true;
+}
+
+// Helper function for generating connection info with custom options
+export function generateDeviceConnectionInfo(deviceId: string): SignalRConnectionInfo {
+  return signalRConfig.getConnectionInfo(deviceId);
+}
+
+export function generateDashboardConnectionInfo(userId: string): SignalRConnectionInfo {
+  return signalRConfig.getConnectionInfo(userId);
+}

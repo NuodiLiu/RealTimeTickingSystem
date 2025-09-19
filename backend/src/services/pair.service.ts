@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { prisma } from "../lib/prisma";
 import { BadRequestError, MissingFieldError } from "../error";
 import { DeviceMode } from '../lib/utils/type';
-import { signDeviceToken } from '../websocket/auth';
+import { signDeviceToken } from '../lib/utils/auth';
 import { SignalRGateway } from '../signalr';
 
 export class PairService {

@@ -1,0 +1,1 @@
+{"version":3,"file":"webhook.d.ts","sourceRoot":"","sources":["../../../src/signalr/webhook.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,QAAQ,EAAE,MAAM,SAAS,CAAC;AAiC5C,wBAAsB,oBAAoB,CAAC,GAAG,EAAE,OAAO,EAAE,GAAG,EAAE,QAAQ,iBAkCrE;AAoGD,wBAAgB,sBAAsB,CAAC,GAAG,EAAE,GAAG,QAY9C"}

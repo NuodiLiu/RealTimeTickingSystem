@@ -11,10 +11,22 @@ const ROLE_RANK: Record<Role, number> = {
   ADMIN: 2,
 };
 
+// This interface is now moved to jwt-auth.middleware.ts
+// keeping this for backward compatibility
+export type AuthUser = {
+  id: string;
+  role: Role;
+  employeeNo: string;
+};
+
+export type AuthDevice = {
+  deviceId: string;
+  device: any;
+};
 
 export function requireRoleAtLeast(required: Role): RequestHandler {
   return (req: Request, _res: Response, next: NextFunction) => {
-    const user = (req as any).user as { id: string; role: Role } | undefined;
+    const user = req.user;
     if (!user) return next(new AuthError("Unauthorized", 401)); 
     
     if (!(user.role in ROLE_RANK)) {
@@ -30,26 +42,6 @@ export function requireRoleAtLeast(required: Role): RequestHandler {
 
 export const requireStaff = requireRoleAtLeast("STAFF");
 export const requireAdmin = requireRoleAtLeast("ADMIN");
-
-export type AuthUser = {
-  id: string;
-  role: Role;
-  employeeNo: string;
-};
-
-export type AuthDevice = {
-  deviceId: string;
-  device: any;
-};
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AuthUser;
-      device?: AuthDevice;
-    }
-  }
-}
 
 export async function requireDevice(req: Request, _res: Response, next: NextFunction) {
   try {

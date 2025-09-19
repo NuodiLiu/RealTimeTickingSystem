@@ -28,7 +28,7 @@ export class SignalRService {
     };
   }
 
-  async connect(userId?: string): Promise<void> {
+  async connect(userId?: string, userType: 'dashboard' | 'device' = 'dashboard'): Promise<void> {
     if (this.isConnecting || this.connection?.state === 'Connected') {
       return;
     }
@@ -36,13 +36,19 @@ export class SignalRService {
     this.isConnecting = true;
     
     try {
-      // Get connection URL and token from backend
-      const response = await fetch('/api/signalr/dashboard/connect', {
-        method: 'GET',
+      // Get connection URL and token from Azure Functions negotiate endpoint
+      const negotiateUrl = process.env.NEXT_PUBLIC_API_URL 
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/signalr/negotiate`
+        : '/api/signalr/negotiate';
+      
+      const response = await fetch(negotiateUrl, {
+        method: 'POST',
         credentials: 'include',
         headers: {
           'Authorization': this.config.accessToken ? `Bearer ${this.config.accessToken}` : '',
           'Content-Type': 'application/json',
+          'x-user-id': userId || 'anonymous',
+          'x-user-type': userType
         }
       });
 
@@ -50,12 +56,12 @@ export class SignalRService {
         throw new Error(`Failed to get SignalR connection info: ${response.statusText}`);
       }
 
-      const { url, token } = await response.json();
+      const { url, accessToken } = await response.json();
 
-      // Build connection
+      // Build connection with Azure SignalR Service
       const connectionBuilder = new HubConnectionBuilder()
         .withUrl(url, {
-          accessTokenFactory: () => token
+          accessTokenFactory: () => accessToken
         })
         .configureLogging(this.config.logLevel!);
 
@@ -210,6 +216,40 @@ export class SignalRService {
     this.reconnectAttempts = 0;
   }
 
+  async sendMessage(message: SignalREvent): Promise<void> {
+    if (!this.connection || this.connection.state !== 'Connected') {
+      throw new Error('SignalR connection is not established');
+    }
+
+    try {
+      await this.connection.invoke('SendMessage', message);
+      console.log('Message sent via SignalR:', message.type);
+    } catch (error) {
+      console.error('Failed to send SignalR message:', error);
+      throw error;
+    }
+  }
+
+  async sendToDevice(deviceId: string, message: SignalREvent): Promise<void> {
+    return this.sendMessage({
+      type: 'SendToDevice',
+      payload: {
+        deviceId,
+        message
+      }
+    });
+  }
+
+  async sendToGroup(groupName: string, message: SignalREvent): Promise<void> {
+    return this.sendMessage({
+      type: 'SendToGroup',
+      payload: {
+        groupName,
+        message
+      }
+    });
+  }
+
   get state(): string {
     return this.connection?.state || 'Disconnected';
   }
@@ -224,7 +264,8 @@ let dashboardSignalR: SignalRService | null = null;
 
 export function getDashboardSignalR(): SignalRService {
   if (!dashboardSignalR) {
-    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+    // Use Azure Functions API URL for SignalR negotiation
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7071';
     dashboardSignalR = new SignalRService({
       url: apiUrl,
       automaticReconnect: true,

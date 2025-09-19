@@ -1,4 +1,3 @@
-import { WebPubSubServiceClient } from '@azure/web-pubsub';
 import { signalRConfig } from './config';
 import { 
   ServerToDevice, 
@@ -9,17 +8,15 @@ import {
 } from './types';
 
 export class SignalRClient {
-  private serviceClient: WebPubSubServiceClient;
   
   constructor() {
-    this.serviceClient = signalRConfig.getServiceClient();
+    // No initialization needed for serverless SignalR
   }
 
-  // Message Sending Methods - Serverless compatible (no state management)
+  // Message Sending Methods - Serverless compatible
   public async sendToDevice(deviceId: string, message: ServerToDevice): Promise<boolean> {
     try {
-      // Send directly to user (device) by userId
-      await this.serviceClient.sendToUser(deviceId, message);
+      await signalRConfig.sendToUser(deviceId, message);
       console.log(`Message sent to device ${deviceId}:`, message.type);
       return true;
     } catch (error) {
@@ -30,7 +27,7 @@ export class SignalRClient {
 
   public async sendToDashboard(message: any): Promise<void> {
     try {
-      await this.serviceClient.group('dashboard').sendToAll(message);
+      await signalRConfig.sendToDashboard(message);
       console.log(`Message sent to dashboard:`, message.type);
     } catch (error) {
       console.error(`Failed to send message to dashboard:`, error);
@@ -40,7 +37,7 @@ export class SignalRClient {
   public async broadcastToDevices(message: ServerToDevice, mode?: DeviceMode): Promise<void> {
     try {
       const targetGroup = mode ? `mode-${mode.toLowerCase()}` : 'devices';
-      await this.serviceClient.group(targetGroup).sendToAll(message);
+      await signalRConfig.sendToGroup(targetGroup, message);
       console.log(`Broadcast message sent to ${targetGroup}:`, message.type);
     } catch (error) {
       console.error(`Failed to broadcast message to devices:`, error);
@@ -64,77 +61,111 @@ export class SignalRClient {
     return this.sendToDevice(deviceId, message);
   }
 
-  public async assignLockToDevice(deviceId: string, payload: any): Promise<boolean> {
+  public async lockAssigned(deviceId: string, payload: any): Promise<boolean> {
     return this.sendToDevice(deviceId, { type: "LOCK_ASSIGNED", payload });
   }
 
-  public async changeModeDevice(deviceId: string, mode: DeviceMode): Promise<boolean> {
-    const success = await this.sendToDevice(deviceId, { type: 'MODE_CHANGED', payload: { mode } });
-    
-    if (success) {
-      // In serverless, we need to manage groups via database or external state
-      // For now, we'll just send the message and let webhook handlers manage groups
-      console.log(`Mode change message sent to device ${deviceId}: ${mode}`);
-    }
-    
-    return success;
+  public async modeChanged(deviceId: string, mode: DeviceMode): Promise<boolean> {
+    return this.sendToDevice(deviceId, { type: 'MODE_CHANGED', payload: { mode } });
   }
 
-  public async unpairDevice(deviceId: string): Promise<boolean> {
+  public async unpaired(deviceId: string): Promise<boolean> {
     return this.sendToDevice(deviceId, { type: 'UNPAIRED' });
   }
 
   // Dashboard notification methods
-  public async notifyDashboard(message: { type: string; payload: any }): Promise<void> {
-    await this.sendToDashboard(message);
+  public async notifyDashboard(message: any): Promise<void>;
+  public async notifyDashboard(type: string, payload: any): Promise<void>;
+  public async notifyDashboard(typeOrMessage: string | any, payload?: any): Promise<void> {
+    if (typeof typeOrMessage === 'string') {
+      await this.sendToDashboard({ type: typeOrMessage, payload });
+    } else {
+      await this.sendToDashboard(typeOrMessage);
+    }
   }
 
-  // Health check and maintenance - serverless compatible
-  public async pingAllDevices(): Promise<void> {
-    const now = new Date().toISOString();
-    await this.broadcastToDevices({ type: "PING", payload: { now } });
+  public async caseUpdated(caseData: { id: string; status: string }): Promise<void> {
+    await this.sendToDashboard({ type: 'caseUpdated', payload: caseData });
   }
 
-  // Serverless-compatible methods (no local state)
+  public async deviceUpdated(deviceData: { id: string; isBusy: boolean; isOnline: boolean }): Promise<void> {
+    await this.sendToDashboard({ type: 'deviceUpdated', payload: deviceData });
+  }
+
+  public async deviceConnected(deviceId: string, mode: DeviceMode): Promise<void> {
+    await this.sendToDashboard({ 
+      type: 'deviceConnected', 
+      payload: { deviceId, mode } 
+    });
+  }
+
+  public async deviceDisconnected(deviceId: string): Promise<void> {
+    await this.sendToDashboard({ 
+      type: 'deviceDisconnected', 
+      payload: { deviceId } 
+    });
+  }
+
+  // Connection management (simplified for serverless)
   public async isDeviceConnected(deviceId: string): Promise<boolean> {
     try {
-      // In serverless, we can't maintain connection state locally
-      // We can check if the user exists in the service
-      const result = await this.serviceClient.userExists(deviceId);
-      return result;
+      // In serverless mode, we can't easily check connection status
+      // This would need to be implemented using a separate tracking mechanism
+      console.log(`Checking if device ${deviceId} is connected`);
+      return false; // Default to false for serverless mode
     } catch (error) {
-      console.error(`Error checking device connection for ${deviceId}:`, error);
+      console.error(`Failed to check device status for ${deviceId}:`, error);
       return false;
     }
   }
 
-  public async getConnectionStats() {
-    // In serverless, return minimal stats
-    return {
-      devices: 0, // Would need external state store for accurate count
-      dashboard: 0,
-      total: 0,
-      serverless: true
-    };
+  public async isDeviceOnline(deviceId: string): Promise<boolean> {
+    return this.isDeviceConnected(deviceId);
   }
 
-  // Group management - serverless compatible  
-  public async addDeviceToGroups(deviceId: string, connectionId: string, mode: DeviceMode): Promise<void> {
+  // Device action methods
+  public async assignLockToDevice(deviceId: string, payload: any): Promise<boolean> {
+    return this.lockAssigned(deviceId, payload);
+  }
+
+  public async changeModeDevice(deviceId: string, mode: DeviceMode): Promise<boolean> {
+    return this.modeChanged(deviceId, mode);
+  }
+
+  public async unpairDevice(deviceId: string): Promise<boolean> {
+    return this.unpaired(deviceId);
+  }
+
+  public async pingAllDevices(): Promise<void> {
     try {
-      await this.serviceClient.group('devices').addConnection(connectionId);
-      await this.serviceClient.group(`device-${deviceId}`).addConnection(connectionId);
-      await this.serviceClient.group(`mode-${mode.toLowerCase()}`).addConnection(connectionId);
-      console.log(`Device ${deviceId} added to groups`);
+      await signalRConfig.sendToGroup('devices', { type: "PING", payload: { now: new Date().toISOString() } });
+      console.log('Ping sent to all devices');
+    } catch (error) {
+      console.error('Failed to ping all devices:', error);
+    }
+  }
+
+  // Group management (simplified for serverless)
+  public async addDeviceToGroups(connectionId: string, deviceId: string, mode: DeviceMode): Promise<void> {
+    try {
+      // In serverless mode, group management is handled by Azure SignalR Service
+      // Groups are assigned during connection negotiation
+      await signalRConfig.addUserToGroup(deviceId, 'devices');
+      await signalRConfig.addUserToGroup(deviceId, `device-${deviceId}`);
+      await signalRConfig.addUserToGroup(deviceId, `mode-${mode.toLowerCase()}`);
+      
+      console.log(`Device ${deviceId} added to groups for mode ${mode}`);
     } catch (error) {
       console.error(`Failed to add device ${deviceId} to groups:`, error);
     }
   }
 
-  public async removeDeviceFromGroups(deviceId: string, connectionId: string, mode: DeviceMode): Promise<void> {
+  public async removeDeviceFromGroups(connectionId: string, deviceId: string, mode: DeviceMode): Promise<void> {
     try {
-      await this.serviceClient.group('devices').removeConnection(connectionId);
-      await this.serviceClient.group(`device-${deviceId}`).removeConnection(connectionId);
-      await this.serviceClient.group(`mode-${mode.toLowerCase()}`).removeConnection(connectionId);
+      await signalRConfig.removeUserFromGroup(deviceId, 'devices');
+      await signalRConfig.removeUserFromGroup(deviceId, `device-${deviceId}`);
+      await signalRConfig.removeUserFromGroup(deviceId, `mode-${mode.toLowerCase()}`);
+      
       console.log(`Device ${deviceId} removed from groups`);
     } catch (error) {
       console.error(`Failed to remove device ${deviceId} from groups:`, error);
@@ -143,22 +174,49 @@ export class SignalRClient {
 
   public async addDashboardToGroup(connectionId: string): Promise<void> {
     try {
-      await this.serviceClient.group('dashboard').addConnection(connectionId);
+      // In serverless mode, we use userId instead of connectionId
+      await signalRConfig.addUserToGroup(connectionId, 'dashboard');
       console.log(`Dashboard connection ${connectionId} added to group`);
     } catch (error) {
-      console.error(`Failed to add dashboard connection to group:`, error);
+      console.error(`Failed to add dashboard connection ${connectionId} to group:`, error);
     }
   }
 
   public async removeDashboardFromGroup(connectionId: string): Promise<void> {
     try {
-      await this.serviceClient.group('dashboard').removeConnection(connectionId);
+      await signalRConfig.removeUserFromGroup(connectionId, 'dashboard');
       console.log(`Dashboard connection ${connectionId} removed from group`);
     } catch (error) {
-      console.error(`Failed to remove dashboard connection from group:`, error);
+      console.error(`Failed to remove dashboard connection ${connectionId} from group:`, error);
     }
+  }
+
+  public async addDashboardUserToGroup(connectionId: string, userId: string): Promise<void> {
+    try {
+      await signalRConfig.addUserToGroup(userId, 'dashboard');
+      console.log(`Dashboard user ${userId} added to group`);
+    } catch (error) {
+      console.error(`Failed to add dashboard user ${userId} to group:`, error);
+    }
+  }
+
+  public async removeDashboardUserFromGroup(connectionId: string, userId: string): Promise<void> {
+    try {
+      await signalRConfig.removeUserFromGroup(userId, 'dashboard');
+      console.log(`Dashboard user ${userId} removed from group`);
+    } catch (error) {
+      console.error(`Failed to remove dashboard user ${userId} from group:`, error);
+    }
+  }
+
+  // Utility methods
+  public getConnectionStats(): Promise<{ total: number; serverless: boolean }> {
+    return Promise.resolve({
+      total: 0, // Can't get real connection count in serverless mode
+      serverless: true
+    });
   }
 }
 
-// Singleton instance
+// Export singleton instance
 export const signalRClient = new SignalRClient();

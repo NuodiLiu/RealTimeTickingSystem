@@ -1,0 +1,78 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.sendMessage = sendMessage;
+const functions_1 = require("@azure/functions");
+const config_1 = require("../signalr/config");
+async function sendMessage(request, context) {
+    context.log('SignalR sendMessage function processed a request.');
+    try {
+        const body = await request.json();
+        const { target, message, userId, groupName } = body;
+        if (!target || !message) {
+            return {
+                status: 400,
+                body: JSON.stringify({ error: 'Target and message are required' })
+            };
+        }
+        switch (target) {
+            case 'user':
+                if (!userId) {
+                    return {
+                        status: 400,
+                        body: JSON.stringify({ error: 'userId is required for user target' })
+                    };
+                }
+                await config_1.signalRConfig.sendToUser(userId, message);
+                context.log(`Message sent to user: ${userId}`);
+                break;
+            case 'group':
+                if (!groupName) {
+                    return {
+                        status: 400,
+                        body: JSON.stringify({ error: 'groupName is required for group target' })
+                    };
+                }
+                await config_1.signalRConfig.sendToGroup(groupName, message);
+                context.log(`Message sent to group: ${groupName}`);
+                break;
+            case 'device':
+                if (!userId) {
+                    return {
+                        status: 400,
+                        body: JSON.stringify({ error: 'userId (deviceId) is required for device target' })
+                    };
+                }
+                await config_1.signalRConfig.sendToDevice(userId, message);
+                context.log(`Message sent to device: ${userId}`);
+                break;
+            case 'dashboard':
+                await config_1.signalRConfig.sendToDashboard(message);
+                context.log('Message sent to dashboard');
+                break;
+            default:
+                return {
+                    status: 400,
+                    body: JSON.stringify({ error: 'Invalid target. Must be user, group, device, or dashboard' })
+                };
+        }
+        return {
+            status: 200,
+            body: JSON.stringify({ success: true })
+        };
+    }
+    catch (error) {
+        context.log('Error in sendMessage function:', error);
+        return {
+            status: 500,
+            body: JSON.stringify({ error: 'Failed to send message' })
+        };
+    }
+}
+// Register the sendMessage function
+functions_1.app.http('sendMessage', {
+    methods: ['POST'],
+    authLevel: 'function',
+    route: 'signalr/send',
+    handler: sendMessage
+});
+//# sourceMappingURL=sendMessage.js.map
