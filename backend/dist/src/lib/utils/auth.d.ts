@@ -20,8 +20,8 @@ export declare function signDeviceToken(deviceId: string, mode: string): string;
 export declare function validateDeviceApiKey(authHeader: string): Promise<{
     deviceId: string;
     device: {
-        id: string;
         name: string;
+        id: string;
         currentLockId: string | null;
         secretHash: string;
         mode: import(".prisma/client").$Enums.DeviceMode;

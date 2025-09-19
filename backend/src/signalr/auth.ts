@@ -3,6 +3,28 @@ import jwt from 'jsonwebtoken';
 import { signalRConfig } from './config';
 import { AuthedDevice } from './types';
 
+// Ensure the Azure AD auth types are available
+declare global {
+  namespace Express {
+    interface Request {
+      azureAuth?: {
+        tid: string;
+        oid: string;
+        identityKey: string;
+        email?: string;
+        name?: string;
+        upn?: string;
+        scopes: string[];
+        roles: string[];
+        iss: string;
+        aud: string;
+        exp: number;
+        iat: number;
+      };
+    }
+  }
+}
+
 export interface SignalRAuthRequest extends Omit<Request, 'device'> {
   device?: AuthedDevice;
   userId?: string;
@@ -123,15 +145,14 @@ export async function getDeviceConnectionUrl(req: SignalRAuthRequest, res: Respo
 
 export async function getDashboardConnectionUrl(req: Request, res: Response) {
   try {
-    // Get user ID from Azure AD session
-    const user = (req.session as any)?.user;
-    if (!user) {
-      return res.status(401).json({ error: 'User authentication required' });
+    // Get user ID from Azure AD authentication context
+    if (!req.azureAuth) {
+      return res.status(401).json({ error: 'Azure AD authentication required' });
     }
 
-    const userId = user.staffId || user.identityKey || user.upn;
+    const userId = req.azureAuth.identityKey;
     if (!userId) {
-      return res.status(401).json({ error: 'User ID not found in session' });
+      return res.status(401).json({ error: 'User ID not found in authentication context' });
     }
 
     console.log('Generating SignalR connection for user:', userId);

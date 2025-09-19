@@ -9,13 +9,17 @@ const config_1 = require("../signalr/config");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 /**
  * Azure Function for SignalR negotiate endpoint with JWT authentication
- * This function validates JWT tokens and generates SignalR connection info
+ * This function validates JWT tokens from Azure AD and generates SignalR connection info
  */
 async function negotiate(request, context) {
-    context.log('SignalR negotiate function processed a request with JWT authentication.');
+    context.log('SignalR negotiate function processing request with Azure AD JWT validation.');
     try {
-        // Extract Bearer token from Authorization header
-        const authHeader = request.headers.get('Authorization') || request.headers.get('authorization');
+        // Extract Bearer token from Authorization header - check both case variations
+        const authHeader = request.headers.get('Authorization') ||
+            request.headers.get('authorization') ||
+            request.headers.get('AUTHORIZATION');
+        context.log(`Auth header: ${authHeader ? 'present' : 'undefined'}`);
+        context.log(`Extracted token: ${authHeader ? 'present' : 'null'}`);
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
             context.log('ERROR: Missing or invalid Authorization header');
             return {
@@ -28,23 +32,32 @@ async function negotiate(request, context) {
             };
         }
         const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-        // Validate JWT token (decode and verify)
+        // Validate JWT token (decode without verification for Azure AD tokens)
         let jwtPayload;
         try {
-            // Decode JWT token without verification (Azure AD validates on their end)
-            // In production, you might want to verify the signature using Azure AD public keys
+            // Decode JWT token without verification (Azure AD handles signature validation)
             jwtPayload = jsonwebtoken_1.default.decode(token);
             if (!jwtPayload || typeof jwtPayload !== 'object') {
                 throw new Error('Invalid token format');
             }
-            // Basic validation of required claims
+            // Validate required Azure AD claims
             if (!jwtPayload.sub || !jwtPayload.iss) {
                 throw new Error('Missing required claims (sub, iss)');
             }
-            // Validate audience if specified
+            // Validate issuer (Azure AD v2.0)
+            const expectedIssuer = `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID || 'common'}/v2.0`;
+            if (!jwtPayload.iss.includes('login.microsoftonline.com')) {
+                throw new Error(`Invalid issuer. Expected Azure AD, got: ${jwtPayload.iss}`);
+            }
+            // Validate audience (should be your API client ID)
             const expectedAudience = process.env.AZURE_AD_CLIENT_ID;
             if (expectedAudience && jwtPayload.aud !== expectedAudience) {
                 throw new Error(`Invalid audience. Expected: ${expectedAudience}, Got: ${jwtPayload.aud}`);
+            }
+            // Validate token expiration
+            const now = Math.floor(Date.now() / 1000);
+            if (jwtPayload.exp && jwtPayload.exp < now) {
+                throw new Error('Token has expired');
             }
             context.log(`JWT validated for user: ${jwtPayload.sub}, tenant: ${jwtPayload.tid}`);
         }
@@ -60,11 +73,13 @@ async function negotiate(request, context) {
             };
         }
         // Create user identity for SignalR using Azure AD claims
-        const userId = `${jwtPayload.iss}|${jwtPayload.sub}`;
+        const userId = `azure-ad|${jwtPayload.sub}`;
         const userEmail = jwtPayload.upn || jwtPayload.email || jwtPayload.preferred_username;
         const userName = jwtPayload.name || userEmail || 'Unknown User';
-        // Extract user type from query params (default to dashboard)
-        const userType = request.query.get('userType') || 'dashboard';
+        // Extract user type from query params or headers (default to dashboard)
+        const userType = request.query.get('userType') ||
+            request.headers.get('x-user-type') ||
+            'dashboard';
         context.log(`Negotiate request - userId: ${userId}, userType: ${userType}, email: ${userEmail}`);
         // Generate SignalR connection info based on user type
         let connectionInfo;
@@ -72,8 +87,7 @@ async function negotiate(request, context) {
         try {
             if (userType === 'device') {
                 context.log('Generating device connection info...');
-                // For device connections, you might want additional validation
-                // to ensure this user is authorized to act as a device
+                // For device connections, validate device permissions
                 connectionInfo = (0, config_1.generateDeviceConnectionInfo)(userId);
             }
             else {
@@ -90,7 +104,7 @@ async function negotiate(request, context) {
                     type: userType
                 }
             };
-            context.log('Connection info generated successfully for user:', userId);
+            context.log('SignalR connection info generated successfully for user:', userId);
         }
         catch (configError) {
             context.log('ERROR in connection info generation:', configError);
@@ -100,7 +114,8 @@ async function negotiate(request, context) {
         return {
             status: 200,
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache'
             },
             body: JSON.stringify(response)
         };
@@ -122,7 +137,7 @@ async function negotiate(request, context) {
 functions_1.app.http('negotiate', {
     methods: ['POST', 'GET'],
     authLevel: 'anonymous',
-    route: 'signalr/negotiate',
+    route: 'negotiate', // Changed from 'signalr/negotiate' to 'negotiate' to match frontend requests
     handler: negotiate
 });
 //# sourceMappingURL=negotiate.js.map

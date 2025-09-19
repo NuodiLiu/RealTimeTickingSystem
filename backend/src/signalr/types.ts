@@ -3,7 +3,7 @@ export type DeviceMode = 'REGISTRATION' | 'FEEDBACK';
 export type FeedbackShowPayload = {
   sessionId: string;
   caseId: string;
-  staff: { id: string; name: string };
+  staff: { id: string; name: string | null };
   expireAt: string; // ISO
 };
 

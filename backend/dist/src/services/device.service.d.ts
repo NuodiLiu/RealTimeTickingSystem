@@ -14,7 +14,7 @@ export declare class DeviceService {
                 category: string;
                 status: import(".prisma/client").$Enums.CaseStatus;
             };
-            staffName: string;
+            staffName: string | null;
             leaseExpireAt: Date;
         } | null;
     }>;
@@ -35,7 +35,7 @@ export declare class DeviceService {
                 category: string;
                 status: import(".prisma/client").$Enums.CaseStatus;
             };
-            staffName: string;
+            staffName: string | null;
             leaseExpireAt: Date;
         } | null;
     }>;
@@ -87,8 +87,8 @@ export declare class DeviceService {
     }[]>;
     static issueWsToken(deviceId: string): Promise<string>;
     static changeMode(deviceId: string, newMode: DeviceMode): Promise<{
-        id: string;
         name: string;
+        id: string;
         mode: import(".prisma/client").$Enums.DeviceMode;
         lastSeenAt: Date;
     }>;
@@ -97,8 +97,8 @@ export declare class DeviceService {
     static updateDeviceName(deviceId: string, newName: string): Promise<{
         success: boolean;
         device: {
-            id: string;
             name: string;
+            id: string;
             mode: import(".prisma/client").$Enums.DeviceMode;
             lastSeenAt: Date;
         };

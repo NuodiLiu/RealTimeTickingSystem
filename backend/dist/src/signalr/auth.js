@@ -108,16 +108,14 @@ async function getDeviceConnectionUrl(req, res) {
     }
 }
 async function getDashboardConnectionUrl(req, res) {
-    var _a;
     try {
-        // Get user ID from Azure AD session
-        const user = (_a = req.session) === null || _a === void 0 ? void 0 : _a.user;
-        if (!user) {
-            return res.status(401).json({ error: 'User authentication required' });
+        // Get user ID from Azure AD authentication context
+        if (!req.azureAuth) {
+            return res.status(401).json({ error: 'Azure AD authentication required' });
         }
-        const userId = user.staffId || user.identityKey || user.upn;
+        const userId = req.azureAuth.identityKey;
         if (!userId) {
-            return res.status(401).json({ error: 'User ID not found in session' });
+            return res.status(401).json({ error: 'User ID not found in authentication context' });
         }
         console.log('Generating SignalR connection for user:', userId);
         // Use Azure SignalR Service connection info

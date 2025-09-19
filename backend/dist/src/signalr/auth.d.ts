@@ -1,5 +1,25 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthedDevice } from './types';
+declare global {
+    namespace Express {
+        interface Request {
+            azureAuth?: {
+                tid: string;
+                oid: string;
+                identityKey: string;
+                email?: string;
+                name?: string;
+                upn?: string;
+                scopes: string[];
+                roles: string[];
+                iss: string;
+                aud: string;
+                exp: number;
+                iat: number;
+            };
+        }
+    }
+}
 export interface SignalRAuthRequest extends Omit<Request, 'device'> {
     device?: AuthedDevice;
     userId?: string;

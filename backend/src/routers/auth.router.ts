@@ -1,210 +1,176 @@
-// src/routers/auth.router.ts
-import { Router } from "express";
-import crypto from "crypto";
-import jwt from "jsonwebtoken";
-import { msalClient, authParams } from "../auth/azure";
-import { AuthError, BadRequestError } from "../error"; 
-import { prisma } from "../lib/prisma";
-import { requireJWTAuth, optionalJWTAuth } from "../middlewares/jwt-auth.middleware";
+import { Router } from 'express';
+import { verifyAzureJWT, requireScopes } from '../middlewares/azure-auth.middleware';
+import { prisma } from '../lib/prisma';
+import { normalizeEmail } from '../lib/email-utils';
+
+// Secure Azure AD SSO auth router
+// Endpoints:
+// - GET /auth/me            -> returns current user from validated Azure AD token
+// - POST /auth/dev-login    -> 410 Gone (retired)
+// - POST /auth/dev-login-staff -> 410 Gone (retired)
 
 const router = Router();
 
-// Development endpoints for testing (no actual Azure AD required)
-if (process.env.NODE_ENV === 'development') {
-  // Create a mock JWT token for development
-  router.post('/dev-login', async (req, res) => {
-    try {
-      const devStaff = await prisma.staff.upsert({
-        where: { identityKey: 'dev|user' },
-        update: {},
-        create: {
-          identityKey: 'dev|user',
-          employeeNo: 'DEV001',
-          name: 'Dev User',
-          email: 'dev@test.local',
-          password: '',
-          role: 'ADMIN'
-        }
-      });
-
-      // Generate a mock JWT token for development
-      const mockClaims = {
-        iss: 'https://login.microsoftonline.com/dev-tenant/v2.0',
-        sub: 'dev-user-sub',
-        aud: process.env.AZURE_AD_CLIENT_ID || 'dev-client-id',
-        tid: 'dev-tenant',
-        oid: 'dev-object-id',
-        preferred_username: 'dev@test.local',
-        name: 'Dev User',
-        email: 'dev@test.local',
-        identityKey: 'dev|user',
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24) // 24 hours
-      };
-
-      const mockAccessToken = jwt.sign(mockClaims, process.env.JWT_SECRET!, { algorithm: 'HS256' });
-
-      res.json({ 
-        ok: true, 
-        message: 'Development login successful. Use this access_token for API calls.',
-        access_token: mockAccessToken,
-        token_type: 'Bearer',
-        expires_in: 86400,
-        user: {
-          identityKey: 'dev|user',
-          staffId: devStaff.id,
-          role: 'ADMIN',
-          employeeNo: 'DEV001',
-          name: 'Dev User',
-          email: 'dev@test.local'
-        }
-      });
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to create dev user' });
-    }
-  });
-
-  router.post('/dev-login-staff', async (req, res) => {
-    try {
-      const testStaff = await prisma.staff.upsert({
-        where: { identityKey: 'dev|staff' },
-        update: {},
-        create: {
-          identityKey: 'dev|staff',
-          employeeNo: 'STAFF001',
-          name: 'Test Staff',
-          email: 'staff@test.local',
-          password: '',
-          role: 'STAFF'
-        }
-      });
-
-      // Generate a mock JWT token for development
-      const mockClaims = {
-        iss: 'https://login.microsoftonline.com/dev-tenant/v2.0',
-        sub: 'dev-staff-sub',
-        aud: process.env.AZURE_AD_CLIENT_ID || 'dev-client-id',
-        tid: 'dev-tenant',
-        oid: 'dev-staff-object-id',
-        preferred_username: 'staff@test.local',
-        name: 'Test Staff',
-        email: 'staff@test.local',
-        identityKey: 'dev|staff',
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24) // 24 hours
-      };
-
-      const mockAccessToken = jwt.sign(mockClaims, process.env.JWT_SECRET!, { algorithm: 'HS256' });
-
-      res.json({ 
-        ok: true, 
-        message: 'Development staff login successful. Use this access_token for API calls.',
-        access_token: mockAccessToken,
-        token_type: 'Bearer',
-        expires_in: 86400,
-        user: {
-          identityKey: 'dev|staff',
-          staffId: testStaff.id,
-          role: 'STAFF',
-          employeeNo: 'STAFF001',
-          name: 'Test Staff',
-          email: 'staff@test.local'
-        }
-      });
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to create staff user' });
-    }
-  });
-}
-
-// Test endpoints for automated testing
-if (process.env.NODE_ENV === "test") {
-  router.post("/__test/mock-user", (req, res) => {
-    // Return success - testing should provide mocked JWT tokens
-    res.json({ ok: true, message: 'Use mocked JWT tokens for testing' });
-  });
-
-  router.post("/__test/clear", (req, res) => {
-    // No session to clear in JWT-based auth
-    res.json({ ok: true, message: 'No session to clear - using stateless JWT auth' });
-  });
-}
-
-// JWT-based authentication endpoints
-
-// GET /auth/me - return current user info from JWT
-router.get("/me", requireJWTAuth, (req, res) => {
-  res.json({ user: req.user });
-});
-
-// POST /auth/validate - validate JWT token (for frontend to check if token is still valid)
-router.post("/validate", requireJWTAuth, (req, res) => {
-  res.json({ 
-    valid: true, 
-    user: req.user,
-    message: 'JWT token is valid'
-  });
-});
-
-// GET /auth/profile - get detailed user profile
-router.get("/profile", requireJWTAuth, async (req, res, next) => {
+/**
+ * Get current user information from Azure AD token
+ * Requires valid Azure AD JWT with our API audience
+ */
+router.get('/me', verifyAzureJWT, requireScopes(['Api.Read']), async (req, res) => {
   try {
-    if (!req.user) {
-      return next(new AuthError("User not authenticated", 401));
+    if (!req.azureAuth) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        error_description: 'Authentication required'
+      });
     }
 
-    const staff = await prisma.staff.findUnique({
-      where: { id: req.user.id },
+    const { identityKey, email, name, tid, oid } = req.azureAuth;
+
+    // Normalize email to lowercase for consistent storage and lookup
+    const normalizedEmail = normalizeEmail(email);
+
+    // Look up or create staff record using stable identityKey
+    let staff = await prisma.staff.findUnique({
+      where: { identityKey },
       select: {
         id: true,
+        role: true,
+        employeeNo: true,
         name: true,
         email: true,
-        employeeNo: true,
-        role: true,
         identityKey: true,
-        createdAt: true
       }
     });
 
     if (!staff) {
-      return next(new AuthError("Staff member not found", 404));
+      // First-time login: create new staff record with Azure AD identity
+      
+      // Check if user exists with this email but different identityKey (account migration)
+      let existingByEmail = null;
+      if (normalizedEmail) {
+        existingByEmail = await prisma.staff.findUnique({
+          where: { email: normalizedEmail }
+        });
+      }
+
+      if (existingByEmail) {
+        // Migrate existing account to new identityKey
+        staff = await prisma.staff.update({
+          where: { email: normalizedEmail! }, // We know normalizedEmail is not null here
+          data: {
+            identityKey,
+            // Only update name if we have a new value and existing is null/empty
+            ...(name && !existingByEmail.name ? { name } : {}),
+          },
+          select: {
+            id: true,
+            role: true,
+            employeeNo: true,
+            name: true,
+            email: true,
+            identityKey: true,
+          }
+        });
+      } else {
+        // Create new staff record - only include fields that have values
+        const createData: any = {
+          identityKey,
+          employeeNo: `aad-${tid}-${oid.slice(0, 8)}`,
+          role: 'STAFF',
+        };
+        
+        // Only set email if we have one (normalized)
+        if (normalizedEmail) {
+          createData.email = normalizedEmail;
+        }
+        
+        // Only set name if we have one
+        if (name) {
+          createData.name = name;
+        }
+
+        staff = await prisma.staff.create({
+          data: createData,
+          select: {
+            id: true,
+            role: true,
+            employeeNo: true,
+            name: true,
+            email: true,
+            identityKey: true,
+          }
+        });
+      }
+    } else {
+      // Update name and email if they've changed and we have new values
+      const updates: any = {};
+      
+      // Update email only if we have a new value and it's different
+      if (normalizedEmail && normalizedEmail !== staff.email) {
+        updates.email = normalizedEmail;
+      }
+      
+      // Update name only if we have a new value and it's different
+      if (name && name !== staff.name) {
+        updates.name = name;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        staff = await prisma.staff.update({
+          where: { identityKey },
+          data: updates,
+          select: {
+            id: true,
+            role: true,
+            employeeNo: true,
+            name: true,
+            email: true,
+            identityKey: true,
+          }
+        });
+      }
     }
 
-    res.json({ user: staff });
-  } catch (error) {
-    next(error);
+    // Return minimal user info (don't expose internal claims)
+    return res.json({
+      ok: true,
+      user: {
+        staffId: staff.id,
+        role: staff.role,
+        employeeNo: staff.employeeNo,
+        name: staff.name,
+        email: staff.email,
+        identityKey: staff.identityKey,
+      },
+      // Optional: return some safe token metadata
+      tokenInfo: {
+        tenantId: tid,
+        scopes: req.azureAuth.scopes,
+        roles: req.azureAuth.roles,
+        expiresAt: new Date(req.azureAuth.exp * 1000).toISOString(),
+      }
+    });
+  } catch (error: any) {
+    console.error('Error in /auth/me:', error);
+    return res.status(500).json({
+      error: 'internal_error',
+      error_description: 'Failed to retrieve user information'
+    });
   }
 });
 
-// Note: Login/logout is now handled by frontend MSAL library
-// These informational endpoints explain the new flow
-router.get("/info/login", (req, res) => {
-  res.json({
-    message: "Login is now handled by MSAL library in the frontend",
-    flow: [
-      "1. Frontend uses MSAL to authenticate with Azure AD",
-      "2. Frontend obtains JWT access token with audience = your API client ID", 
-      "3. Frontend sends requests with 'Authorization: Bearer <token>' header",
-      "4. Backend validates JWT and creates/finds user in database"
-    ],
-    azureConfig: {
-      authority: `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID || 'common'}`,
-      clientId: process.env.AZURE_AD_CLIENT_ID,
-      scopes: ["openid", "profile", "email"]
-    }
+// Retire dev-login endpoints (keep path, return 410)
+router.post('/dev-login', (_req, res) => {
+  return res.status(410).json({
+    ok: false,
+    message: 'Dev login has been retired. Please authenticate via Microsoft SSO.',
   });
 });
 
-router.get("/info/logout", (req, res) => {
-  res.json({
-    message: "Logout is now handled by MSAL library in the frontend",
-    flow: [
-      "1. Frontend calls MSAL logout method",
-      "2. MSAL redirects to Azure AD logout endpoint", 
-      "3. Azure AD clears the session and redirects back",
-      "4. Frontend discards the JWT token"
-    ],
-    note: "Backend is stateless - no server-side session to clear"
+router.post('/dev-login-staff', (_req, res) => {
+  return res.status(410).json({
+    ok: false,
+    message: 'Dev login has been retired. Please authenticate via Microsoft SSO.',
   });
 });
 

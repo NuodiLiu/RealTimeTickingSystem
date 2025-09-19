@@ -14,23 +14,41 @@ export default function useAuth() {
     let mounted = true;
     (async () => {
       try {
-        // try to refresh/check existing session
-        const meResponse = await fetch(`${API_BASE}/auth/me`, {
-          credentials: 'include',
-        });
-
-        if (meResponse.ok) {
-          const data = await meResponse.json();
-          if (data.user && mounted) {
-            // Ensure user has the role property
-            setUser({
-              id: data.user.staffId,
-              email: data.user.upn,
-              username: data.user.name,
-              role: data.user.role, 
+        // First check if we have a stored token and user
+        const accessToken = localStorage.getItem('access_token');
+        const storedUser = localStorage.getItem('user');
+        
+        if (accessToken && storedUser) {
+          try {
+            const userData = JSON.parse(storedUser);
+            // Validate token by calling /auth/me
+            const meResponse = await fetch(`${API_BASE}/auth/me`, {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`
+              }
             });
-            setBooting(false);
-            return;
+
+            if (meResponse.ok) {
+              const data = await meResponse.json();
+              if (data.user && mounted) {
+                setUser({
+                  id: data.user.staffId || userData.staffId,
+                  email: data.user.email || userData.email,
+                  username: data.user.name || userData.name,
+                  role: data.user.role || userData.role,
+                });
+                setBooting(false);
+                return;
+              }
+            } else {
+              // Token is invalid, clear stored data
+              localStorage.removeItem('access_token');
+              localStorage.removeItem('token_type');
+              localStorage.removeItem('user');
+            }
+          } catch (parseError) {
+            console.warn('Failed to parse stored user data:', parseError);
+            localStorage.removeItem('user');
           }
         }
 

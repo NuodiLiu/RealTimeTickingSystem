@@ -9,7 +9,7 @@ import ActiveCasesSection from "../components/dashboard/ActiveCasesSection";
 import ResponsiveLayout from "../components/layout/ResponsiveLayout";
 import QRGeneratorModal from "../components/QRGeneratorModal";
 import ExcelExportModal from "../components/ExcelExportModal";
-import useAuth from "../hooks/useAuth";
+import useMSALAuth from "../hooks/useMSALAuth";
 import useQueue from "../hooks/useQueue";
 import useDevices from "../hooks/useDevices";
 import { FeedbackAPI, HealthAPI } from "../lib/api";
@@ -22,7 +22,7 @@ import { toast, Toaster } from 'react-hot-toast'
 import { showConfirmation, showToastPromise } from "../lib/toaster";
 
 export default function DashboardPage() {
-  const { user, booting, logout } = useAuth();
+  const { user, booting, logout } = useMSALAuth();
   const { queued, myActive, loading, take, takeNext, resolve, escalate, reload } = useQueue(user?.id);
   const { feedbackDevices, reload: reloadDevices } = useDevices();
 

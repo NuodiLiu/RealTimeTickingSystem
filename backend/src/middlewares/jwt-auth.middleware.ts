@@ -198,6 +198,8 @@ export async function requireJWTAuth(req: Request, res: Response, next: NextFunc
   try {
     const authHeader = req.header('Authorization');
     console.log('Auth header:', authHeader);
+    console.log('All headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Header keys:', Object.keys(req.headers));
     
     const token = extractBearerToken(authHeader);
     console.log('Extracted token:', token ? `${token.substring(0, 20)}...` : 'null');

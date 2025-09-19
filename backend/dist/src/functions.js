@@ -55,51 +55,6 @@ const CONFIG = {
 };
 // 创建Express应用实例（在模块级别创建一次，重用）
 const expressApp = (0, expressApp_1.createExpressApp)();
-// Parse Set-Cookie header line into Azure Functions cookie format
-function parseSetCookieLine(line) {
-    const [nv, ...attrs] = line.split(';').map(s => s.trim());
-    if (!nv)
-        return null;
-    const [name, ...vParts] = nv.split('=');
-    if (!name)
-        return null;
-    const value = vParts.join('='); // 允许值里有 '='
-    const cookie = { name, value };
-    for (const attr of attrs) {
-        const [kRaw, ...vRaw] = attr.split('=');
-        if (!kRaw)
-            continue;
-        const k = kRaw.trim().toLowerCase();
-        const v = vRaw.join('=').trim();
-        if (k === 'path')
-            cookie.path = v || '/';
-        else if (k === 'domain')
-            cookie.domain = v;
-        else if (k === 'samesite') {
-            const s = v.toLowerCase();
-            cookie.sameSite = s === 'none' ? 'None' : s === 'strict' ? 'Strict' : 'Lax';
-        }
-        else if (k === 'secure')
-            cookie.secure = true;
-        else if (k === 'httponly')
-            cookie.httpOnly = true;
-        else if (k === 'expires')
-            cookie.expires = new Date(v).toUTCString();
-        else if (k === 'max-age')
-            cookie.maxAge = Number(v);
-    }
-    return cookie;
-}
-// Extract and parse Set-Cookie headers for Azure Functions
-function pickSetCookies(headers) {
-    const raw = headers['set-cookie'];
-    delete headers['set-cookie']; // 从普通头里移除，避免冲突
-    const lines = Array.isArray(raw) ? raw : raw ? [raw] : [];
-    const cookies = lines
-        .map(parseSetCookieLine)
-        .filter((c) => !!c);
-    return cookies;
-}
 // Normalize headers for Azure Functions (join multi-value headers)
 function normalizeHeaders(headers) {
     const normalized = {};
@@ -128,18 +83,17 @@ function extractInternalPath(fullPath) {
 async function httpTrigger(request, context) {
     context.log(`Http function processed request for url "${request.url}"`);
     try {
-        // Short-circuit CORS preflight at Functions layer with explicit origin (no wildcard)
+        // Short-circuit CORS preflight at Functions layer - no credentials for Bearer auth
         if (request.method === 'OPTIONS') {
             const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3001';
             const reqOrigin = request.headers.get('origin') || '';
             const originHeader = reqOrigin && reqOrigin === allowedOrigin ? reqOrigin : allowedOrigin;
             const allowReqHeaders = request.headers.get('access-control-request-headers')
-                || 'Content-Type, Authorization, X-Requested-With';
+                || 'Content-Type, Authorization, X-Requested-With, x-user-id, x-user-type';
             return {
                 status: 204,
                 headers: {
                     'access-control-allow-origin': originHeader,
-                    'access-control-allow-credentials': 'true',
                     'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
                     'access-control-allow-headers': allowReqHeaders,
                     'vary': 'Origin',
@@ -193,25 +147,14 @@ async function httpTrigger(request, context) {
                 reject(err);
             }
         });
-        // 🍪 处理 cookies：将 Express 的 Set-Cookie 转换为 Azure Functions 的 cookies 字段
+        // � 简化响应处理：无需 Cookie 支持，直接规范化头部
         const responseHeaders = { ...expressResponse.headers };
-        // Debug logging for cookie handling
-        context.log('Response headers before cookie extraction:', Object.keys(responseHeaders));
-        if (responseHeaders['set-cookie']) {
-            context.log('Found set-cookie headers:', responseHeaders['set-cookie']);
-        }
-        const cookies = pickSetCookies(responseHeaders);
-        context.log('Parsed cookies for Azure Functions:', cookies);
         const normalizedHeaders = normalizeHeaders(responseHeaders);
         const response = {
             status: expressResponse.statusCode || 200,
             headers: normalizedHeaders,
             body: expressResponse.body
         };
-        // 如果有 cookies，添加到响应中
-        if (cookies.length > 0) {
-            response.cookies = cookies;
-        }
         return response;
     }
     catch (error) {
@@ -306,10 +249,6 @@ async function convertAzureRequestToExpress(request, internalPath) {
     reqStream.httpVersion = '1.1';
     reqStream.httpVersionMajor = 1;
     reqStream.httpVersionMinor = 1;
-    reqStream.cookies = parseCookies(request.headers.get('cookie') || '');
-    // 初始化 session 对象 - cookie-session 需要这个
-    reqStream.session = {};
-    reqStream.sessionOptions = {};
     // （可选）一些中间件会读这些 flag
     reqStream.aborted = false;
     reqStream.complete = true;
@@ -409,7 +348,7 @@ function createExpressResponse() {
             delete headers[name.toLowerCase()];
             return response;
         },
-        // Cookie methods - 支持你的业务中的 cookie-session
+        // Cookie methods - 为了兼容性保留，但现在主要使用 Bearer tokens
         cookie: (name, value, options = {}) => {
             let cookieString = `${name}=${encodeURIComponent(value)}`;
             if (options.domain)
@@ -527,7 +466,7 @@ function createExpressResponse() {
         get body() { return body; },
         get finished() { return finished; },
         get headersSent() { return finished; },
-        // 支持 cookie-session 中间件
+        // 支持一些遗留中间件（现在主要使用 Bearer token）
         locals: {},
         // 内部方法：设置响应完成回调
         _setResponseCallback: (callback) => {
@@ -535,19 +474,6 @@ function createExpressResponse() {
         }
     };
     return response;
-}
-// Parse cookies from cookie header
-function parseCookies(cookieHeader) {
-    const cookies = {};
-    if (!cookieHeader)
-        return cookies;
-    cookieHeader.split(';').forEach(cookie => {
-        const [name, value] = cookie.trim().split('=');
-        if (name && value) {
-            cookies[name] = decodeURIComponent(value);
-        }
-    });
-    return cookies;
 }
 // Register the general API function - this should only handle /api/app/* routes
 functions_1.app.http('api', {

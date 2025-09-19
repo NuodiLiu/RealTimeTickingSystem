@@ -8,6 +8,8 @@
     "start": "next start"
   },
   "dependencies": {
+    "@azure/msal-browser": "^4.23.0",
+    "@azure/msal-react": "^3.0.19",
     "@microsoft/signalr": "^9.0.6",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
@@ -18,7 +20,6 @@
     "react-datepicker": "^8.7.0",
     "react-dom": "19.1.0",
     "react-hot-toast": "^2.6.0",
-    "socket.io-client": "^4.8.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

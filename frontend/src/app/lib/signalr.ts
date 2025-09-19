@@ -28,6 +28,37 @@ export class SignalRService {
     };
   }
 
+  private async fetchWithRetry(url: string, init?: RequestInit, retryCount = 0): Promise<Response> {
+    const maxRetries = 2;
+    
+    try {
+      const response = await fetch(url, init);
+      
+      // Retry on 503 (service unavailable) or 502 (bad gateway) for cold start issues
+      if ((response.status === 503 || response.status === 502) && retryCount < maxRetries) {
+        console.warn(`Azure Functions cold start detected (${response.status}), retrying... (${retryCount + 1}/${maxRetries})`);
+        const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        return this.fetchWithRetry(url, init, retryCount + 1);
+      }
+      
+      return response;
+    } catch (error) {
+      // Retry on network errors that might be cold start related
+      if (retryCount < maxRetries && (
+        (error as Error).message?.includes('fetch') || 
+        (error as Error).message?.includes('Network request failed')
+      )) {
+        console.warn(`Network error detected, retrying... (${retryCount + 1}/${maxRetries})`, (error as Error).message);
+        const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        return this.fetchWithRetry(url, init, retryCount + 1);
+      }
+      
+      throw error;
+    }
+  }
+
   async connect(userId?: string, userType: 'dashboard' | 'device' = 'dashboard'): Promise<void> {
     if (this.isConnecting || this.connection?.state === 'Connected') {
       return;
@@ -38,12 +69,16 @@ export class SignalRService {
     try {
       // Get connection URL and token from Azure Functions negotiate endpoint
       const negotiateUrl = process.env.NEXT_PUBLIC_API_URL 
-        ? `${process.env.NEXT_PUBLIC_API_URL}/api/signalr/negotiate`
-        : '/api/signalr/negotiate';
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/negotiate`
+        : '/api/negotiate';
       
-      const response = await fetch(negotiateUrl, {
+      // Build URL with query parameters
+      const urlWithParams = new URL(negotiateUrl, window.location.origin);
+      if (userType) urlWithParams.searchParams.set('userType', userType);
+      if (userId) urlWithParams.searchParams.set('userId', userId);
+      
+      const response = await this.fetchWithRetry(urlWithParams.toString(), {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Authorization': this.config.accessToken ? `Bearer ${this.config.accessToken}` : '',
           'Content-Type': 'application/json',
@@ -266,8 +301,11 @@ export function getDashboardSignalR(): SignalRService {
   if (!dashboardSignalR) {
     // Use Azure Functions API URL for SignalR negotiation
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7071';
+    const accessToken = localStorage.getItem('access_token');
+    
     dashboardSignalR = new SignalRService({
       url: apiUrl,
+      accessToken: accessToken || undefined,
       automaticReconnect: true,
       logLevel: process.env.NODE_ENV === 'development' ? LogLevel.Debug : LogLevel.Information
     });

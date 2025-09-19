@@ -1,13 +1,17 @@
 // src/lib/api.ts
 
-
 // Config
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7071";
 
 // Helper to join URL segments safely
 const join = (base: string, path: string) => `${base.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
 
-// Types 
+// Function to get access token from MSAL context
+let getAccessToken: (() => Promise<string | null>) | null = null;
+
+export const setAccessTokenProvider = (provider: () => Promise<string | null>) => {
+  getAccessToken = provider;
+}; 
 export type InviteRole = "staff" | "admin";
 
 export interface CreateInviteReq { email: string; role?: InviteRole }
@@ -180,21 +184,53 @@ export class ApiError extends Error {
 let isRefreshing = false;
 let pending401Queue: Array<() => void> = [];
 
-// Timeout wrapper for fetch requests
-function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const timeoutMs = 3000;
-  return new Promise((resolve, reject) => {
+// Timeout wrapper for fetch requests with retry logic for Azure Functions cold start
+function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit, retryCount = 0): Promise<Response> {
+  const timeoutMs = 15000; // 15 seconds for Azure Functions cold start
+  const maxRetries = 2;
+  
+  return new Promise<Response>((resolve, reject) => {
     const timeoutId = setTimeout(() => {
-      reject(new TypeError('Network request timed out. Please check your internet connection.'));
+      reject(new Error(`Request timed out after ${timeoutMs}ms`));
     }, timeoutMs);
 
     fetch(input, init)
       .then(response => {
         clearTimeout(timeoutId);
+        
+        // Retry on 503 (service unavailable) or 502 (bad gateway) for cold start issues
+        if ((response.status === 503 || response.status === 502) && retryCount < maxRetries) {
+          console.warn(`Azure Functions cold start detected (${response.status}), retrying... (${retryCount + 1}/${maxRetries})`);
+          // Wait before retrying (exponential backoff)
+          const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+          setTimeout(() => {
+            fetchWithTimeout(input, init, retryCount + 1)
+              .then(resolve)
+              .catch(reject);
+          }, retryDelay);
+          return;
+        }
+        
         resolve(response);
       })
       .catch(error => {
         clearTimeout(timeoutId);
+        
+        // Retry on network errors that might be cold start related
+        if (retryCount < maxRetries && (
+          error.message?.includes('fetch') || 
+          error.message?.includes('Network request failed')
+        )) {
+          console.warn(`Network error detected, retrying... (${retryCount + 1}/${maxRetries})`, error.message);
+          const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+          setTimeout(() => {
+            fetchWithTimeout(input, init, retryCount + 1)
+              .then(resolve)
+              .catch(reject);
+          }, retryDelay);
+          return;
+        }
+        
         reject(error);
       });
   });
@@ -204,13 +240,32 @@ async function baseFetch<T>(path: string, init?: RequestInit & { skipRefreshRetr
   const url = join(API_BASE, path);
   
   try {
+    // Get access token from MSAL
+    const accessToken = getAccessToken ? await getAccessToken() : null;
+    
+    console.log('API Request Debug:', {
+      url,
+      hasGetAccessToken: !!getAccessToken,
+      accessToken: accessToken ? `${accessToken.substring(0, 20)}...` : null,
+      accessTokenLength: accessToken?.length
+    });
+    
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(init?.headers as Record<string, string> || {}),
+    };
+
+    // Add Authorization header if we have a token
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+      console.log('Authorization header set with token');
+    } else {
+      console.warn('No access token available for API request');
+    }
+
     const res = await fetchWithTimeout(url, {
       ...init,
-      credentials: "include", 
-      headers: {
-        "Content-Type": "application/json",
-        ...(init?.headers ?? {}),
-      },
+      headers,
     });
 
     if (res.status === 204) return undefined as unknown as T;
@@ -231,9 +286,9 @@ async function baseFetch<T>(path: string, init?: RequestInit & { skipRefreshRetr
     return (data as T);
   } catch (error) {
     if (error instanceof TypeError && (
-      error.message.includes('fetch') || 
-      error.message.includes('timed out') ||
-      error.message.includes('Network request failed')
+      (error as any).message?.includes('fetch') || 
+      (error as any).message?.includes('timed out') ||
+      (error as any).message?.includes('Network request failed')
     )) {
       throw new ApiError(0, 'Unable to connect to server. Please check your internet connection and try again.', null);
     }
@@ -249,10 +304,11 @@ async function handle401Refresh() {
 
   isRefreshing = true;
   try {
-    await fetch(join(API_BASE, "/auth/refresh"), {
-      method: "POST",
-      credentials: "include",
-    });
+    // In Azure AD + MSAL environment, token refresh is handled by MSAL
+    // We just need to trigger a new token acquisition
+    if (getAccessToken) {
+      await getAccessToken(); // This will trigger MSAL's automatic token refresh
+    }
   } finally {
     isRefreshing = false;
     pending401Queue.forEach((fn) => fn());
@@ -267,6 +323,8 @@ const post = <T>(path: string, body?: unknown) => baseFetch<T>(path, { method: "
 const patch = <T>(path: string, body?: unknown) => baseFetch<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined });
 
 export const AuthAPI = {
+  // GET /auth/me (authenticated)
+  me: () => get<{ user: { id: string; name: string; email: string; role: string } }>("/auth/me"),
   // POST /auth/invites (staff only)
   createInvite: (body: CreateInviteReq) => post<CreateInviteRes>("/auth/invites", body),
   // POST /auth/register
@@ -274,8 +332,6 @@ export const AuthAPI = {
   // POST /auth/login
   // login: (body: LoginReq) => post<AuthRes>("/auth/login", body),
   login: (body: { employeeNo: string }) => post<AuthRes>("/auth/login", body),
-  // POST /auth/refresh
-  refresh: () => post<undefined>("/auth/refresh"),
   // POST /auth/logout
   logout: () => baseFetch<undefined>("/auth/logout", { method: "POST", skipRefreshRetry: true }),
 };
@@ -353,7 +409,6 @@ export const ExcelAPI = {
     
     const response = await fetch(url, {
       method: 'GET',
-      credentials: 'include',
       headers: {
         'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       }

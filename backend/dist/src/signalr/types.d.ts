@@ -4,7 +4,7 @@ export type FeedbackShowPayload = {
     caseId: string;
     staff: {
         id: string;
-        name: string;
+        name: string | null;
     };
     expireAt: string;
 };

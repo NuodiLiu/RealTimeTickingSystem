@@ -66,7 +66,7 @@ function throwBusy(lock) {
         version: lock.version,
         caseId: lock.caseId,
         studentName: lock.case.studentName,
-        staffName: lock.staff.name,
+        staffName: lock.staff.name || 'Unknown Staff',
     };
     throw err;
 }
@@ -133,7 +133,7 @@ function preconditionFailed(current) {
         version: current.version,
         caseId: current.caseId,
         studentName: current.case.studentName,
-        staffName: current.staff.name,
+        staffName: current.staff.name || 'Unknown Staff',
     };
     throw err;
 }
