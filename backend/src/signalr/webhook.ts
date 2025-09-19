@@ -133,7 +133,7 @@ async function handleDisconnectedEvent(event: WebPubSubEvent) {
     if (userId.startsWith('device-') || userId.length === 8) {
       // This is a device disconnection
       const deviceId = userId.startsWith('device-') ? userId.replace('device-', '') : userId;
-      await SignalRGateway.handleDeviceDisconnect(deviceId);
+      await SignalRGateway.handleDeviceDisconnect(deviceId, event.connectionId);
     } else {
       // This is a dashboard disconnection
       await SignalRGateway.handleDashboardDisconnect(event.connectionId);
