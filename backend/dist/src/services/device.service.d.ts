@@ -87,8 +87,8 @@ export declare class DeviceService {
     }[]>;
     static issueWsToken(deviceId: string): Promise<string>;
     static changeMode(deviceId: string, newMode: DeviceMode): Promise<{
-        name: string;
         id: string;
+        name: string;
         mode: import(".prisma/client").$Enums.DeviceMode;
         lastSeenAt: Date;
     }>;
@@ -97,8 +97,8 @@ export declare class DeviceService {
     static updateDeviceName(deviceId: string, newName: string): Promise<{
         success: boolean;
         device: {
-            name: string;
             id: string;
+            name: string;
             mode: import(".prisma/client").$Enums.DeviceMode;
             lastSeenAt: Date;
         };

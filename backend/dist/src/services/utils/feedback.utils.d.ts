@@ -20,8 +20,8 @@ export declare function loadBasics(db: DB, args: {
         startedAt: Date | null;
     };
     device: {
-        name: string;
         id: string;
+        name: string;
         currentLockId: string | null;
         secretHash: string;
         mode: import(".prisma/client").$Enums.DeviceMode;
@@ -29,16 +29,16 @@ export declare function loadBasics(db: DB, args: {
         deletedAt: Date | null;
     };
     staff: {
-        name: string | null;
         id: string;
+        name: string | null;
     };
 }>;
 export declare function assertModeAllowsFeedback(mode: string): void;
 export declare function assertOnline(lastSeenAt: Date): void;
 export declare function findActiveLock(db: DB, deviceId: string): Promise<({
     staff: {
-        name: string | null;
         id: string;
+        name: string | null;
     };
     case: {
         id: string;

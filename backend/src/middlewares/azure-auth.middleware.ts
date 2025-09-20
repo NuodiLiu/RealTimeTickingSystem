@@ -11,6 +11,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { jwtVerify, createRemoteJWKSet, JWTPayload } from 'jose';
+import { createStandardIdentityKey } from '../services/staff.service';
 
 // Environment variables with defaults
 const API_AUDIENCE = process.env.AZURE_AD_API_CLIENT_ID!;
@@ -124,9 +125,10 @@ function validateIssuer(iss: string, expectedTid: string): boolean {
 
 /**
  * Create stable identity key from tenant and object ID
+ * @deprecated Use createStandardIdentityKey from staff.service instead
  */
 function createIdentityKey(tid: string, oid: string): string {
-  return `aad:${tid}:${oid}`;
+  return createStandardIdentityKey(tid, oid);
 }
 
 /**

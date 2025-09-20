@@ -7,6 +7,8 @@ import { signStaffToken } from '../lib/utils/auth';
 import { prisma } from '../lib/prisma';
 import { normalizeEmail } from '../lib/email-utils';
 import { refreshStore, REFRESH_COOKIE_OPTIONS, REFRESH_COOKIE_NAME } from '../lib/refresh-store';
+import { staffService, createStandardIdentityKey } from '../services/staff.service';
+import { handleAuthError, validateAzureAdClaims, AUTH_ERROR_CODES, sendAuthError } from '../lib/auth-errors';
 
 // Secure Azure AD SSO auth router
 // Endpoints:
@@ -92,74 +94,35 @@ router.get('/redirect', async (req, res) => {
 
     const claims: any = tokenResponse?.idTokenClaims || {};
     
-    // Create identity key for staff lookup/creation
-    const identityKey = `${claims.iss}|${claims.sub}`;
-    const email = normalizeEmail(claims.preferred_username || claims.upn || claims.email);
-    const name = claims.name;
-    const tid = claims.tid;
-    const oid = claims.oid;
-
-    // Look up or create staff record
-    let staff = await prisma.staff.findUnique({
-      where: { identityKey },
-      select: {
-        id: true,
-        role: true,
-        employeeNo: true,
-        name: true,
-        email: true,
-        identityKey: true,
-      }
-    });
-
-    if (!staff) {
-      // Create new staff member on first login
-      const createData: any = {
-        identityKey,
-        employeeNo: `aad-${tid}-${oid.slice(0, 8)}`,
-        role: 'STAFF',
-      };
-      
-      if (email) createData.email = email;
-      if (name) createData.name = name;
-
-      staff = await prisma.staff.create({
-        data: createData,
-        select: {
-          id: true,
-          role: true,
-          employeeNo: true,
-          name: true,
-          email: true,
-          identityKey: true,
-        }
+    // Validate required Azure AD claims using standardized validation
+    try {
+      validateAzureAdClaims(claims);
+    } catch (error) {
+      console.error('Invalid Azure AD claims:', { 
+        iss: !!claims.iss, 
+        sub: !!claims.sub, 
+        tid: !!claims.tid, 
+        oid: !!claims.oid 
       });
-    } else {
-      // Update name and email if changed
-      const updates: any = {};
-      if (email && email !== staff.email) updates.email = email;
-      if (name && name !== staff.name) updates.name = name;
-
-      if (Object.keys(updates).length > 0) {
-        staff = await prisma.staff.update({
-          where: { identityKey },
-          data: updates,
-          select: {
-            id: true,
-            role: true,
-            employeeNo: true,
-            name: true,
-            email: true,
-            identityKey: true,
-          }
-        });
-      }
+      return res.redirect(`${urls.frontendUrl}/login?error=invalid_token`);
     }
+
+    // Use unified staff service for consistent user management
+    const staff = await staffService.getOrCreateStaff({
+      iss: claims.iss,
+      sub: claims.sub,
+      tid: claims.tid,
+      oid: claims.oid,
+      upn: claims.upn,
+      preferred_username: claims.preferred_username,
+      email: claims.email,
+      name: claims.name,
+    });
 
     // Sign App JWT (short-lived)
     const appJwt = signStaffToken({
       id: staff.id,
-      role: staff.role as 'ADMIN' | 'STAFF',
+      role: staff.role,
       employeeNo: staff.employeeNo,
       identityKey: staff.identityKey,
       ...(staff.name && { name: staff.name }),
@@ -188,7 +151,16 @@ router.get('/redirect', async (req, res) => {
     res.redirect(redirectUrl);
   } catch (error: any) {
     console.error('OAuth callback error:', error);
-    res.redirect(`${urls.frontendUrl}/login?error=auth_failed`);
+    
+    // Use standardized error handling for specific error types
+    if (error.message?.includes('claims')) {
+      return res.redirect(`${urls.frontendUrl}/login?error=invalid_claims`);
+    }
+    if (error.message?.includes('tenant')) {
+      return res.redirect(`${urls.frontendUrl}/login?error=tenant_not_authorized`);
+    }
+    
+    return res.redirect(`${urls.frontendUrl}/login?error=auth_failed`);
   }
 });
 
@@ -201,10 +173,12 @@ router.get('/me', async (req, res) => {
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        error: 'unauthorized',
-        error_description: 'Missing or invalid Authorization header'
-      });
+      return sendAuthError(
+        res, 
+        AUTH_ERROR_CODES.INVALID_REQUEST, 
+        'Missing or invalid Authorization header', 
+        401
+      );
     }
 
     const token = authHeader.substring(7);
@@ -214,38 +188,34 @@ router.get('/me', async (req, res) => {
     try {
       jwtPayload = jwt.verify(token, process.env.JWT_SECRET!) as any;
     } catch (jwtError) {
-      return res.status(401).json({
-        error: 'invalid_token',
-        error_description: 'Invalid or expired JWT token'
-      });
+      return sendAuthError(
+        res, 
+        AUTH_ERROR_CODES.INVALID_TOKEN, 
+        'Invalid or expired JWT token', 
+        401
+      );
     }
 
     // Validate token type
     if (jwtPayload.typ !== 'staff') {
-      return res.status(401).json({
-        error: 'invalid_token_type',
-        error_description: 'Token is not a staff token'
-      });
+      return sendAuthError(
+        res, 
+        AUTH_ERROR_CODES.INVALID_TOKEN, 
+        'Token is not a staff token', 
+        401
+      );
     }
 
-    // Get staff record
-    const staff = await prisma.staff.findUnique({
-      where: { id: jwtPayload.sub },
-      select: {
-        id: true,
-        role: true,
-        employeeNo: true,
-        name: true,
-        email: true,
-        identityKey: true,
-      }
-    });
+    // Get staff record using unified service
+    const staff = await staffService.findStaffById(jwtPayload.sub);
 
     if (!staff) {
-      return res.status(404).json({
-        error: 'staff_not_found',
-        error_description: 'Staff record not found'
-      });
+      return sendAuthError(
+        res, 
+        AUTH_ERROR_CODES.STAFF_NOT_FOUND, 
+        'Staff record not found', 
+        404
+      );
     }
 
     // Return user info in format expected by frontend
@@ -262,10 +232,7 @@ router.get('/me', async (req, res) => {
     });
   } catch (error: any) {
     console.error('Error in /auth/me:', error);
-    return res.status(500).json({
-      error: 'internal_error',
-      error_description: 'Failed to retrieve user information'
-    });
+    return handleAuthError(error, res);
   }
 });
 
@@ -279,41 +246,37 @@ router.post('/refresh', async (req, res) => {
     const refreshHandle = req.cookies[REFRESH_COOKIE_NAME];
     
     if (!refreshHandle) {
-      return res.status(401).json({
-        error: 'no_refresh_token',
-        error_description: 'No refresh handle found'
-      });
+      return sendAuthError(
+        res, 
+        AUTH_ERROR_CODES.INVALID_REQUEST, 
+        'No refresh handle found', 
+        401
+      );
     }
 
     // Retrieve refresh data from store
     const refreshData = await refreshStore.get(refreshHandle);
     
     if (!refreshData) {
-      return res.status(401).json({
-        error: 'invalid_refresh_token',
-        error_description: 'Refresh handle invalid or expired'
-      });
+      return sendAuthError(
+        res, 
+        AUTH_ERROR_CODES.INVALID_TOKEN, 
+        'Refresh handle invalid or expired', 
+        401
+      );
     }
 
-    // Get staff record
-    const staff = await prisma.staff.findUnique({
-      where: { id: refreshData.staffId },
-      select: {
-        id: true,
-        role: true,
-        employeeNo: true,
-        name: true,
-        email: true,
-        identityKey: true,
-      }
-    });
+    // Get staff record using unified service
+    const staff = await staffService.findStaffById(refreshData.staffId);
 
     if (!staff) {
       await refreshStore.delete(refreshHandle);
-      return res.status(404).json({
-        error: 'staff_not_found',
-        error_description: 'Staff record not found'
-      });
+      return sendAuthError(
+        res, 
+        AUTH_ERROR_CODES.STAFF_NOT_FOUND, 
+        'Staff record not found', 
+        404
+      );
     }
 
     // Try to refresh Microsoft token using MSAL silent flow
@@ -335,7 +298,7 @@ router.post('/refresh', async (req, res) => {
     // Generate new App JWT
     const newAppJwt = signStaffToken({
       id: staff.id,
-      role: staff.role as 'ADMIN' | 'STAFF',
+      role: staff.role,
       employeeNo: staff.employeeNo,
       identityKey: staff.identityKey,
       ...(staff.name && { name: staff.name }),
@@ -360,10 +323,7 @@ router.post('/refresh', async (req, res) => {
     });
   } catch (error: any) {
     console.error('Token refresh error:', error);
-    res.status(500).json({
-      error: 'refresh_failed',
-      error_description: 'Failed to refresh token'
-    });
+    return handleAuthError(error, res);
   }
 });
 

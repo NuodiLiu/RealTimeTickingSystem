@@ -19,7 +19,7 @@ declare global {
 /**
  * Middleware to require JWT authentication
  */
-export declare function requireJWTAuth(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function requireJWTAuth(req: Request, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
 /**
  * Middleware to optionally authenticate with JWT (doesn't fail if no token)
  */

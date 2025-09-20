@@ -7,9 +7,9 @@ exports.requireJWTAuth = requireJWTAuth;
 exports.optionalJWTAuth = optionalJWTAuth;
 exports.clearStaffCache = clearStaffCache;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const crypto_1 = __importDefault(require("crypto"));
 const error_1 = require("../error");
-const prisma_1 = require("../lib/prisma");
+const staff_service_1 = require("../services/staff.service");
+const auth_errors_1 = require("../lib/auth-errors");
 // Cache for staff lookups to reduce database hits
 const staffCache = new Map();
 const STAFF_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -58,82 +58,25 @@ function extractBearerToken(authHeader) {
 }
 /**
  * Get or create staff member based on JWT claims
+ * @deprecated Use staffService.getOrCreateStaff() instead for consistency
  */
 async function getOrCreateStaff(payload) {
-    const identityKey = payload.identityKey;
-    const upn = payload.upn || payload.preferred_username || payload.email;
-    const displayName = payload.name;
-    if (!identityKey) {
+    // For App JWT tokens, we expect the staff to already exist
+    // This is typically called for refresh scenarios
+    if (!payload.identityKey) {
         throw new error_1.AuthError("identityKey is missing from JWT token", 400);
     }
-    if (!upn) {
-        throw new error_1.AuthError("UPN (email) is missing from JWT token", 400);
-    }
     try {
-        // Step 1: Try to find by identityKey first (most common case - same user returning)
-        let staff = await prisma_1.prisma.staff.findUnique({
-            where: { identityKey },
-            select: { id: true, role: true, employeeNo: true, email: true, identityKey: true }
-        });
-        if (staff) {
-            // Found by identityKey, update email and name if needed
-            if (staff.email !== upn || (displayName && displayName !== '')) {
-                await prisma_1.prisma.staff.update({
-                    where: { identityKey },
-                    data: {
-                        ...(upn !== staff.email ? { email: upn } : {}),
-                        ...(displayName ? { name: displayName } : {}),
-                    }
-                });
-            }
-            return {
-                id: staff.id,
-                role: staff.role,
-                employeeNo: staff.employeeNo,
-                identityKey: staff.identityKey
-            };
+        // Use the unified staff service for consistent lookup
+        const staff = await staff_service_1.staffService.findStaffById(payload.sub);
+        if (!staff) {
+            throw new error_1.AuthError("Staff record not found", 404);
         }
-        // Step 2: If not found by identityKey, try to find by email (same person, different IdP)
-        staff = await prisma_1.prisma.staff.findUnique({
-            where: { email: upn },
-            select: { id: true, role: true, employeeNo: true, identityKey: true, email: true }
-        });
-        if (staff) {
-            // Found by email, update to new identityKey (IdP migration)
-            console.log(`Migrating user from identityKey '${staff.identityKey}' to '${identityKey}' for email: ${upn}`);
-            const updatedStaff = await prisma_1.prisma.staff.update({
-                where: { email: upn },
-                data: {
-                    identityKey, // Update to new identityKey
-                    ...(displayName ? { name: displayName } : {}),
-                },
-                select: { id: true, role: true, employeeNo: true, identityKey: true }
-            });
-            return {
-                id: updatedStaff.id,
-                role: updatedStaff.role,
-                employeeNo: updatedStaff.employeeNo,
-                identityKey: updatedStaff.identityKey
-            };
-        }
-        // Step 3: Neither identityKey nor email found, create new staff
-        const newStaff = await prisma_1.prisma.staff.create({
-            data: {
-                identityKey,
-                name: displayName || "New User",
-                email: upn,
-                employeeNo: `ext-${crypto_1.default.randomUUID()}`,
-                role: "STAFF",
-                password: "", // not using local passwords
-            },
-            select: { id: true, role: true, employeeNo: true, identityKey: true },
-        });
-        console.log(`Created new staff member: ${upn} with identityKey: ${identityKey}`);
         return {
-            id: newStaff.id,
-            role: newStaff.role,
-            employeeNo: newStaff.employeeNo,
-            identityKey: newStaff.identityKey
+            id: staff.id,
+            role: staff.role,
+            employeeNo: staff.employeeNo,
+            identityKey: staff.identityKey,
         };
     }
     catch (error) {
@@ -164,12 +107,7 @@ async function requireJWTAuth(req, res, next) {
     }
     catch (error) {
         console.log('JWT Auth error:', error);
-        if (error instanceof error_1.AuthError) {
-            next(error);
-        }
-        else {
-            next(new error_1.AuthError('Authentication failed', 401));
-        }
+        return (0, auth_errors_1.handleAuthError)(error, res);
     }
 }
 /**
