@@ -165,8 +165,25 @@ final class ApiClient {
         let response: PairingStatusResponse = try await request(endpoint)
         return response.isPaired
     }
+    
+    /// Get SignalR connection information for the device
+    func getSignalRConnectionInfo() async throws -> SignalRConnectionResponse {
+        let endpoint = Endpoint<SignalRConnectionResponse>(
+            path: "/api/signalr/device/token",
+            method: .POST,
+            needsDeviceAuth: true
+        )
+        return try await request(endpoint)
+    }
 }
 
 struct PairingStatusResponse: Decodable {
     let isPaired: Bool
+}
+
+struct SignalRConnectionResponse: Decodable {
+    let url: String
+    let token: String
+    let deviceId: String
+    let mode: String
 }

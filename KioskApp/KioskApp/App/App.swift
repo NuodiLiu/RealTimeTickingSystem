@@ -16,7 +16,7 @@ struct KioskApp: App {
     init() {
         let environment = AppEnvironment.shared
         environment.gatewayCenter = GatewayCenter()
-        environment.socketService.delegate = environment.gatewayCenter
+        environment.signalRService.delegate = environment.gatewayCenter
         _rootVM = StateObject(wrappedValue: RootViewModel(env: environment))
     }
 

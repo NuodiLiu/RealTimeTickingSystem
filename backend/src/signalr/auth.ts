@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { signalRConfig } from './config';
 import { AuthedDevice } from './types';
+import { validateDeviceApiKey } from '../lib/utils/auth';
 
 export interface SignalRAuthRequest extends Omit<Request, 'device'> {
   device?: AuthedDevice;
@@ -138,5 +139,44 @@ export async function getDashboardConnectionUrl(req: SignalRAuthRequest, res: Re
   } catch (error) {
     console.error('Error generating dashboard connection URL:', error);
     res.status(500).json({ error: 'Failed to generate connection URL' });
+  }
+}
+
+// New endpoint to convert device API key to SignalR JWT token
+export async function generateSignalRTokenFromApiKey(req: Request, res: Response) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: 'Authorization header required' });
+    }
+
+    // Validate the device API key using the existing auth utility
+    const { deviceId, device } = await validateDeviceApiKey(authHeader);
+
+    // Generate SignalR token for the device
+    const signalRToken = await generateSignalRToken({
+      deviceId: device.id,
+      mode: device.mode as any
+    });
+
+    // Get SignalR connection URL
+    const connectionUrl = await signalRConfig.getDeviceConnectionUrl(device.id);
+
+    res.json({
+      url: connectionUrl,
+      token: signalRToken,
+      deviceId: device.id,
+      mode: device.mode
+    });
+
+  } catch (error) {
+    console.error('Error generating SignalR token from API key:', error);
+    
+    // Handle specific auth errors
+    if (error instanceof Error && error.message.includes('Invalid device')) {
+      return res.status(401).json({ error: 'Invalid device credentials' });
+    }
+    
+    res.status(500).json({ error: 'Failed to generate SignalR token' });
   }
 }

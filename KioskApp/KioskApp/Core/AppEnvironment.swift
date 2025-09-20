@@ -13,6 +13,7 @@ final class AppEnvironment {
     let casesAPI: CasesAPI
     let feedbackAPI: FeedbackAPI
     let socketService: SocketService
+    let signalRService: SignalRService
     let modeStore = DeviceModeStore()
     var gatewayCenter = GatewayCenter()
     
@@ -41,6 +42,7 @@ final class AppEnvironment {
         self.feedbackAPI = FeedbackAPI(client: apiClient)
 
         self.socketService = SocketService(wsBaseURL: wsURL, authProvider: auth, apiClient: apiClient)
+        self.signalRService = SignalRService(apiBaseURL: apiURL, authProvider: auth, apiClient: apiClient)
         
     }
 }

@@ -14,9 +14,32 @@ final class GatewayCenter: ObservableObject, DeviceGatewayDelegate {
     @Published var lockAssigned: LockAssignedPayload?
     @Published var modeChanged: DeviceMode?
     @Published var deviceUnpaired: Bool = false
+    
+    // Keep references to both services for smooth transition
+    weak var socketService: SocketService?
+    weak var signalRService: SignalRService?
+    
+    // Helper properties for connection status
+    var isSocketConnected: Bool { socketService?.isConnected ?? false }
+    var isSignalRConnected: Bool { signalRService?.isConnected ?? false }
+    
+    // Updated connection status based on which service is active
+    private func updateConnectionStatus() {
+        // Prefer SignalR if available, fallback to WebSocket
+        let wasConnected = isConnected
+        isConnected = isSignalRConnected || isSocketConnected
+        
+        if wasConnected != isConnected {
+            print("GatewayCenter: Connection status changed - SignalR: \(isSignalRConnected), WebSocket: \(isSocketConnected), Overall: \(isConnected)")
+        }
+    }
 
-    func gatewayDidConnect() { isConnected = true }
-    func gatewayDidDisconnect() { isConnected = false }
+    func gatewayDidConnect() { 
+        updateConnectionStatus()
+    }
+    func gatewayDidDisconnect() { 
+        updateConnectionStatus()
+    }
 
     func gatewayShowFeedback(_ payload: FeedbackShowPayload, raw: [String : Any]) {
         print("GatewayCenter: gatewayShowFeedback called")

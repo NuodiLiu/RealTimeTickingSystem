@@ -3,16 +3,20 @@ import {
   signalRAuthMiddleware, 
   getDeviceConnectionUrl, 
   getDashboardConnectionUrl,
-  SignalRAuthRequest
+  SignalRAuthRequest,
+  generateSignalRTokenFromApiKey
 } from './auth';
 
 const router = Router();
 
-// Device connection endpoint
+// Device connection endpoint (requires SignalR JWT token)
 router.get('/device/connect', 
   signalRAuthMiddleware as any, 
   getDeviceConnectionUrl as any
 );
+
+// Device token generation endpoint (accepts device API key, returns SignalR JWT)
+router.post('/device/token', generateSignalRTokenFromApiKey as any);
 
 // Dashboard connection endpoint  
 router.get('/dashboard/connect', 

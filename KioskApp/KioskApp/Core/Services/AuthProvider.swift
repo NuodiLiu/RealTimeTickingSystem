@@ -13,7 +13,10 @@ protocol AuthProviding {
     var deviceApiKey: String? { get }
     var wsToken: String? { get }
     var wsEndpoint: String? { get }
+    var signalRToken: String? { get }
+    var signalREndpoint: String? { get }
     func storeDevice(credentials: DeviceCredentials) throws
+    func storeSignalRInfo(token: String, endpoint: String) throws
     func clearDevice() throws
 }
 
@@ -24,6 +27,8 @@ final class DeviceAuthProvider: AuthProviding {
         static let apiKey = "device.apiKey"
         static let wsToken = "device.wsToken"
         static let wsEndpoint = "device.wsEndpoint"
+        static let signalRToken = "device.signalRToken"
+        static let signalREndpoint = "device.signalREndpoint"
     }
     private let keychain: KeychainStore
 
@@ -50,6 +55,16 @@ final class DeviceAuthProvider: AuthProviding {
         print("AuthProvider: wsEndpoint requested, found: \(endpoint ?? "nil")")
         return endpoint
     }
+    var signalRToken: String? { 
+        let token = try? keychain.get(Keys.signalRToken)
+        print("AuthProvider: signalRToken requested, found: \(token?.prefix(20) ?? "nil")")
+        return token
+    }
+    var signalREndpoint: String? { 
+        let endpoint = try? keychain.get(Keys.signalREndpoint)
+        print("AuthProvider: signalREndpoint requested, found: \(endpoint ?? "nil")")
+        return endpoint
+    }
 
 
     func storeDevice(credentials: DeviceCredentials) throws {
@@ -74,10 +89,23 @@ final class DeviceAuthProvider: AuthProviding {
         print("AuthProvider: Successfully stored all credentials")
     }
 
+    func storeSignalRInfo(token: String, endpoint: String) throws {
+        print("AuthProvider: Storing SignalR credentials")
+        print("AuthProvider: SignalR Token: \(token.prefix(20))...")
+        print("AuthProvider: SignalR Endpoint: \(endpoint)")
+        
+        try keychain.set(token, for: Keys.signalRToken)
+        try keychain.set(endpoint, for: Keys.signalREndpoint)
+        
+        print("AuthProvider: Successfully stored SignalR credentials")
+    }
+
     func clearDevice() throws {
         try keychain.remove(Keys.deviceId)
         try keychain.remove(Keys.apiKey)
         try keychain.remove(Keys.wsToken)
         try keychain.remove(Keys.wsEndpoint)
+        try keychain.remove(Keys.signalRToken)
+        try keychain.remove(Keys.signalREndpoint)
     }
 }
