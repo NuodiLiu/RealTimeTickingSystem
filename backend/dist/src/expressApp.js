@@ -41,6 +41,7 @@ exports.createExpressApp = createExpressApp;
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
+const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
 const YAML = __importStar(require("yamljs"));
@@ -60,6 +61,8 @@ function createExpressApp() {
     const app = (0, express_1.default)();
     // Trust proxies - Azure Functions behind load balancer
     app.set("trust proxy", 1);
+    // Cookie parser - ensure cookies are available in serverless environment
+    app.use((0, cookie_parser_1.default)());
     // Enhanced CORS configuration for multi-domain support and HTTPS
     const corsOptions = {
         origin: (origin, callback) => {

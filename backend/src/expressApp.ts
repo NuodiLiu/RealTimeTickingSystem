@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
 import * as YAML from "yamljs";
@@ -26,6 +27,9 @@ export function createExpressApp(): express.Application {
 
   // Trust proxies - Azure Functions behind load balancer
   app.set("trust proxy", 1);
+  
+  // Cookie parser - ensure cookies are available in serverless environment
+  app.use(cookieParser());
   
   // Enhanced CORS configuration for multi-domain support and HTTPS
   const corsOptions: cors.CorsOptions = {

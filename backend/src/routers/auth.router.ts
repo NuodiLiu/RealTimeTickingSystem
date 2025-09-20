@@ -242,8 +242,9 @@ router.get('/me', async (req, res) => {
  */
 router.post('/refresh', async (req, res) => {
   try {
-    // Get refresh handle from HttpOnly cookie
-    const refreshHandle = req.cookies[REFRESH_COOKIE_NAME];
+    // Parse cookies manually in serverless environment
+    const cookies = req.cookies || parseCookies(req.headers.cookie);
+    const refreshHandle = cookies[REFRESH_COOKIE_NAME];
     
     if (!refreshHandle) {
       return sendAuthError(
@@ -327,10 +328,28 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
+// Helper function to parse cookies in serverless environment
+function parseCookies(cookieHeader?: string): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  if (!cookieHeader) return cookies;
+  
+  cookieHeader.split(';').forEach(cookie => {
+    const [name, ...rest] = cookie.split('=');
+    const value = rest.join('=').trim();
+    if (name && value) {
+      cookies[name.trim()] = decodeURIComponent(value);
+    }
+  });
+  
+  return cookies;
+}
+
 // Logout endpoint - clear refresh handle
 router.post('/logout', async (req, res) => {
   try {
-    const refreshHandle = req.cookies[REFRESH_COOKIE_NAME];
+    // Parse cookies manually in serverless environment
+    const cookies = req.cookies || parseCookies(req.headers.cookie);
+    const refreshHandle = cookies[REFRESH_COOKIE_NAME];
     
     if (refreshHandle) {
       await refreshStore.delete(refreshHandle);

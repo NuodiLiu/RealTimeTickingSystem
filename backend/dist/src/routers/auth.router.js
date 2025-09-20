@@ -202,8 +202,9 @@ router.get('/me', async (req, res) => {
  */
 router.post('/refresh', async (req, res) => {
     try {
-        // Get refresh handle from HttpOnly cookie
-        const refreshHandle = req.cookies[refresh_store_1.REFRESH_COOKIE_NAME];
+        // Parse cookies manually in serverless environment
+        const cookies = req.cookies || parseCookies(req.headers.cookie);
+        const refreshHandle = cookies[refresh_store_1.REFRESH_COOKIE_NAME];
         if (!refreshHandle) {
             return (0, auth_errors_1.sendAuthError)(res, auth_errors_1.AUTH_ERROR_CODES.INVALID_REQUEST, 'No refresh handle found', 401);
         }
@@ -262,10 +263,26 @@ router.post('/refresh', async (req, res) => {
         return (0, auth_errors_1.handleAuthError)(error, res);
     }
 });
+// Helper function to parse cookies in serverless environment
+function parseCookies(cookieHeader) {
+    const cookies = {};
+    if (!cookieHeader)
+        return cookies;
+    cookieHeader.split(';').forEach(cookie => {
+        const [name, ...rest] = cookie.split('=');
+        const value = rest.join('=').trim();
+        if (name && value) {
+            cookies[name.trim()] = decodeURIComponent(value);
+        }
+    });
+    return cookies;
+}
 // Logout endpoint - clear refresh handle
 router.post('/logout', async (req, res) => {
     try {
-        const refreshHandle = req.cookies[refresh_store_1.REFRESH_COOKIE_NAME];
+        // Parse cookies manually in serverless environment
+        const cookies = req.cookies || parseCookies(req.headers.cookie);
+        const refreshHandle = cookies[refresh_store_1.REFRESH_COOKIE_NAME];
         if (refreshHandle) {
             await refresh_store_1.refreshStore.delete(refreshHandle);
         }
