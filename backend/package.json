@@ -21,6 +21,8 @@
     "@azure/msal-node": "^3.7.3",
     "@microsoft/signalr": "^9.0.6",
     "@prisma/client": "^6.16.1",
+    "@types/cookie-parser": "^1.4.9",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
