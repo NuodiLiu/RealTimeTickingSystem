@@ -110,43 +110,22 @@ function createExpressApp() {
         preflightContinue: false
     };
     app.use((0, cors_1.default)(corsOptions));
-    // Conditional middleware based on environment
-    // 在 Azure Functions 环境中，body 已经在 Functions 层解析过了
-    const isAzureFunctions = process.env.FUNCTIONS_WORKER_RUNTIME || process.env.AzureWebJobsScriptRoot;
-    if (!isAzureFunctions) {
-        // 仅在非 Azure Functions 环境中使用 Express body parsers
-        app.use(express_1.default.json({
-            limit: process.env.JSON_LIMIT || "50mb",
-            verify: (req, res, buf) => {
-                // Store raw body for signature verification (webhooks, etc.)
+    // Force body parsing for Azure Functions - temporary fix
+    app.use(express_1.default.json({
+        limit: process.env.JSON_LIMIT || "50mb",
+        verify: (req, res, buf) => {
+            // Store raw body for signature verification (webhooks, etc.)
+            req.rawBody = buf;
+        }
+    }));
+    app.use(express_1.default.urlencoded({
+        limit: process.env.URLENCODED_LIMIT || "50mb",
+        extended: true,
+        verify: (req, res, buf) => {
+            if (!req.rawBody)
                 req.rawBody = buf;
-            }
-        }));
-        app.use(express_1.default.urlencoded({
-            limit: process.env.URLENCODED_LIMIT || "50mb",
-            extended: true,
-            verify: (req, res, buf) => {
-                if (!req.rawBody)
-                    req.rawBody = buf;
-            }
-        }));
-    }
-    else {
-        // Azure Functions 环境：添加中间件来验证 body 是否已预解析
-        app.use((req, res, next) => {
-            // 检查是否已经有 _body 标记（来自 Azure Functions wrapper）
-            if (req._body && req.body !== undefined) {
-                // Body 已经解析过，跳过
-                return next();
-            }
-            // 如果没有预解析，可能是直接从 Express server 调用
-            // 这种情况下回退到标准解析
-            if (req.method !== 'GET' && req.method !== 'HEAD') {
-                console.warn('Body not pre-parsed in Azure Functions environment, falling back to Express parsing');
-            }
-            next();
-        });
-    }
+        }
+    }));
     // Enhanced helmet configuration for Azure Functions
     if (process.env.NODE_ENV === 'production') {
         app.use((0, helmet_1.default)({

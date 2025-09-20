@@ -9,8 +9,10 @@ exports.verifySignalRToken = verifySignalRToken;
 exports.signalRAuthMiddleware = signalRAuthMiddleware;
 exports.getDeviceConnectionUrl = getDeviceConnectionUrl;
 exports.getDashboardConnectionUrl = getDashboardConnectionUrl;
+exports.generateSignalRTokenFromApiKey = generateSignalRTokenFromApiKey;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const config_1 = require("./config");
+const auth_1 = require("../lib/utils/auth");
 async function generateSignalRToken(device) {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
@@ -131,6 +133,38 @@ async function getDashboardConnectionUrl(req, res) {
     catch (error) {
         console.error('Error generating dashboard connection URL:', error);
         res.status(500).json({ error: 'Failed to generate connection URL' });
+    }
+}
+// New endpoint to convert device API key to SignalR JWT token
+async function generateSignalRTokenFromApiKey(req, res) {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+            return res.status(401).json({ error: 'Authorization header required' });
+        }
+        // Validate the device API key using the existing auth utility
+        const { deviceId, device } = await (0, auth_1.validateDeviceApiKey)(authHeader);
+        // Generate SignalR token for the device
+        const signalRToken = await generateSignalRToken({
+            deviceId: device.id,
+            mode: device.mode
+        });
+        // Get SignalR connection URL
+        const connectionInfo = config_1.signalRConfig.getConnectionInfo(device.id);
+        res.json({
+            url: connectionInfo.url,
+            token: signalRToken,
+            deviceId: device.id,
+            mode: device.mode
+        });
+    }
+    catch (error) {
+        console.error('Error generating SignalR token from API key:', error);
+        // Handle specific auth errors
+        if (error instanceof Error && error.message.includes('Invalid device')) {
+            return res.status(401).json({ error: 'Invalid device credentials' });
+        }
+        res.status(500).json({ error: 'Failed to generate SignalR token' });
     }
 }
 //# sourceMappingURL=auth.js.map

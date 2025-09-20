@@ -204,8 +204,12 @@ async function convertAzureRequestToExpress(request, internalPath) {
         try {
             const ab = await request.arrayBuffer();
             rawBody = Buffer.from(ab);
+            console.log('🔍 [Functions] Raw body length:', rawBody.length);
+            console.log('🔍 [Functions] Raw body content:', rawBody.toString('utf8'));
         }
-        catch { }
+        catch (err) {
+            console.error('❌ [Functions] Error reading body:', err);
+        }
     }
     // 规范化 query
     const query = {};
@@ -270,6 +274,16 @@ async function convertAzureRequestToExpress(request, internalPath) {
     reqStream.httpVersion = '1.1';
     reqStream.httpVersionMajor = 1;
     reqStream.httpVersionMinor = 1;
+    // Debug logging for body issues
+    if (request.url.includes('/cases') && request.method === 'POST') {
+        console.log('🔍 [Functions] POST /cases request debug:');
+        console.log('- Method:', request.method);
+        console.log('- URL:', request.url);
+        console.log('- Headers:', Object.fromEntries(request.headers.entries()));
+        console.log('- Raw body length:', (rawBody === null || rawBody === void 0 ? void 0 : rawBody.length) || 0);
+        console.log('- Raw body content:', (rawBody === null || rawBody === void 0 ? void 0 : rawBody.toString('utf8')) || 'empty');
+        console.log('- Query:', query);
+    }
     // （可选）一些中间件会读这些 flag
     reqStream.aborted = false;
     reqStream.complete = true;

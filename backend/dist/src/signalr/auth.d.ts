@@ -35,4 +35,5 @@ export declare function verifySignalRToken(token: string): {
 export declare function signalRAuthMiddleware(req: SignalRAuthRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
 export declare function getDeviceConnectionUrl(req: SignalRAuthRequest, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
 export declare function getDashboardConnectionUrl(req: Request, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
+export declare function generateSignalRTokenFromApiKey(req: Request, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
 //# sourceMappingURL=auth.d.ts.map

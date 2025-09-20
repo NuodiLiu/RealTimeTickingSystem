@@ -18,13 +18,15 @@ exports.clearJWKSCache = clearJWKSCache;
 const jose_1 = require("jose");
 // Environment variables with defaults
 const API_AUDIENCE = process.env.AZURE_AD_API_CLIENT_ID;
-const ALLOWED_TENANTS = [
+const ALLOW_ANY_TENANT = process.env.AZURE_AD_ALLOW_ANY_TENANT === 'true';
+const ALLOWED_TENANTS = ALLOW_ANY_TENANT ? [] : [
     process.env.AZURE_AD_UNSW_TENANT_ID,
     '9188040d-6c67-4c5b-b112-36a304b66dad', // Personal Microsoft accounts
 ].filter(Boolean);
 // Debug logging
 console.log('Azure Auth Config:', {
     API_AUDIENCE,
+    ALLOW_ANY_TENANT,
     ALLOWED_TENANTS,
     hasApiClientId: !!process.env.AZURE_AD_API_CLIENT_ID
 });
@@ -148,8 +150,8 @@ async function verifyAzureJWT(req, res, next) {
                 error_description: 'Missing required claims (iss, tid, oid)'
             }).header('WWW-Authenticate', 'Bearer realm="api", error="invalid_token"');
         }
-        // Validate tenant whitelist
-        if (!ALLOWED_TENANTS.includes(tid)) {
+        // Validate tenant whitelist (skip if ALLOW_ANY_TENANT is enabled)
+        if (!ALLOW_ANY_TENANT && !ALLOWED_TENANTS.includes(tid)) {
             return res.status(401).json({
                 error: 'invalid_token',
                 error_description: 'Tenant not authorized'
