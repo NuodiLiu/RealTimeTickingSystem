@@ -3,8 +3,27 @@ import { ConfidentialClientApplication, LogLevel } from "@azure/msal-node";
 import dotenv from "dotenv";
 dotenv.config();
 
+// Environment detection and URL configuration
+const isProduction = process.env.NODE_ENV === 'production';
 const tenant = process.env.AZURE_AD_TENANT_ID || "common";
-const authority = `https://login.microsoftonline.com/${tenant}`; // v2 endpoint
+const authority = `https://login.microsoftonline.com/${tenant}`;
+
+// Dynamic base URL based on environment
+const getBaseUrl = () => {
+  if (isProduction) {
+    return process.env.BASE_URL || "https://api.ticketing-system.com";
+  }
+  // Development: Use the API_BASE_URL which includes /api/app path
+  return process.env.API_BASE_URL || process.env.BASE_URL || "https://api.localhost/api/app";
+};
+
+const getFrontendUrl = () => {
+  if (isProduction) {
+    return process.env.FRONTEND_URL || "https://ticketing-system.com";
+  }
+  // Development: frontend proxy runs on HTTPS 8443
+  return process.env.FRONTEND_URL || "https://localhost:8443";
+};
 
 export const msalClient = new ConfidentialClientApplication({
   auth: {
@@ -14,15 +33,31 @@ export const msalClient = new ConfidentialClientApplication({
   },
   system: {
     loggerOptions: {
-      loggerCallback: (_level, _message, _containsPii) => {},
+      loggerCallback: (level, message, containsPii) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[MSAL ${level}] ${message}`);
+        }
+      },
       piiLoggingEnabled: false,
-      logLevel: LogLevel.Warning,
+      logLevel: isProduction ? LogLevel.Error : LogLevel.Info,
     },
   },
 });
 
-const baseUrl = process.env.BASE_URL || "http://localhost:3000";
+const baseUrl = getBaseUrl();
 export const authParams = {
   redirectUri: `${baseUrl}/auth/redirect`,
-  scopes: ["openid", "profile", "email"], 
+  scopes: [
+    "openid", 
+    "profile", 
+    "email",
+    "api://57938c34-d786-42be-81e9-2a758b7e14b2/Api.Read"
+  ], 
+};
+
+// Export URLs for use in other modules
+export const urls = {
+  baseUrl,
+  frontendUrl: getFrontendUrl(),
+  isProduction,
 };

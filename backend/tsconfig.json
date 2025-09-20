@@ -3,7 +3,7 @@
   "compilerOptions": {
     // File Layout
     "rootDir": ".",
-    // "outDir": "./dist",
+    "outDir": "./dist",
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
@@ -28,5 +28,6 @@
     "moduleDetection": "force",
     "skipLibCheck": true,
   },
-  "include": ["src", "tests", "src/lib/utils/**/*"]
+  "include": ["src", "src/lib/utils/**/*"],
+  "exclude": ["node_modules", "dist", "coverage", "tests", "**/*.test.ts", "**/*.spec.ts"]
 }

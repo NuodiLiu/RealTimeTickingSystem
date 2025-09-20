@@ -8,8 +8,8 @@ import QueueSection from "../components/dashboard/QueueSection";
 import ActiveCasesSection from "../components/dashboard/ActiveCasesSection";
 import ResponsiveLayout from "../components/layout/ResponsiveLayout";
 import QRGeneratorModal from "../components/QRGeneratorModal";
-import ExcelExportModal from "../components/ExcelExportModal";
-import useAuth from "../hooks/useAuth";
+import ExcelExportModal from "../components/ExcelExport/ExcelExportModal";
+import { useAuthStore } from "../stores/authStore";
 import useQueue from "../hooks/useQueue";
 import useDevices from "../hooks/useDevices";
 import { FeedbackAPI, HealthAPI } from "../lib/api";
@@ -20,9 +20,13 @@ import {
 } from "../lib/caseUtils";
 import { toast, Toaster } from 'react-hot-toast'
 import { showConfirmation, showToastPromise } from "../lib/toaster";
+import { AuthGuard } from "../components/AuthGuard";
 
-export default function DashboardPage() {
-  const { user, booting, logout } = useAuth();
+function DashboardContent() {
+  console.log('[DashboardPage] Dashboard page loading...');
+  const { user, isLoading, logout } = useAuthStore();
+  console.log('[DashboardPage] Auth state:', { user: !!user, isLoading, userId: user?.id });
+  
   const { queued, myActive, loading, take, takeNext, resolve, escalate, reload } = useQueue(user?.id);
   const { feedbackDevices, reload: reloadDevices } = useDevices();
 
@@ -39,6 +43,15 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // Auth check - redirect to login if not authenticated
+  useEffect(() => {
+    console.log('[DashboardPage] Auth check effect:', { isLoading, user: !!user });
+    if (!isLoading && !user) {
+      console.log('[DashboardPage] No user found, redirecting to login');
+      window.location.href = '/login';
+    }
+  }, [isLoading, user]);
+
   // Separate effect to validate selected device when devices or selection changes
   useEffect(() => {
     if (selectedDeviceId && feedbackDevices.length > 0) {
@@ -51,23 +64,8 @@ export default function DashboardPage() {
     }
   }, [selectedDeviceId, feedbackDevices]);
 
-    // Health ping
-  const [online, setOnline] = useState<boolean>(true);
-  useEffect(() => {
-    let timer: any;
-    const ping = async () => {
-      try {
-        const isOnline = await HealthAPI.check();
-        setOnline(isOnline);
-      } catch (error) {
-        setOnline(false);
-        console.log('Health check failed, assuming offline:', error);
-      }
-    };
-    ping();
-    timer = setInterval(ping, 5000);
-    return () => clearInterval(timer);
-  }, []);
+  // Note: Removed frontend health check polling as it was not used in the UI
+  // Device status monitoring is handled via real-time WebSocket connections
 
   // global error handlers to prevent unhandled promise rejections
   useEffect(() => {
@@ -135,8 +133,8 @@ export default function DashboardPage() {
 
   // Redirect if unauth
   useEffect(() => {
-    if (!booting && !user) window.location.href = "/login";
-  }, [booting, user]);
+    if (!isLoading && !user) window.location.href = "/login";
+  }, [isLoading, user]);
 
   // Handle device selection
   const handleSelectDevice = (deviceId: string) => {
@@ -252,7 +250,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (booting) {
+  if (isLoading) {
     return (
       <main>
         <Header staffName="…" onLogout={() => {}} />
@@ -355,5 +353,13 @@ export default function DashboardPage() {
         userRole={user?.role || 'STAFF'}
       />
     </main>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <AuthGuard requireAuth={true}>
+      <DashboardContent />
+    </AuthGuard>
   );
 }

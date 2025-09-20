@@ -10,11 +10,11 @@ datasource db {
 model Staff {
   id               String            @id @default(cuid())
   employeeNo       String            @unique
-  name             String
-  email            String            @unique
-  password         String
+  name             String?           // Optional - may not be available from Azure AD
+  email            String?           @unique // Case-sensitive unique, normalized in app layer
+  password         String?           // Optional - not used for Azure AD SSO accounts
   role             StaffRole         @default(STAFF)
-  identityKey      String            @unique
+  identityKey      String            @unique // Stable identifier: aad:<tid>:<oid>
   createdAt        DateTime          @default(now())
   feedback         Feedback[]
   feedbackSessions FeedbackSession[] @relation("StaffFeedbackSessions")

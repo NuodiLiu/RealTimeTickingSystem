@@ -61,7 +61,7 @@ export async function findActiveLock(db: DB, deviceId: string) {
 // throw busy error with lock info
 export function throwBusy(lock: {
   id: string; version: number; caseId: string;
-  staff: { name: string }; case: { studentName: string };
+  staff: { name: string | null }; case: { studentName: string };
 }) {
   const err = new ConflictError("Device busy");
   (err as any).code = "busy";
@@ -70,7 +70,7 @@ export function throwBusy(lock: {
     version: lock.version,
     caseId: lock.caseId,
     studentName: lock.case.studentName,
-    staffName: lock.staff.name,
+    staffName: lock.staff.name || 'Unknown Staff',
   };
   throw err;
 }
@@ -140,7 +140,7 @@ export async function markCasePendingIfNeeded(db: DB, caseId: string, currentSta
 
 // precondition failed error with lock info
 export function preconditionFailed(current: {
-  id: string; version: number; caseId: string; staff: { name: string }; case: { studentName: string };
+  id: string; version: number; caseId: string; staff: { name: string | null }; case: { studentName: string };
 }) {
   const err = new ConflictError("Precondition failed");
   (err as any).code = "precondition_failed";
@@ -149,7 +149,7 @@ export function preconditionFailed(current: {
     version: current.version,
     caseId: current.caseId,
     studentName: current.case.studentName,
-    staffName: current.staff.name,
+    staffName: current.staff.name || 'Unknown Staff',
   };
   throw err;
 }

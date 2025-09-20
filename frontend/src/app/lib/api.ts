@@ -1,13 +1,23 @@
 // src/lib/api.ts
+import { getApiBaseUrl } from './env-utils';
 
-
-// Config
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000";
+// Config - Dynamic API base URL based on environment
+const API_BASE = getApiBaseUrl();
 
 // Helper to join URL segments safely
 const join = (base: string, path: string) => `${base.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
 
-// Types 
+// Function to get App JWT from localStorage
+function getAppJwt(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('appJwt');
+}
+
+// Function to clear App JWT from localStorage
+function clearAppJwt(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('appJwt');
+} 
 export type InviteRole = "staff" | "admin";
 
 export interface CreateInviteReq { email: string; role?: InviteRole }
@@ -180,21 +190,53 @@ export class ApiError extends Error {
 let isRefreshing = false;
 let pending401Queue: Array<() => void> = [];
 
-// Timeout wrapper for fetch requests
-function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const timeoutMs = 3000;
-  return new Promise((resolve, reject) => {
+// Timeout wrapper for fetch requests with retry logic for Azure Functions cold start
+function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit, retryCount = 0): Promise<Response> {
+  const timeoutMs = 15000; // 15 seconds for Azure Functions cold start
+  const maxRetries = 2;
+  
+  return new Promise<Response>((resolve, reject) => {
     const timeoutId = setTimeout(() => {
-      reject(new TypeError('Network request timed out. Please check your internet connection.'));
+      reject(new Error(`Request timed out after ${timeoutMs}ms`));
     }, timeoutMs);
 
     fetch(input, init)
       .then(response => {
         clearTimeout(timeoutId);
+        
+        // Retry on 503 (service unavailable) or 502 (bad gateway) for cold start issues
+        if ((response.status === 503 || response.status === 502) && retryCount < maxRetries) {
+          console.warn(`Azure Functions cold start detected (${response.status}), retrying... (${retryCount + 1}/${maxRetries})`);
+          // Wait before retrying (exponential backoff)
+          const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+          setTimeout(() => {
+            fetchWithTimeout(input, init, retryCount + 1)
+              .then(resolve)
+              .catch(reject);
+          }, retryDelay);
+          return;
+        }
+        
         resolve(response);
       })
       .catch(error => {
         clearTimeout(timeoutId);
+        
+        // Retry on network errors that might be cold start related
+        if (retryCount < maxRetries && (
+          error.message?.includes('fetch') || 
+          error.message?.includes('Network request failed')
+        )) {
+          console.warn(`Network error detected, retrying... (${retryCount + 1}/${maxRetries})`, error.message);
+          const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+          setTimeout(() => {
+            fetchWithTimeout(input, init, retryCount + 1)
+              .then(resolve)
+              .catch(reject);
+          }, retryDelay);
+          return;
+        }
+        
         reject(error);
       });
   });
@@ -204,13 +246,38 @@ async function baseFetch<T>(path: string, init?: RequestInit & { skipRefreshRetr
   const url = join(API_BASE, path);
   
   try {
+    // Get App JWT from localStorage
+    const appJwt = getAppJwt();
+    
+    console.log('API Request Debug:', {
+      url,
+      hasAppJwt: !!appJwt,
+      appJwtLength: appJwt?.length
+    });
+    
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(init?.headers as Record<string, string> || {}),
+    };
+
+    // Add Authorization header if we have an App JWT
+    if (appJwt) {
+      headers.Authorization = `Bearer ${appJwt}`;
+      console.log('Authorization header set with App JWT');
+    } else {
+      console.warn('No App JWT available for API request');
+    }
+
     const res = await fetchWithTimeout(url, {
       ...init,
-      credentials: "include", 
-      headers: {
-        "Content-Type": "application/json",
-        ...(init?.headers ?? {}),
-      },
+      headers,
+    });
+
+    console.log('[API] Response received:', {
+      url,
+      status: res.status,
+      ok: res.ok,
+      statusText: res.statusText
     });
 
     if (res.status === 204) return undefined as unknown as T;
@@ -218,7 +285,10 @@ async function baseFetch<T>(path: string, init?: RequestInit & { skipRefreshRetr
     const isJson = res.headers.get("content-type")?.includes("application/json");
     const data = isJson ? await res.json().catch(() => ({})) : undefined;
 
+    console.log('[API] Response data:', { url, data });
+
     if (!res.ok) {
+      console.error('[API] Request failed:', { url, status: res.status, data });
       // Try refresh on 401 once
       if (res.status === 401 && !init?.skipRefreshRetry) {
         await handle401Refresh();
@@ -231,9 +301,9 @@ async function baseFetch<T>(path: string, init?: RequestInit & { skipRefreshRetr
     return (data as T);
   } catch (error) {
     if (error instanceof TypeError && (
-      error.message.includes('fetch') || 
-      error.message.includes('timed out') ||
-      error.message.includes('Network request failed')
+      (error as any).message?.includes('fetch') || 
+      (error as any).message?.includes('timed out') ||
+      (error as any).message?.includes('Network request failed')
     )) {
       throw new ApiError(0, 'Unable to connect to server. Please check your internet connection and try again.', null);
     }
@@ -249,10 +319,46 @@ async function handle401Refresh() {
 
   isRefreshing = true;
   try {
-    await fetch(join(API_BASE, "/auth/refresh"), {
-      method: "POST",
-      credentials: "include",
+    // Use the refresh endpoint with HttpOnly cookie
+    const response = await fetch(join(API_BASE, '/auth/refresh'), {
+      method: 'POST',
+      credentials: 'include', // Include HttpOnly cookies
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
+
+    if (response.ok) {
+      const data = await response.json();
+      const newAppJwt = data.accessToken;
+      
+      if (newAppJwt) {
+        // Store new App JWT
+        localStorage.setItem('appJwt', newAppJwt);
+        console.log('App JWT refreshed successfully');
+      } else {
+        throw new Error('No access token in refresh response');
+      }
+    } else {
+      // Refresh failed - clear tokens and redirect to login
+      console.warn('Token refresh failed:', response.status);
+      clearAppJwt();
+      
+      // Only redirect if we're not already on the login page
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login?error=session_expired';
+      }
+      throw new Error('Token refresh failed');
+    }
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    clearAppJwt();
+    
+    // Only redirect if we're not already on the login page
+    if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+      window.location.href = '/login?error=session_expired';
+    }
+    throw error;
   } finally {
     isRefreshing = false;
     pending401Queue.forEach((fn) => fn());
@@ -267,6 +373,8 @@ const post = <T>(path: string, body?: unknown) => baseFetch<T>(path, { method: "
 const patch = <T>(path: string, body?: unknown) => baseFetch<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined });
 
 export const AuthAPI = {
+  // GET /auth/me (authenticated)
+  me: () => get<{ ok: boolean; user: { id: string; name: string; email: string; role: string; employeeNo: string; identityKey: string } }>("/auth/me"),
   // POST /auth/invites (staff only)
   createInvite: (body: CreateInviteReq) => post<CreateInviteRes>("/auth/invites", body),
   // POST /auth/register
@@ -274,8 +382,6 @@ export const AuthAPI = {
   // POST /auth/login
   // login: (body: LoginReq) => post<AuthRes>("/auth/login", body),
   login: (body: { employeeNo: string }) => post<AuthRes>("/auth/login", body),
-  // POST /auth/refresh
-  refresh: () => post<undefined>("/auth/refresh"),
   // POST /auth/logout
   logout: () => baseFetch<undefined>("/auth/logout", { method: "POST", skipRefreshRetry: true }),
 };
@@ -353,7 +459,6 @@ export const ExcelAPI = {
     
     const response = await fetch(url, {
       method: 'GET',
-      credentials: 'include',
       headers: {
         'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       }
@@ -426,4 +531,7 @@ export const HealthAPI = {
     }
   },
 };
+
+// Export token refresh function for use in SignalR
+export { handle401Refresh as refreshAppJwt };
 
