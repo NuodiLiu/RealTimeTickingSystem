@@ -16,6 +16,7 @@ exports.requireAppRoles = requireAppRoles;
 exports.optionalAzureJWT = optionalAzureJWT;
 exports.clearJWKSCache = clearJWKSCache;
 const jose_1 = require("jose");
+const staff_service_1 = require("../services/staff.service");
 // Environment variables with defaults
 const API_AUDIENCE = process.env.AZURE_AD_API_CLIENT_ID;
 const ALLOW_ANY_TENANT = process.env.AZURE_AD_ALLOW_ANY_TENANT === 'true';
@@ -76,9 +77,10 @@ function validateIssuer(iss, expectedTid) {
 }
 /**
  * Create stable identity key from tenant and object ID
+ * @deprecated Use createStandardIdentityKey from staff.service instead
  */
 function createIdentityKey(tid, oid) {
-    return `aad:${tid}:${oid}`;
+    return (0, staff_service_1.createStandardIdentityKey)(tid, oid);
 }
 /**
  * Parse space-separated scopes string

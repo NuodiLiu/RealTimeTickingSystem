@@ -8,9 +8,9 @@ const crypto_1 = __importDefault(require("crypto"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const azure_1 = require("../auth/azure");
 const auth_1 = require("../lib/utils/auth");
-const prisma_1 = require("../lib/prisma");
-const email_utils_1 = require("../lib/email-utils");
 const refresh_store_1 = require("../lib/refresh-store");
+const staff_service_1 = require("../services/staff.service");
+const auth_errors_1 = require("../lib/auth-errors");
 // Secure Azure AD SSO auth router
 // Endpoints:
 // - GET /auth/login         -> initiate Azure AD login
@@ -67,6 +67,7 @@ router.get('/login', async (req, res) => {
  * Exchange authorization code for tokens and issue App JWT
  */
 router.get('/redirect', async (req, res) => {
+    var _a, _b;
     try {
         const code = String(req.query.code || '');
         const state = String(req.query.state || '');
@@ -86,69 +87,30 @@ router.get('/redirect', async (req, res) => {
             redirectUri: azure_1.authParams.redirectUri,
         });
         const claims = (tokenResponse === null || tokenResponse === void 0 ? void 0 : tokenResponse.idTokenClaims) || {};
-        // Create identity key for staff lookup/creation
-        const identityKey = `${claims.iss}|${claims.sub}`;
-        const email = (0, email_utils_1.normalizeEmail)(claims.preferred_username || claims.upn || claims.email);
-        const name = claims.name;
-        const tid = claims.tid;
-        const oid = claims.oid;
-        // Look up or create staff record
-        let staff = await prisma_1.prisma.staff.findUnique({
-            where: { identityKey },
-            select: {
-                id: true,
-                role: true,
-                employeeNo: true,
-                name: true,
-                email: true,
-                identityKey: true,
-            }
-        });
-        if (!staff) {
-            // Create new staff member on first login
-            const createData = {
-                identityKey,
-                employeeNo: `aad-${tid}-${oid.slice(0, 8)}`,
-                role: 'STAFF',
-            };
-            if (email)
-                createData.email = email;
-            if (name)
-                createData.name = name;
-            staff = await prisma_1.prisma.staff.create({
-                data: createData,
-                select: {
-                    id: true,
-                    role: true,
-                    employeeNo: true,
-                    name: true,
-                    email: true,
-                    identityKey: true,
-                }
+        // Validate required Azure AD claims using standardized validation
+        try {
+            (0, auth_errors_1.validateAzureAdClaims)(claims);
+        }
+        catch (error) {
+            console.error('Invalid Azure AD claims:', {
+                iss: !!claims.iss,
+                sub: !!claims.sub,
+                tid: !!claims.tid,
+                oid: !!claims.oid
             });
+            return res.redirect(`${azure_1.urls.frontendUrl}/login?error=invalid_token`);
         }
-        else {
-            // Update name and email if changed
-            const updates = {};
-            if (email && email !== staff.email)
-                updates.email = email;
-            if (name && name !== staff.name)
-                updates.name = name;
-            if (Object.keys(updates).length > 0) {
-                staff = await prisma_1.prisma.staff.update({
-                    where: { identityKey },
-                    data: updates,
-                    select: {
-                        id: true,
-                        role: true,
-                        employeeNo: true,
-                        name: true,
-                        email: true,
-                        identityKey: true,
-                    }
-                });
-            }
-        }
+        // Use unified staff service for consistent user management
+        const staff = await staff_service_1.staffService.getOrCreateStaff({
+            iss: claims.iss,
+            sub: claims.sub,
+            tid: claims.tid,
+            oid: claims.oid,
+            upn: claims.upn,
+            preferred_username: claims.preferred_username,
+            email: claims.email,
+            name: claims.name,
+        });
         // Sign App JWT (short-lived)
         const appJwt = (0, auth_1.signStaffToken)({
             id: staff.id,
@@ -178,7 +140,14 @@ router.get('/redirect', async (req, res) => {
     }
     catch (error) {
         console.error('OAuth callback error:', error);
-        res.redirect(`${azure_1.urls.frontendUrl}/login?error=auth_failed`);
+        // Use standardized error handling for specific error types
+        if ((_a = error.message) === null || _a === void 0 ? void 0 : _a.includes('claims')) {
+            return res.redirect(`${azure_1.urls.frontendUrl}/login?error=invalid_claims`);
+        }
+        if ((_b = error.message) === null || _b === void 0 ? void 0 : _b.includes('tenant')) {
+            return res.redirect(`${azure_1.urls.frontendUrl}/login?error=tenant_not_authorized`);
+        }
+        return res.redirect(`${azure_1.urls.frontendUrl}/login?error=auth_failed`);
     }
 });
 /**
@@ -189,10 +158,7 @@ router.get('/me', async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({
-                error: 'unauthorized',
-                error_description: 'Missing or invalid Authorization header'
-            });
+            return (0, auth_errors_1.sendAuthError)(res, auth_errors_1.AUTH_ERROR_CODES.INVALID_REQUEST, 'Missing or invalid Authorization header', 401);
         }
         const token = authHeader.substring(7);
         // Verify App JWT
@@ -201,35 +167,16 @@ router.get('/me', async (req, res) => {
             jwtPayload = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
         }
         catch (jwtError) {
-            return res.status(401).json({
-                error: 'invalid_token',
-                error_description: 'Invalid or expired JWT token'
-            });
+            return (0, auth_errors_1.sendAuthError)(res, auth_errors_1.AUTH_ERROR_CODES.INVALID_TOKEN, 'Invalid or expired JWT token', 401);
         }
         // Validate token type
         if (jwtPayload.typ !== 'staff') {
-            return res.status(401).json({
-                error: 'invalid_token_type',
-                error_description: 'Token is not a staff token'
-            });
+            return (0, auth_errors_1.sendAuthError)(res, auth_errors_1.AUTH_ERROR_CODES.INVALID_TOKEN, 'Token is not a staff token', 401);
         }
-        // Get staff record
-        const staff = await prisma_1.prisma.staff.findUnique({
-            where: { id: jwtPayload.sub },
-            select: {
-                id: true,
-                role: true,
-                employeeNo: true,
-                name: true,
-                email: true,
-                identityKey: true,
-            }
-        });
+        // Get staff record using unified service
+        const staff = await staff_service_1.staffService.findStaffById(jwtPayload.sub);
         if (!staff) {
-            return res.status(404).json({
-                error: 'staff_not_found',
-                error_description: 'Staff record not found'
-            });
+            return (0, auth_errors_1.sendAuthError)(res, auth_errors_1.AUTH_ERROR_CODES.STAFF_NOT_FOUND, 'Staff record not found', 404);
         }
         // Return user info in format expected by frontend
         res.json({
@@ -246,10 +193,7 @@ router.get('/me', async (req, res) => {
     }
     catch (error) {
         console.error('Error in /auth/me:', error);
-        return res.status(500).json({
-            error: 'internal_error',
-            error_description: 'Failed to retrieve user information'
-        });
+        return (0, auth_errors_1.handleAuthError)(error, res);
     }
 });
 /**
@@ -261,37 +205,18 @@ router.post('/refresh', async (req, res) => {
         // Get refresh handle from HttpOnly cookie
         const refreshHandle = req.cookies[refresh_store_1.REFRESH_COOKIE_NAME];
         if (!refreshHandle) {
-            return res.status(401).json({
-                error: 'no_refresh_token',
-                error_description: 'No refresh handle found'
-            });
+            return (0, auth_errors_1.sendAuthError)(res, auth_errors_1.AUTH_ERROR_CODES.INVALID_REQUEST, 'No refresh handle found', 401);
         }
         // Retrieve refresh data from store
         const refreshData = await refresh_store_1.refreshStore.get(refreshHandle);
         if (!refreshData) {
-            return res.status(401).json({
-                error: 'invalid_refresh_token',
-                error_description: 'Refresh handle invalid or expired'
-            });
+            return (0, auth_errors_1.sendAuthError)(res, auth_errors_1.AUTH_ERROR_CODES.INVALID_TOKEN, 'Refresh handle invalid or expired', 401);
         }
-        // Get staff record
-        const staff = await prisma_1.prisma.staff.findUnique({
-            where: { id: refreshData.staffId },
-            select: {
-                id: true,
-                role: true,
-                employeeNo: true,
-                name: true,
-                email: true,
-                identityKey: true,
-            }
-        });
+        // Get staff record using unified service
+        const staff = await staff_service_1.staffService.findStaffById(refreshData.staffId);
         if (!staff) {
             await refresh_store_1.refreshStore.delete(refreshHandle);
-            return res.status(404).json({
-                error: 'staff_not_found',
-                error_description: 'Staff record not found'
-            });
+            return (0, auth_errors_1.sendAuthError)(res, auth_errors_1.AUTH_ERROR_CODES.STAFF_NOT_FOUND, 'Staff record not found', 404);
         }
         // Try to refresh Microsoft token using MSAL silent flow
         try {
@@ -334,10 +259,7 @@ router.post('/refresh', async (req, res) => {
     }
     catch (error) {
         console.error('Token refresh error:', error);
-        res.status(500).json({
-            error: 'refresh_failed',
-            error_description: 'Failed to refresh token'
-        });
+        return (0, auth_errors_1.handleAuthError)(error, res);
     }
 });
 // Logout endpoint - clear refresh handle

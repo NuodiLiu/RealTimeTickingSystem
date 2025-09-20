@@ -50,8 +50,8 @@ export declare function verifyStaffToken(token: string): StaffJwtPayload;
 export declare function validateDeviceApiKey(authHeader: string): Promise<{
     deviceId: string;
     device: {
-        name: string;
         id: string;
+        name: string;
         currentLockId: string | null;
         secretHash: string;
         mode: import(".prisma/client").$Enums.DeviceMode;

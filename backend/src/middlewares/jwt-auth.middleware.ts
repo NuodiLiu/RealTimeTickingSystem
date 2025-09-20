@@ -4,6 +4,8 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { AuthError } from "../error";
 import { prisma } from "../lib/prisma";
+import { staffService } from "../services/staff.service";
+import { handleAuthError } from "../lib/auth-errors";
 
 interface JWTUserPayload {
   sub: string; // Subject (user ID)
@@ -95,90 +97,28 @@ function extractBearerToken(authHeader?: string): string | null {
 
 /**
  * Get or create staff member based on JWT claims
+ * @deprecated Use staffService.getOrCreateStaff() instead for consistency
  */
 async function getOrCreateStaff(payload: JWTUserPayload): Promise<AuthenticatedUser> {
-  const identityKey = payload.identityKey;
-  const upn = payload.upn || payload.preferred_username || payload.email;
-  const displayName = payload.name;
-  
-  if (!identityKey) {
+  // For App JWT tokens, we expect the staff to already exist
+  // This is typically called for refresh scenarios
+  if (!payload.identityKey) {
     throw new AuthError("identityKey is missing from JWT token", 400);
   }
-  
-  if (!upn) {
-    throw new AuthError("UPN (email) is missing from JWT token", 400);
-  }
-  
+
   try {
-    // Step 1: Try to find by identityKey first (most common case - same user returning)
-    let staff = await prisma.staff.findUnique({
-      where: { identityKey },
-      select: { id: true, role: true, employeeNo: true, email: true, identityKey: true }
-    });
-
-    if (staff) {
-      // Found by identityKey, update email and name if needed
-      if (staff.email !== upn || (displayName && displayName !== '')) {
-        await prisma.staff.update({
-          where: { identityKey },
-          data: {
-            ...(upn !== staff.email ? { email: upn } : {}),
-            ...(displayName ? { name: displayName } : {}),
-          }
-        });
-      }
-      return { 
-        id: staff.id, 
-        role: staff.role as "ADMIN" | "STAFF", 
-        employeeNo: staff.employeeNo, 
-        identityKey: staff.identityKey 
-      };
+    // Use the unified staff service for consistent lookup
+    const staff = await staffService.findStaffById(payload.sub);
+    
+    if (!staff) {
+      throw new AuthError("Staff record not found", 404);
     }
 
-    // Step 2: If not found by identityKey, try to find by email (same person, different IdP)
-    staff = await prisma.staff.findUnique({
-      where: { email: upn },
-      select: { id: true, role: true, employeeNo: true, identityKey: true, email: true }
-    });
-
-    if (staff) {
-      // Found by email, update to new identityKey (IdP migration)
-      console.log(`Migrating user from identityKey '${staff.identityKey}' to '${identityKey}' for email: ${upn}`);
-      const updatedStaff = await prisma.staff.update({
-        where: { email: upn },
-        data: {
-          identityKey, // Update to new identityKey
-          ...(displayName ? { name: displayName } : {}),
-        },
-        select: { id: true, role: true, employeeNo: true, identityKey: true }
-      });
-      return { 
-        id: updatedStaff.id, 
-        role: updatedStaff.role as "ADMIN" | "STAFF", 
-        employeeNo: updatedStaff.employeeNo, 
-        identityKey: updatedStaff.identityKey 
-      };
-    }
-
-    // Step 3: Neither identityKey nor email found, create new staff
-    const newStaff = await prisma.staff.create({
-      data: {
-        identityKey,
-        name: displayName || "New User",
-        email: upn,
-        employeeNo: `ext-${crypto.randomUUID()}`,
-        role: "STAFF",
-        password: "", // not using local passwords
-      },
-      select: { id: true, role: true, employeeNo: true, identityKey: true },
-    });
-
-    console.log(`Created new staff member: ${upn} with identityKey: ${identityKey}`);
-    return { 
-      id: newStaff.id, 
-      role: newStaff.role as "ADMIN" | "STAFF", 
-      employeeNo: newStaff.employeeNo, 
-      identityKey: newStaff.identityKey 
+    return {
+      id: staff.id,
+      role: staff.role,
+      employeeNo: staff.employeeNo,
+      identityKey: staff.identityKey,
     };
 
   } catch (error) {
@@ -214,11 +154,7 @@ export async function requireJWTAuth(req: Request, res: Response, next: NextFunc
     next();
   } catch (error) {
     console.log('JWT Auth error:', error);
-    if (error instanceof AuthError) {
-      next(error);
-    } else {
-      next(new AuthError('Authentication failed', 401));
-    }
+    return handleAuthError(error, res);
   }
 }
 
