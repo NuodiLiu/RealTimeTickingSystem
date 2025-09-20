@@ -5,7 +5,8 @@ dotenv.config();
 
 // Environment detection and URL configuration
 const isProduction = process.env.NODE_ENV === 'production';
-const tenant = process.env.AZURE_AD_TENANT_ID || "common";
+const allowAnyTenant = process.env.AZURE_AD_ALLOW_ANY_TENANT === 'true';
+const tenant = allowAnyTenant ? "common" : (process.env.AZURE_AD_TENANT_ID || "common");
 const authority = `https://login.microsoftonline.com/${tenant}`;
 
 // Dynamic base URL based on environment
