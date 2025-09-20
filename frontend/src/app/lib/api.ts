@@ -273,12 +273,22 @@ async function baseFetch<T>(path: string, init?: RequestInit & { skipRefreshRetr
       headers,
     });
 
+    console.log('[API] Response received:', {
+      url,
+      status: res.status,
+      ok: res.ok,
+      statusText: res.statusText
+    });
+
     if (res.status === 204) return undefined as unknown as T;
 
     const isJson = res.headers.get("content-type")?.includes("application/json");
     const data = isJson ? await res.json().catch(() => ({})) : undefined;
 
+    console.log('[API] Response data:', { url, data });
+
     if (!res.ok) {
+      console.error('[API] Request failed:', { url, status: res.status, data });
       // Try refresh on 401 once
       if (res.status === 401 && !init?.skipRefreshRetry) {
         await handle401Refresh();
@@ -364,7 +374,7 @@ const patch = <T>(path: string, body?: unknown) => baseFetch<T>(path, { method: 
 
 export const AuthAPI = {
   // GET /auth/me (authenticated)
-  me: () => get<{ user: { id: string; name: string; email: string; role: string } }>("/auth/me"),
+  me: () => get<{ ok: boolean; user: { id: string; name: string; email: string; role: string; employeeNo: string; identityKey: string } }>("/auth/me"),
   // POST /auth/invites (staff only)
   createInvite: (body: CreateInviteReq) => post<CreateInviteRes>("/auth/invites", body),
   // POST /auth/register
@@ -521,4 +531,7 @@ export const HealthAPI = {
     }
   },
 };
+
+// Export token refresh function for use in SignalR
+export { handle401Refresh as refreshAppJwt };
 

@@ -50,7 +50,8 @@ const expressApp_1 = require("./expressApp");
 // 配置化的路由前缀处理
 const CONFIG = {
     expressBase: process.env.EXPRESS_BASE_PATH || '/api/app',
-    signalRPrefixes: (process.env.SIGNALR_PREFIXES || '/api/negotiate,/api/signalr,/api/sendmessage').split(','),
+    // 修正 SignalR 路由：添加 /api/negotiate 和 /api/signalr
+    signalRPrefixes: (process.env.SIGNALR_PREFIXES || '/api/negotiate,/api/signalr').split(','),
     timeout: parseInt(process.env.EXPRESS_TIMEOUT_MS || '30000', 10), // 30s for file downloads
 };
 // 创建Express应用实例（在模块级别创建一次，重用）
@@ -81,31 +82,51 @@ function extractInternalPath(fullPath) {
 }
 // Azure Functions HTTP trigger - wraps the complete Express app
 async function httpTrigger(request, context) {
-    context.log(`Http function processed request for url "${request.url}"`);
+    context.log(`🌐 [HttpTrigger] Processing request: ${request.method} ${request.url}`);
     try {
+        const requestUrl = new URL(request.url);
+        const requestPath = requestUrl.pathname.toLowerCase();
+        context.log(`🔍 [Route Analysis] Path: ${requestPath}, Method: ${request.method}`);
+        context.log(`🔍 [Route Analysis] ExpressBase: ${CONFIG.expressBase}`);
+        context.log(`🔍 [Route Analysis] SignalR Prefixes: ${CONFIG.signalRPrefixes.join(', ')}`);
         // Short-circuit CORS preflight at Functions layer - no credentials for Bearer auth
         if (request.method === 'OPTIONS') {
-            const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3001';
+            // Support multiple frontend origins for development and production
+            const allowedOrigins = [
+                process.env.FRONTEND_URL || 'http://localhost:3001',
+                'https://app.localhost',
+                'http://localhost:3000',
+                'http://localhost:3001'
+            ];
             const reqOrigin = request.headers.get('origin') || '';
-            const originHeader = reqOrigin && reqOrigin === allowedOrigin ? reqOrigin : allowedOrigin;
+            const originHeader = allowedOrigins.includes(reqOrigin) ? reqOrigin : allowedOrigins[0];
+            context.log(`🌐 [CORS] Request origin: ${reqOrigin}`);
+            context.log(`🌐 [CORS] Allowed origins: ${allowedOrigins.join(', ')}`);
+            context.log(`🌐 [CORS] Using origin header: ${originHeader}`);
             const allowReqHeaders = request.headers.get('access-control-request-headers')
                 || 'Content-Type, Authorization, X-Requested-With, x-user-id, x-user-type';
             return {
                 status: 204,
                 headers: {
-                    'access-control-allow-origin': originHeader,
-                    'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-                    'access-control-allow-headers': allowReqHeaders,
-                    'vary': 'Origin',
-                    'content-length': '0'
+                    'Access-Control-Allow-Origin': originHeader,
+                    'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+                    'Access-Control-Allow-Headers': allowReqHeaders,
+                    'Vary': 'Origin',
+                    'Content-Length': '0'
                 },
                 body: ''
             };
         }
-        const url = new URL(request.url);
-        const path = url.pathname.toLowerCase();
         // 白名单短路：SignalR 专属路由不要走 Express
-        if (CONFIG.signalRPrefixes.some(p => path === p || path.startsWith(p + '/'))) {
+        // 注意：只有直接的 SignalR 路由才跳过，不包括 /api/negotiate
+        const isDirectSignalRRoute = CONFIG.signalRPrefixes.some(p => {
+            // 排除 negotiate 路由，因为它需要被单独的 Azure Function 处理
+            if (p === '/api/negotiate')
+                return false;
+            return requestPath === p || requestPath.startsWith(p + '/');
+        });
+        if (isDirectSignalRRoute) {
+            context.log(`🚫 [SignalR Route] Blocking direct SignalR route: ${requestPath}`);
             return {
                 status: 404,
                 headers: { 'content-type': 'application/json' },
@@ -113,7 +134,7 @@ async function httpTrigger(request, context) {
             };
         }
         // ★★★ 提取内部路径，添加错误处理
-        const internalPath = extractInternalPath(url.pathname);
+        const internalPath = extractInternalPath(requestUrl.pathname);
         const expressRequest = await convertAzureRequestToExpress(request, internalPath);
         const expressResponse = createExpressResponse();
         // Process through Express app
@@ -398,8 +419,8 @@ function createExpressResponse() {
             if (url) {
                 setHeaderValue('location', url);
             }
-            body = `Redirecting to ${url}`;
-            finished = true;
+            // 关键修复：调用 finishResponse 来触发回调
+            finishResponse(`Redirecting to ${url}`);
             return response;
         },
         location: (url) => {

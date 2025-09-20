@@ -23,40 +23,120 @@ class AzureSignalRServiceConfig {
         console.log('Azure SignalR Service initialized with hub:', this.hubName);
         console.log('Endpoint:', this.endpoint);
     }
+    // CRITICAL: For Azure SignalR Service, use the Base64 string directly as HMAC key
+    // NOT the decoded Buffer. This is specific to Azure SignalR's implementation.
+    get hmacKey() {
+        return this.accessKey; // Use Base64 string directly
+    }
     parseConnectionString(connectionString) {
+        console.log('🔍 [SignalR Config] Parsing connection string...');
+        console.log('🔍 [SignalR Config] Connection string length:', (connectionString === null || connectionString === void 0 ? void 0 : connectionString.length) || 0);
+        console.log('🔍 [SignalR Config] Connection string preview:', (connectionString === null || connectionString === void 0 ? void 0 : connectionString.substring(0, 50)) + '...');
         const parts = connectionString.split(';');
+        console.log('🔍 [SignalR Config] Connection string parts count:', parts.length);
         let endpoint = '';
         let accessKey = '';
         for (const part of parts) {
+            console.log('🔍 [SignalR Config] Processing part:', part.substring(0, 20) + '...');
             if (part.startsWith('Endpoint=')) {
                 endpoint = part.substring('Endpoint='.length);
+                console.log('✅ [SignalR Config] Endpoint found:', endpoint);
             }
             else if (part.startsWith('AccessKey=')) {
                 accessKey = part.substring('AccessKey='.length);
+                console.log('✅ [SignalR Config] AccessKey found, length:', accessKey.length);
+                console.log('✅ [SignalR Config] AccessKey preview:', accessKey.substring(0, 10) + '...');
             }
         }
         if (!endpoint || !accessKey) {
+            console.error('❌ [SignalR Config] Missing required parts:');
+            console.error('❌ [SignalR Config] Endpoint present:', !!endpoint);
+            console.error('❌ [SignalR Config] AccessKey present:', !!accessKey);
             throw new Error('Invalid Azure SignalR connection string format');
         }
+        console.log('✅ [SignalR Config] Connection string parsed successfully');
         return { endpoint, accessKey };
     }
-    generateAccessToken(userId, roles = ['signalr.client']) {
+    // Generate client token for SignalR connections (negotiate)
+    buildClientToken(userId, roles = []) {
+        console.log('🔐 [SignalR Config] Generating CLIENT access token for user:', userId);
+        console.log('🔐 [SignalR Config] Roles:', roles);
         const now = Math.floor(Date.now() / 1000);
         const exp = now + (60 * 60); // 1 hour
+        // CLIENT audience: https://<service>.service.signalr.net/client/?hub=<hubName>
+        const audience = `${this.endpoint.replace(/\/+$/, '')}/client/?hub=${this.hubName}`;
         const payload = {
-            aud: this.endpoint,
+            aud: audience,
             iat: now,
             exp: exp,
             nameid: userId,
-            role: roles
+            // role is optional for client tokens
+            ...(roles.length > 0 && { role: roles })
         };
-        return jsonwebtoken_1.default.sign(payload, this.accessKey, { algorithm: 'HS256' });
+        console.log('🔐 [SignalR Config] CLIENT Token payload:', {
+            aud: audience,
+            nameid: userId,
+            role: roles,
+            iat: now,
+            exp: exp
+        });
+        const token = jsonwebtoken_1.default.sign(payload, this.hmacKey, { algorithm: 'HS256' });
+        console.log('✅ [SignalR Config] CLIENT Access token generated, length:', token.length);
+        // Verify the token immediately to ensure it's valid
+        try {
+            const decoded = jsonwebtoken_1.default.verify(token, this.hmacKey, { algorithms: ['HS256'] });
+            console.log('✅ [SignalR Config] CLIENT Token verification successful');
+        }
+        catch (verifyError) {
+            console.error('❌ [SignalR Config] CLIENT Token verification failed:', verifyError);
+        }
+        return token;
     }
-    getConnectionInfo(userId, hub) {
+    // Generate server token for REST API calls (sendToUser, sendToGroup, etc.)
+    buildServerToken() {
+        console.log('� [SignalR Config] Generating SERVER access token for REST API');
+        const now = Math.floor(Date.now() / 1000);
+        const exp = now + (60 * 10); // 10 minutes (shorter for server tokens)
+        // SERVER audience: https://<service>.service.signalr.net/api/v1/hubs/<hubName>
+        const audience = `${this.endpoint.replace(/\/+$/, '')}/api/v1/hubs/${this.hubName}`;
+        const payload = {
+            aud: audience,
+            iat: now,
+            exp: exp
+            // No nameid or role needed for server tokens
+        };
+        console.log('🔐 [SignalR Config] SERVER Token payload:', {
+            aud: audience,
+            iat: now,
+            exp: exp
+        });
+        const token = jsonwebtoken_1.default.sign(payload, this.hmacKey, { algorithm: 'HS256' });
+        console.log('✅ [SignalR Config] SERVER Access token generated, length:', token.length);
+        // Verify the token immediately to ensure it's valid
+        try {
+            const decoded = jsonwebtoken_1.default.verify(token, this.hmacKey, { algorithms: ['HS256'] });
+            console.log('✅ [SignalR Config] SERVER Token verification successful');
+        }
+        catch (verifyError) {
+            console.error('❌ [SignalR Config] SERVER Token verification failed:', verifyError);
+        }
+        return token;
+    }
+    // Legacy method for backward compatibility - now uses client token
+    generateAccessToken(userId, roles = ['signalr.client']) {
+        return this.buildClientToken(userId, roles);
+    }
+    getConnectionInfo(userId, hub, roles) {
         const hubName = hub || this.hubName;
-        const accessToken = this.generateAccessToken(userId);
+        console.log('🔗 [SignalR Config] Getting connection info for user:', userId);
+        console.log('🔗 [SignalR Config] Hub name:', hubName);
+        console.log('🔗 [SignalR Config] Roles:', roles);
+        // Use client token for connection info
+        const accessToken = this.buildClientToken(userId, roles || []);
         const url = `${this.endpoint}/client/?hub=${hubName}`;
-        console.log(`Generated connection info for user: ${userId}, hub: ${hubName}`);
+        console.log('✅ [SignalR Config] Connection info generated:');
+        console.log('✅ [SignalR Config] URL:', url);
+        console.log('✅ [SignalR Config] Access token ready for user:', userId);
         return {
             url,
             accessToken
@@ -71,7 +151,7 @@ class AzureSignalRServiceConfig {
     async sendToGroup(group, message) {
         try {
             const url = `${this.endpoint}/api/v1/hubs/${this.hubName}/groups/${group}`;
-            const token = this.generateAccessToken('server', ['signalr.service']);
+            const token = this.buildServerToken(); // Use server token for REST API
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -93,7 +173,7 @@ class AzureSignalRServiceConfig {
     async sendToUser(userId, message) {
         try {
             const url = `${this.endpoint}/api/v1/hubs/${this.hubName}/users/${userId}`;
-            const token = this.generateAccessToken('server', ['signalr.service']);
+            const token = this.buildServerToken(); // Use server token for REST API
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -115,7 +195,7 @@ class AzureSignalRServiceConfig {
     async addUserToGroup(userId, group) {
         try {
             const url = `${this.endpoint}/api/v1/hubs/${this.hubName}/groups/${group}/users/${userId}`;
-            const token = this.generateAccessToken('server', ['signalr.service']);
+            const token = this.buildServerToken(); // Use server token for REST API
             const response = await fetch(url, {
                 method: 'PUT',
                 headers: {
@@ -136,7 +216,7 @@ class AzureSignalRServiceConfig {
     async removeUserFromGroup(userId, group) {
         try {
             const url = `${this.endpoint}/api/v1/hubs/${this.hubName}/groups/${group}/users/${userId}`;
-            const token = this.generateAccessToken('server', ['signalr.service']);
+            const token = this.buildServerToken(); // Use server token for REST API
             const response = await fetch(url, {
                 method: 'DELETE',
                 headers: {
@@ -172,9 +252,17 @@ function validateSignalREnvironment() {
 }
 // Helper function for generating connection info with custom options
 function generateDeviceConnectionInfo(deviceId) {
-    return exports.signalRConfig.getConnectionInfo(deviceId);
+    console.log('🔧 [Helper] Generating device connection info for:', deviceId);
+    // Use default roles for client connections
+    const connectionInfo = exports.signalRConfig.getConnectionInfo(deviceId);
+    console.log('✅ [Helper] Device connection info generated');
+    return connectionInfo;
 }
 function generateDashboardConnectionInfo(userId) {
-    return exports.signalRConfig.getConnectionInfo(userId);
+    console.log('🔧 [Helper] Generating dashboard connection info for:', userId);
+    // Use default roles for client connections  
+    const connectionInfo = exports.signalRConfig.getConnectionInfo(userId);
+    console.log('✅ [Helper] Dashboard connection info generated');
+    return connectionInfo;
 }
 //# sourceMappingURL=config.js.map

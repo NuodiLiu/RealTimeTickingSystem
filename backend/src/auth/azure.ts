@@ -13,8 +13,8 @@ const getBaseUrl = () => {
   if (isProduction) {
     return process.env.BASE_URL || "https://api.ticketing-system.com";
   }
-  // Development: backend runs on HTTP 3000, but OAuth redirects need to match frontend proxy
-  return process.env.BASE_URL || "http://localhost:3000";
+  // Development: Use the API_BASE_URL which includes /api/app path
+  return process.env.API_BASE_URL || process.env.BASE_URL || "https://api.localhost/api/app";
 };
 
 const getFrontendUrl = () => {
@@ -33,9 +33,13 @@ export const msalClient = new ConfidentialClientApplication({
   },
   system: {
     loggerOptions: {
-      loggerCallback: (_level, _message, _containsPii) => {},
+      loggerCallback: (level, message, containsPii) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[MSAL ${level}] ${message}`);
+        }
+      },
       piiLoggingEnabled: false,
-      logLevel: isProduction ? LogLevel.Error : LogLevel.Warning,
+      logLevel: isProduction ? LogLevel.Error : LogLevel.Info,
     },
   },
 });
@@ -43,7 +47,12 @@ export const msalClient = new ConfidentialClientApplication({
 const baseUrl = getBaseUrl();
 export const authParams = {
   redirectUri: `${baseUrl}/auth/redirect`,
-  scopes: ["openid", "profile", "email"], 
+  scopes: [
+    "openid", 
+    "profile", 
+    "email",
+    "api://57938c34-d786-42be-81e9-2a758b7e14b2/Api.Read"
+  ], 
 };
 
 // Export URLs for use in other modules

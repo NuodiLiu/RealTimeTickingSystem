@@ -2,47 +2,25 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuthGuard } from '../components/AuthGuard';
+import { useAuthStore } from '../stores/authStore';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.localhost";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const { login } = useAuthStore();
 
   useEffect(() => {
-    // Check if user already has valid App JWT
-    const appJwt = localStorage.getItem('appJwt');
-    if (appJwt) {
-      // Verify the token is still valid by checking /auth/me
-      fetch(`${API_BASE}/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${appJwt}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      .then(response => {
-        if (response.ok) {
-          // Token is valid, redirect to dashboard
-          router.push('/dashboard');
-        } else {
-          // Token is invalid, remove it
-          localStorage.removeItem('appJwt');
-        }
-      })
-      .catch(error => {
-        console.error('Token validation error:', error);
-        localStorage.removeItem('appJwt');
-      });
-    }
-
     // Check for error from callback
     const urlParams = new URLSearchParams(window.location.search);
     const errorParam = urlParams.get('error');
     if (errorParam) {
       setError(getErrorMessage(errorParam));
     }
-  }, [router]);
+  }, []);
 
   const handleMicrosoftLogin = async () => {
     setIsLoading(true);
@@ -124,5 +102,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <AuthGuard requireAuth={false} redirectTo="/login">
+      <LoginPageContent />
+    </AuthGuard>
   );
 }

@@ -25,9 +25,18 @@ const router = Router();
  */
 router.get('/login', async (req, res) => {
   try {
+    console.log('Azure AD login initiated');
+    console.log('MSAL Config:', {
+      clientId: process.env.AZURE_AD_CLIENT_ID?.substring(0, 8) + '...',
+      tenantId: process.env.AZURE_AD_TENANT_ID,
+      redirectUri: authParams.redirectUri,
+      scopes: authParams.scopes
+    });
+
     const state = crypto.randomBytes(16).toString('hex');
     const nonce = crypto.randomBytes(16).toString('hex');
 
+    console.log('Generating auth URL...');
     // Generate authorization URL using MSAL
     const url = await msalClient.getAuthCodeUrl({
       scopes: authParams.scopes,
@@ -37,12 +46,19 @@ router.get('/login', async (req, res) => {
       responseMode: 'query',
     });
 
+    console.log('Auth URL generated successfully, redirecting...');
     res.redirect(url);
   } catch (error: any) {
     console.error('Login initiation error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code || error.errorCode
+    });
     res.status(500).json({
       error: 'login_failed',
-      error_description: 'Failed to initiate Azure AD login'
+      error_description: 'Failed to initiate Azure AD login',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -232,11 +248,11 @@ router.get('/me', async (req, res) => {
       });
     }
 
-    // Return user info
+    // Return user info in format expected by frontend
     res.json({
       ok: true,
       user: {
-        staffId: staff.id,
+        id: staff.id,           // Frontend expects 'id', not 'staffId'
         role: staff.role,
         employeeNo: staff.employeeNo,
         name: staff.name,

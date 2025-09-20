@@ -25,9 +25,18 @@ const router = (0, express_1.Router)();
  * Redirects user to Microsoft login page
  */
 router.get('/login', async (req, res) => {
+    var _a;
     try {
+        console.log('Azure AD login initiated');
+        console.log('MSAL Config:', {
+            clientId: ((_a = process.env.AZURE_AD_CLIENT_ID) === null || _a === void 0 ? void 0 : _a.substring(0, 8)) + '...',
+            tenantId: process.env.AZURE_AD_TENANT_ID,
+            redirectUri: azure_1.authParams.redirectUri,
+            scopes: azure_1.authParams.scopes
+        });
         const state = crypto_1.default.randomBytes(16).toString('hex');
         const nonce = crypto_1.default.randomBytes(16).toString('hex');
+        console.log('Generating auth URL...');
         // Generate authorization URL using MSAL
         const url = await azure_1.msalClient.getAuthCodeUrl({
             scopes: azure_1.authParams.scopes,
@@ -36,13 +45,20 @@ router.get('/login', async (req, res) => {
             nonce,
             responseMode: 'query',
         });
+        console.log('Auth URL generated successfully, redirecting...');
         res.redirect(url);
     }
     catch (error) {
         console.error('Login initiation error:', error);
+        console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            code: error.code || error.errorCode
+        });
         res.status(500).json({
             error: 'login_failed',
-            error_description: 'Failed to initiate Azure AD login'
+            error_description: 'Failed to initiate Azure AD login',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });
@@ -215,11 +231,11 @@ router.get('/me', async (req, res) => {
                 error_description: 'Staff record not found'
             });
         }
-        // Return user info
+        // Return user info in format expected by frontend
         res.json({
             ok: true,
             user: {
-                staffId: staff.id,
+                id: staff.id, // Frontend expects 'id', not 'staffId'
                 role: staff.role,
                 employeeNo: staff.employeeNo,
                 name: staff.name,

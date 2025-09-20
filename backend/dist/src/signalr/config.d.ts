@@ -4,19 +4,7 @@ interface SignalRConnectionInfo {
 }
 interface SignalRConfig {
     generateAccessToken(userId: string, roles?: string[]): string;
-    getConnectionInfo(userId: string, hub?: string): SignalRConnectionInfo;
-    sendToDevice(deviceId: string, message: any): Promise<void>;
-    sendToDashboard(message: any): Promise<void>;
-    sendToGroup(group: string, message: any): Promise<void>;
-    sendToUser(userId: string, message: any): Promise<void>;
-}
-interface SignalRConnectionInfo {
-    url: string;
-    accessToken: string;
-}
-interface SignalRConfig {
-    generateAccessToken(userId: string, roles?: string[]): string;
-    getConnectionInfo(userId: string, hub?: string): SignalRConnectionInfo;
+    getConnectionInfo(userId: string, hub?: string, roles?: string[]): SignalRConnectionInfo;
     sendToDevice(deviceId: string, message: any): Promise<void>;
     sendToDashboard(message: any): Promise<void>;
     sendToGroup(group: string, message: any): Promise<void>;
@@ -28,9 +16,12 @@ declare class AzureSignalRServiceConfig implements SignalRConfig {
     private endpoint;
     private accessKey;
     constructor();
+    private get hmacKey();
     private parseConnectionString;
+    private buildClientToken;
+    private buildServerToken;
     generateAccessToken(userId: string, roles?: string[]): string;
-    getConnectionInfo(userId: string, hub?: string): SignalRConnectionInfo;
+    getConnectionInfo(userId: string, hub?: string, roles?: string[]): SignalRConnectionInfo;
     sendToDevice(deviceId: string, message: any): Promise<void>;
     sendToDashboard(message: any): Promise<void>;
     sendToGroup(group: string, message: any): Promise<void>;

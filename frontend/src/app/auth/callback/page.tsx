@@ -11,12 +11,20 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        console.log('[AuthCallback] Starting callback handling...');
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const error = urlParams.get('error');
 
+        console.log('[AuthCallback] URL params:', { 
+          hasToken: !!token, 
+          tokenLength: token?.length,
+          tokenPreview: token?.substring(0, 50) + '...',
+          error 
+        });
+
         if (error) {
-          console.error('Auth error:', error);
+          console.error('[AuthCallback] Auth error from URL:', error);
           setStatus('error');
           setMessage('Authentication failed. Please try again.');
           setTimeout(() => router.push('/login'), 3000);
@@ -24,23 +32,32 @@ export default function AuthCallback() {
         }
 
         if (token) {
+          console.log('[AuthCallback] Storing App JWT in localStorage...');
           // Store App JWT in localStorage for API calls
           localStorage.setItem('appJwt', token);
+          console.log('[AuthCallback] App JWT stored successfully');
+          
           setStatus('success');
           setMessage('Authentication successful! Redirecting to dashboard...');
           
           // Clear URL parameters for security
+          console.log('[AuthCallback] Clearing URL parameters...');
           window.history.replaceState({}, document.title, window.location.pathname);
           
           // Redirect to dashboard
-          setTimeout(() => router.push('/dashboard'), 1500);
+          console.log('[AuthCallback] Redirecting to dashboard in 1.5s...');
+          setTimeout(() => {
+            console.log('[AuthCallback] Executing redirect to dashboard');
+            router.push('/dashboard');
+          }, 1500);
         } else {
+          console.error('[AuthCallback] No token found in URL parameters');
           setStatus('error');
           setMessage('No authentication token received.');
           setTimeout(() => router.push('/login'), 3000);
         }
       } catch (error) {
-        console.error('Auth callback error:', error);
+        console.error('[AuthCallback] Auth callback error:', error);
         setStatus('error');
         setMessage('Authentication processing failed.');
         setTimeout(() => router.push('/login'), 3000);

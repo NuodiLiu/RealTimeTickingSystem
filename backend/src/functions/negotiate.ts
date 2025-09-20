@@ -7,7 +7,9 @@ import jwt from 'jsonwebtoken';
  * This function validates App JWT tokens (signed by our backend) and generates SignalR connection info
  */
 export async function negotiate(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-  context.log('SignalR negotiate function processing request with App JWT validation.');
+  context.log('🚀 [SignalR Negotiate] Function started with App JWT validation.');
+  context.log('🚀 [SignalR Negotiate] Request method:', request.method);
+  context.log('🚀 [SignalR Negotiate] Request URL:', request.url);
 
   try {
     // Extract Bearer token from Authorization header - check both case variations
@@ -15,11 +17,15 @@ export async function negotiate(request: HttpRequest, context: InvocationContext
                       request.headers.get('authorization') ||
                       request.headers.get('AUTHORIZATION');
     
-    context.log(`Auth header: ${authHeader ? 'present' : 'undefined'}`);
-    context.log(`Extracted token: ${authHeader ? 'present' : 'null'}`);
+    context.log('🔍 [SignalR Negotiate] Auth header check:', {
+      present: !!authHeader,
+      startsWithBearer: authHeader?.startsWith('Bearer '),
+      length: authHeader?.length || 0
+    });
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      context.log('ERROR: Missing or invalid Authorization header');
+      context.log('❌ [SignalR Negotiate] Missing or invalid Authorization header');
+      context.log('❌ [SignalR Negotiate] All headers:', Object.fromEntries(request.headers.entries()));
       return {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
@@ -31,12 +37,26 @@ export async function negotiate(request: HttpRequest, context: InvocationContext
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    context.log('🔑 [SignalR Negotiate] Token extracted, length:', token.length);
+    context.log('🔑 [SignalR Negotiate] Token preview:', token.substring(0, 30) + '...');
 
     // Validate JWT token (verify App JWT signature)
     let jwtPayload;
     try {
+      context.log('🔒 [SignalR Negotiate] Verifying App JWT with JWT_SECRET...');
+      context.log('🔒 [SignalR Negotiate] JWT_SECRET present:', !!process.env.JWT_SECRET);
+      
       // Verify App JWT token with our JWT_SECRET
       jwtPayload = jwt.verify(token, process.env.JWT_SECRET!) as any;
+      
+      context.log('✅ [SignalR Negotiate] JWT verification successful');
+      context.log('✅ [SignalR Negotiate] JWT payload claims:', {
+        sub: jwtPayload.sub,
+        typ: jwtPayload.typ,
+        email: jwtPayload.email,
+        iat: jwtPayload.iat,
+        exp: jwtPayload.exp
+      });
       
       if (!jwtPayload || typeof jwtPayload !== 'object') {
         throw new Error('Invalid token format');
@@ -52,16 +72,34 @@ export async function negotiate(request: HttpRequest, context: InvocationContext
         throw new Error(`Invalid token type. Expected 'staff' or 'device', got: ${jwtPayload.typ}`);
       }
 
-      context.log(`App JWT validated for user: ${jwtPayload.sub}, type: ${jwtPayload.typ}`);
+      context.log('✅ [SignalR Negotiate] App JWT validated successfully');
+      context.log('✅ [SignalR Negotiate] Validated user:', jwtPayload.sub, 'type:', jwtPayload.typ);
 
     } catch (error) {
-      context.log('ERROR: JWT validation failed:', error);
+      context.log('❌ [SignalR Negotiate] JWT validation failed:', error);
+      context.log('❌ [SignalR Negotiate] Error details:', error instanceof Error ? error.message : 'Unknown error');
+      
+      // Special handling for expired tokens
+      if (error instanceof Error && error.name === 'TokenExpiredError') {
+        context.log('🕒 [SignalR Negotiate] JWT token has expired');
+        return {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            error: 'JWT_EXPIRED',
+            message: 'Your session has expired. Please log in again.',
+            code: 'TOKEN_EXPIRED'
+          })
+        };
+      }
+      
       return {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           error: 'Invalid App JWT token',
-          message: error instanceof Error ? error.message : 'Token validation failed'
+          message: error instanceof Error ? error.message : 'Token validation failed',
+          code: 'TOKEN_INVALID'
         })
       };
     }
@@ -77,21 +115,34 @@ export async function negotiate(request: HttpRequest, context: InvocationContext
                      request.headers.get('x-user-type') || 
                      (tokenType === 'device' ? 'device' : 'dashboard');
     
-    context.log(`Negotiate request - userId: ${userId}, userType: ${userType}, tokenType: ${tokenType}`);
+    context.log('🎯 [SignalR Negotiate] Creating connection for:', {
+      userId, 
+      userType, 
+      tokenType,
+      userEmail
+    });
 
     // Generate SignalR connection info based on user type
     let connectionInfo;
     let response;
     
     try {
+      context.log('🔧 [SignalR Negotiate] Generating SignalR connection info...');
+      context.log('🔧 [SignalR Negotiate] AZURE_SIGNALR_CONNECTION_STRING present:', !!process.env.AZURE_SIGNALR_CONNECTION_STRING);
+      
       if (userType === 'device') {
-        context.log('Generating device connection info...');
-        // For device connections, validate device permissions
+        context.log('🔧 [SignalR Negotiate] Generating device connection info...');
         connectionInfo = generateDeviceConnectionInfo(userId);
       } else {
-        context.log('Generating dashboard connection info...');
+        context.log('🔧 [SignalR Negotiate] Generating dashboard connection info...');
         connectionInfo = generateDashboardConnectionInfo(userId);
       }
+      
+      context.log('✅ [SignalR Negotiate] Connection info generated:', {
+        url: connectionInfo.url,
+        accessTokenPresent: !!connectionInfo.accessToken,
+        accessTokenLength: connectionInfo.accessToken?.length || 0
+      });
       
       // Add user metadata as additional response fields
       response = {
@@ -103,6 +154,8 @@ export async function negotiate(request: HttpRequest, context: InvocationContext
           type: userType
         }
       };
+      
+      context.log('✅ [SignalR Negotiate] Full response prepared for user:', userId);
       
       context.log('SignalR connection info generated successfully for user:', userId);
     } catch (configError) {
