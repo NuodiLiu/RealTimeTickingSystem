@@ -43,7 +43,7 @@ class PairService {
     }
     // ipad scans qr, completes pairing
     static async completePairing(data) {
-        const { pairingToken, deviceName, mode = 'REGISTRATION', deviceId } = data;
+        const { pairingToken, deviceName, mode = 'REGISTRATION', deviceId } = data !== null && data !== void 0 ? data : {};
         if (!pairingToken || !deviceName) {
             throw new error_1.MissingFieldError(['pairingToken', 'deviceName']);
         }

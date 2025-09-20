@@ -31,19 +31,19 @@ export class CasesController {
 
   static async postCase(req: any, res: any, next: any) {
     try {
-      console.log('🔍 [Controller] POST /cases debug:');
-      console.log('- Method:', req.method);
-      console.log('- URL:', req.url);
-      console.log('- Headers:', JSON.stringify(req.headers));
-      console.log('- Body:', JSON.stringify(req.body));
-      console.log('- Raw body:', req.rawBody?.toString('utf8') || 'not available');
-      console.log('- Body type:', typeof req.body);
-      console.log('- Body keys:', Object.keys(req.body || {}));
+      // Workaround for Azure Functions body parsing issue
+      let bodyData = req.body;
+      if ((!bodyData || Object.keys(bodyData).length === 0) && req.rawBody) {
+        try {
+          bodyData = JSON.parse(req.rawBody.toString('utf8'));
+        } catch (parseError) {
+          // Continue with empty body if parsing fails
+        }
+      }
       
-      const created = await CasesService.postCase(req.body);
+      const created = await CasesService.postCase(bodyData);
       res.status(201).json(created);
     } catch (err) {
-      console.log('❌ [Controller] Error:', err);
       next(err);
     }
   }

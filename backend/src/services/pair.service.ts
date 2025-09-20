@@ -49,7 +49,7 @@ export class PairService {
     mode?: DeviceMode;
     deviceId?: string; 
   }) {
-    const { pairingToken, deviceName, mode = 'REGISTRATION', deviceId } = data;
+    const { pairingToken, deviceName, mode = 'REGISTRATION', deviceId } = data ?? {};
 
     if (!pairingToken || !deviceName) {
       throw new MissingFieldError(['pairingToken', 'deviceName']);
