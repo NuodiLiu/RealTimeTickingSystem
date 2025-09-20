@@ -64,23 +64,8 @@ function DashboardContent() {
     }
   }, [selectedDeviceId, feedbackDevices]);
 
-    // Health ping
-  const [online, setOnline] = useState<boolean>(true);
-  useEffect(() => {
-    let timer: any;
-    const ping = async () => {
-      try {
-        const isOnline = await HealthAPI.check();
-        setOnline(isOnline);
-      } catch (error) {
-        setOnline(false);
-        console.log('Health check failed, assuming offline:', error);
-      }
-    };
-    ping();
-    timer = setInterval(ping, 5000);
-    return () => clearInterval(timer);
-  }, []);
+  // Note: Removed frontend health check polling as it was not used in the UI
+  // Device status monitoring is handled via real-time WebSocket connections
 
   // global error handlers to prevent unhandled promise rejections
   useEffect(() => {
