@@ -52,29 +52,25 @@ function validateJWT(token: string): JWTUserPayload {
     const jwtSecret = process.env.JWT_SECRET;
     let decoded: any;
 
-    if (jwtSecret && (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test')) {
-      // In development/test, verify against our secret (for mock tokens)
+    if (jwtSecret) {
+      // Always verify App JWT tokens with our secret
       decoded = jwt.verify(token, jwtSecret) as any;
     } else {
-      // In production, Azure AD tokens should be validated against Azure's public keys
-      // For now, we'll decode without verification (assuming Azure validates on their end)
-      // In production, you should validate the signature
-      decoded = jwt.decode(token) as any;
+      throw new Error('JWT_SECRET not configured');
     }
     
     if (!decoded || typeof decoded !== 'object') {
       throw new Error('Invalid token format');
     }
 
-    // Basic validation of required claims
-    if (!decoded.sub || !decoded.iss) {
-      throw new Error('Missing required claims');
+    // Basic validation of required claims for App JWT
+    if (!decoded.sub || !decoded.typ) {
+      throw new Error('Missing required claims (sub, typ)');
     }
 
-    // Validate audience if specified
-    const expectedAudience = process.env.AZURE_AD_CLIENT_ID;
-    if (expectedAudience && decoded.aud !== expectedAudience) {
-      throw new Error('Invalid audience');
+    // Validate token type (should be 'staff' or 'device')
+    if (!['staff', 'device'].includes(decoded.typ)) {
+      throw new Error(`Invalid token type. Expected 'staff' or 'device', got: ${decoded.typ}`);
     }
 
     return decoded as JWTUserPayload;

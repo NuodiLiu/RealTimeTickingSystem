@@ -1,37 +1,47 @@
-// src/server.ts - Development server using the same Express app as Azure Functions
+// src/server.ts - Development/Production server with HTTPS support
 import dotenv from "dotenv";
-import { createExpressApp } from "./expressApp";
+import { startServer } from "./https-server";
 
 dotenv.config();
 
-const app = createExpressApp();
-const port = process.env.PORT || 3000;
+console.log(`🚀 Starting server...`);
+console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`🔗 Base URL: ${process.env.BASE_URL || 'http://localhost:3000'}`);
+console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3001'}`);
 
-const server = app.listen(port, () => {
-  console.log(`🚀 Development server is running on port ${port}`);
-  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Health check: http://localhost:${port}/health`);
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`📖 API docs: http://localhost:${port}/api-docs`);
-  }
-  console.log(`🔧 This server uses the same Express app as Azure Functions`);
-});
+const serverConfig = startServer();
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('Server closed.');
+function gracefulShutdown(signal: string) {
+  console.log(`${signal} received. Shutting down gracefully...`);
+  
+  const shutdownPromises = [];
+  
+  if (serverConfig.httpsServer) {
+    shutdownPromises.push(new Promise((resolve) => {
+      serverConfig.httpsServer!.close(() => {
+        console.log('HTTPS server closed.');
+        resolve(void 0);
+      });
+    }));
+  }
+  
+  if (serverConfig.httpServer) {
+    shutdownPromises.push(new Promise((resolve) => {
+      serverConfig.httpServer!.close(() => {
+        console.log('HTTP server closed.');
+        resolve(void 0);
+      });
+    }));
+  }
+  
+  Promise.all(shutdownPromises).then(() => {
+    console.log('All servers closed. Exiting...');
     process.exit(0);
   });
-});
+}
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('Server closed.');
-    process.exit(0);
-  });
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-export default app;
+export default serverConfig.app;

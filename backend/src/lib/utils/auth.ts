@@ -28,6 +28,55 @@ export function signDeviceToken(deviceId: string, mode: string): string {
 }
 
 /**
+ * Staff JWT payload structure for API access
+ */
+export type StaffJwtPayload = {
+  typ: 'staff';
+  sub: string; // staffId
+  role: 'ADMIN' | 'STAFF';
+  employeeNo: string;
+  identityKey: string;
+  name?: string;
+  email?: string;
+  iat?: number;
+  exp?: number;
+};
+
+/**
+ * Generate a short-lived JWT token for staff API access
+ * Used after Azure AD authentication for API calls
+ */
+export function signStaffToken(staffData: {
+  id: string;
+  role: 'ADMIN' | 'STAFF';
+  employeeNo: string;
+  identityKey: string;
+  name?: string;
+  email?: string;
+}): string {
+  return jwt.sign(
+    {
+      typ: 'staff',
+      sub: staffData.id,
+      role: staffData.role,
+      employeeNo: staffData.employeeNo,
+      identityKey: staffData.identityKey,
+      name: staffData.name,
+      email: staffData.email,
+    } as StaffJwtPayload,
+    process.env.JWT_SECRET!,
+    { expiresIn: '15m' } // Short-lived: 15 minutes
+  );
+}
+
+/**
+ * Verify and decode staff JWT token
+ */
+export function verifyStaffToken(token: string): StaffJwtPayload {
+  return jwt.verify(token, process.env.JWT_SECRET!) as StaffJwtPayload;
+}
+
+/**
  * Validate device API key from Authorization header (HTTP API)
  * Format: Authorization: Device <deviceId>:<deviceSecret>
  */

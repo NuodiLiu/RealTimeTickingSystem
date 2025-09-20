@@ -8,11 +8,11 @@ const functions_1 = require("@azure/functions");
 const config_1 = require("../signalr/config");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 /**
- * Azure Function for SignalR negotiate endpoint with JWT authentication
- * This function validates JWT tokens from Azure AD and generates SignalR connection info
+ * Azure Function for SignalR negotiate endpoint with App JWT authentication
+ * This function validates App JWT tokens (signed by our backend) and generates SignalR connection info
  */
 async function negotiate(request, context) {
-    context.log('SignalR negotiate function processing request with Azure AD JWT validation.');
+    context.log('SignalR negotiate function processing request with App JWT validation.');
     try {
         // Extract Bearer token from Authorization header - check both case variations
         const authHeader = request.headers.get('Authorization') ||
@@ -27,39 +27,28 @@ async function negotiate(request, context) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     error: 'Missing or invalid Authorization header',
-                    message: 'Please provide a valid JWT token in Authorization: Bearer <token> header'
+                    message: 'Please provide a valid App JWT token in Authorization: Bearer <token> header'
                 })
             };
         }
         const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-        // Validate JWT token (decode without verification for Azure AD tokens)
+        // Validate JWT token (verify App JWT signature)
         let jwtPayload;
         try {
-            // Decode JWT token without verification (Azure AD handles signature validation)
-            jwtPayload = jsonwebtoken_1.default.decode(token);
+            // Verify App JWT token with our JWT_SECRET
+            jwtPayload = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
             if (!jwtPayload || typeof jwtPayload !== 'object') {
                 throw new Error('Invalid token format');
             }
-            // Validate required Azure AD claims
-            if (!jwtPayload.sub || !jwtPayload.iss) {
-                throw new Error('Missing required claims (sub, iss)');
+            // Validate required App JWT claims
+            if (!jwtPayload.sub || !jwtPayload.typ) {
+                throw new Error('Missing required claims (sub, typ)');
             }
-            // Validate issuer (Azure AD v2.0)
-            const expectedIssuer = `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID || 'common'}/v2.0`;
-            if (!jwtPayload.iss.includes('login.microsoftonline.com')) {
-                throw new Error(`Invalid issuer. Expected Azure AD, got: ${jwtPayload.iss}`);
+            // Validate token type (should be 'staff' or 'device')
+            if (!['staff', 'device'].includes(jwtPayload.typ)) {
+                throw new Error(`Invalid token type. Expected 'staff' or 'device', got: ${jwtPayload.typ}`);
             }
-            // Validate audience (should be your API client ID)
-            const expectedAudience = process.env.AZURE_AD_CLIENT_ID;
-            if (expectedAudience && jwtPayload.aud !== expectedAudience) {
-                throw new Error(`Invalid audience. Expected: ${expectedAudience}, Got: ${jwtPayload.aud}`);
-            }
-            // Validate token expiration
-            const now = Math.floor(Date.now() / 1000);
-            if (jwtPayload.exp && jwtPayload.exp < now) {
-                throw new Error('Token has expired');
-            }
-            context.log(`JWT validated for user: ${jwtPayload.sub}, tenant: ${jwtPayload.tid}`);
+            context.log(`App JWT validated for user: ${jwtPayload.sub}, type: ${jwtPayload.typ}`);
         }
         catch (error) {
             context.log('ERROR: JWT validation failed:', error);
@@ -67,20 +56,21 @@ async function negotiate(request, context) {
                 status: 401,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    error: 'Invalid JWT token',
+                    error: 'Invalid App JWT token',
                     message: error instanceof Error ? error.message : 'Token validation failed'
                 })
             };
         }
-        // Create user identity for SignalR using Azure AD claims
-        const userId = `azure-ad|${jwtPayload.sub}`;
-        const userEmail = jwtPayload.upn || jwtPayload.email || jwtPayload.preferred_username;
-        const userName = jwtPayload.name || userEmail || 'Unknown User';
-        // Extract user type from query params or headers (default to dashboard)
+        // Create user identity for SignalR using App JWT claims
+        const userId = jwtPayload.sub; // Use the staff/device ID directly
+        const userEmail = jwtPayload.email || jwtPayload.employeeNo || 'Unknown';
+        const userName = jwtPayload.name || jwtPayload.employeeNo || 'Unknown User';
+        const tokenType = jwtPayload.typ; // 'staff' or 'device'
+        // Extract user type from query params, headers, or token type (default to dashboard for staff)
         const userType = request.query.get('userType') ||
             request.headers.get('x-user-type') ||
-            'dashboard';
-        context.log(`Negotiate request - userId: ${userId}, userType: ${userType}, email: ${userEmail}`);
+            (tokenType === 'device' ? 'device' : 'dashboard');
+        context.log(`Negotiate request - userId: ${userId}, userType: ${userType}, tokenType: ${tokenType}`);
         // Generate SignalR connection info based on user type
         let connectionInfo;
         let response;

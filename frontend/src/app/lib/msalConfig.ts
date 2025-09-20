@@ -1,13 +1,14 @@
 // MSAL Configuration for Microsoft SSO
 import { Configuration, PopupRequest, RedirectRequest } from '@azure/msal-browser';
+import { getRedirectUri, getPostLogoutRedirectUri, isProduction } from './env-utils';
 
 // MSAL instance configuration
 export const msalConfig: Configuration = {
   auth: {
     clientId: process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID!, // Your Azure AD App Registration Client ID
-    authority: `https://login.microsoftonline.com/${process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID || 'common'}`, // Tenant ID or 'common'
-    redirectUri: process.env.NEXT_PUBLIC_REDIRECT_URI || 'http://localhost:3001/auth/callback', // Must match Azure AD config
-    postLogoutRedirectUri: process.env.NEXT_PUBLIC_POST_LOGOUT_REDIRECT_URI || 'http://localhost:3001'
+    authority: process.env.NEXT_PUBLIC_AZURE_AD_AUTHORITY || `https://login.microsoftonline.com/${process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID || 'common'}`, // Use authority from env or construct from tenant
+    redirectUri: process.env.NEXT_PUBLIC_AZURE_AD_REDIRECT_URI || getRedirectUri(), // Dynamic redirect URI based on environment
+    postLogoutRedirectUri: process.env.NEXT_PUBLIC_POST_LOGOUT_REDIRECT_URI || getPostLogoutRedirectUri()
   },
   cache: {
     cacheLocation: 'localStorage', // Store tokens in localStorage

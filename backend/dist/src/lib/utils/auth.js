@@ -4,6 +4,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.signDeviceToken = signDeviceToken;
+exports.signStaffToken = signStaffToken;
+exports.verifyStaffToken = verifyStaffToken;
 exports.validateDeviceApiKey = validateDeviceApiKey;
 const error_1 = require("../../error");
 const crypto_1 = __importDefault(require("crypto"));
@@ -15,6 +17,28 @@ const prisma_1 = require("../prisma");
  */
 function signDeviceToken(deviceId, mode) {
     return jsonwebtoken_1.default.sign({ sub: deviceId, mode, typ: "device" }, process.env.JWT_SECRET, { expiresIn: "30d" });
+}
+/**
+ * Generate a short-lived JWT token for staff API access
+ * Used after Azure AD authentication for API calls
+ */
+function signStaffToken(staffData) {
+    return jsonwebtoken_1.default.sign({
+        typ: 'staff',
+        sub: staffData.id,
+        role: staffData.role,
+        employeeNo: staffData.employeeNo,
+        identityKey: staffData.identityKey,
+        name: staffData.name,
+        email: staffData.email,
+    }, process.env.JWT_SECRET, { expiresIn: '15m' } // Short-lived: 15 minutes
+    );
+}
+/**
+ * Verify and decode staff JWT token
+ */
+function verifyStaffToken(token) {
+    return jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
 }
 /**
  * Validate device API key from Authorization header (HTTP API)

@@ -3,11 +3,11 @@ import { SignalRGateway } from '../signalr';
 import jwt from 'jsonwebtoken';
 
 /**
- * Azure Function for sending SignalR messages with JWT authentication
- * This function allows authenticated users to send real-time messages
+ * Azure Function for sending SignalR messages with App JWT authentication
+ * This function validates App JWT tokens (signed by our backend) and allows authenticated users to send real-time messages
  */
 export async function sendMessage(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-  context.log('SignalR sendMessage function processing request with JWT authentication.');
+  context.log('SignalR sendMessage function processing request with App JWT authentication.');
 
   try {
     // Extract Bearer token from Authorization header
@@ -26,27 +26,27 @@ export async function sendMessage(request: HttpRequest, context: InvocationConte
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
-    // Validate JWT token
+    // Validate App JWT token
     let jwtPayload;
     try {
-      jwtPayload = jwt.decode(token) as any;
+      // Verify App JWT token with our JWT_SECRET
+      jwtPayload = jwt.verify(token, process.env.JWT_SECRET!) as any;
       
       if (!jwtPayload || typeof jwtPayload !== 'object') {
         throw new Error('Invalid token format');
       }
 
-      // Validate required Azure AD claims
-      if (!jwtPayload.sub || !jwtPayload.iss) {
-        throw new Error('Missing required claims (sub, iss)');
+      // Validate required App JWT claims
+      if (!jwtPayload.sub || !jwtPayload.typ) {
+        throw new Error('Missing required claims (sub, typ)');
       }
 
-      // Validate token expiration
-      const now = Math.floor(Date.now() / 1000);
-      if (jwtPayload.exp && jwtPayload.exp < now) {
-        throw new Error('Token has expired');
+      // Validate token type (should be 'staff' or 'device')
+      if (!['staff', 'device'].includes(jwtPayload.typ)) {
+        throw new Error(`Invalid token type. Expected 'staff' or 'device', got: ${jwtPayload.typ}`);
       }
 
-      context.log(`JWT validated for user: ${jwtPayload.sub}`);
+      context.log(`App JWT validated for user: ${jwtPayload.sub}, type: ${jwtPayload.typ}`);
 
     } catch (error) {
       context.log('ERROR: JWT validation failed:', error);
@@ -54,7 +54,7 @@ export async function sendMessage(request: HttpRequest, context: InvocationConte
         status: 401,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          error: 'Invalid JWT token',
+          error: 'Invalid App JWT token',
           message: error instanceof Error ? error.message : 'Token validation failed'
         })
       };

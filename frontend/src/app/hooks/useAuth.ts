@@ -2,9 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { AuthAPI, User } from "../lib/api";
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
-
-
 
 export default function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -14,43 +11,35 @@ export default function useAuth() {
     let mounted = true;
     (async () => {
       try {
-        // First check if we have a stored token and user
-        const accessToken = localStorage.getItem('access_token');
-        const storedUser = localStorage.getItem('user');
+        // Check if we have an App JWT
+        const appJwt = localStorage.getItem('appJwt');
         
-        if (accessToken && storedUser) {
+        if (appJwt) {
           try {
-            const userData = JSON.parse(storedUser);
-            // Validate token by calling /auth/me
-            const meResponse = await fetch(`${API_BASE}/auth/me`, {
-              headers: {
-                'Authorization': `Bearer ${accessToken}`
-              }
-            });
-
-            if (meResponse.ok) {
-              const data = await meResponse.json();
-              if (data.user && mounted) {
-                setUser({
-                  id: data.user.staffId || userData.staffId,
-                  email: data.user.email || userData.email,
-                  username: data.user.name || userData.name,
-                  role: data.user.role || userData.role,
-                });
-                setBooting(false);
-                return;
-              }
-            } else {
-              // Token is invalid, clear stored data
-              localStorage.removeItem('access_token');
-              localStorage.removeItem('token_type');
-              localStorage.removeItem('user');
+            // Validate App JWT by calling /auth/me through our API layer
+            const response = await AuthAPI.me();
+            
+            if (response.user && mounted) {
+              setUser({
+                id: response.user.id,
+                email: response.user.email,
+                username: response.user.name,
+                role: response.user.role as 'ADMIN' | 'STAFF',
+              });
+              setBooting(false);
+              return;
             }
-          } catch (parseError) {
-            console.warn('Failed to parse stored user data:', parseError);
-            localStorage.removeItem('user');
+          } catch (error) {
+            console.warn('App JWT validation failed:', error);
+            // Clear invalid App JWT
+            localStorage.removeItem('appJwt');
           }
         }
+
+        // Clean up any old token storage patterns
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('token_type');
+        localStorage.removeItem('user');
 
         if (mounted) {
           setUser(null);
@@ -89,6 +78,8 @@ export default function useAuth() {
     } catch (e) {
       console.error('Logout error:', e);
     } finally {
+      // Clear App JWT and user state
+      localStorage.removeItem('appJwt');
       setUser(null);
       window.location.href = '/login';
     }

@@ -301,11 +301,11 @@ export function getDashboardSignalR(): SignalRService {
   if (!dashboardSignalR) {
     // Use Azure Functions API URL for SignalR negotiation
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7071';
-    const accessToken = localStorage.getItem('access_token');
+    const appJwt = localStorage.getItem('appJwt');
     
     dashboardSignalR = new SignalRService({
       url: apiUrl,
-      accessToken: accessToken || undefined,
+      accessToken: appJwt || undefined,
       automaticReconnect: true,
       logLevel: process.env.NODE_ENV === 'development' ? LogLevel.Debug : LogLevel.Information
     });

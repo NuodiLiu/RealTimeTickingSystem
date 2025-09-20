@@ -1,17 +1,23 @@
 // src/lib/api.ts
+import { getApiBaseUrl } from './env-utils';
 
-// Config
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7071";
+// Config - Dynamic API base URL based on environment
+const API_BASE = getApiBaseUrl();
 
 // Helper to join URL segments safely
 const join = (base: string, path: string) => `${base.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
 
-// Function to get access token from MSAL context
-let getAccessToken: (() => Promise<string | null>) | null = null;
+// Function to get App JWT from localStorage
+function getAppJwt(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('appJwt');
+}
 
-export const setAccessTokenProvider = (provider: () => Promise<string | null>) => {
-  getAccessToken = provider;
-}; 
+// Function to clear App JWT from localStorage
+function clearAppJwt(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('appJwt');
+} 
 export type InviteRole = "staff" | "admin";
 
 export interface CreateInviteReq { email: string; role?: InviteRole }
@@ -240,14 +246,13 @@ async function baseFetch<T>(path: string, init?: RequestInit & { skipRefreshRetr
   const url = join(API_BASE, path);
   
   try {
-    // Get access token from MSAL
-    const accessToken = getAccessToken ? await getAccessToken() : null;
+    // Get App JWT from localStorage
+    const appJwt = getAppJwt();
     
     console.log('API Request Debug:', {
       url,
-      hasGetAccessToken: !!getAccessToken,
-      accessToken: accessToken ? `${accessToken.substring(0, 20)}...` : null,
-      accessTokenLength: accessToken?.length
+      hasAppJwt: !!appJwt,
+      appJwtLength: appJwt?.length
     });
     
     const headers: Record<string, string> = {
@@ -255,12 +260,12 @@ async function baseFetch<T>(path: string, init?: RequestInit & { skipRefreshRetr
       ...(init?.headers as Record<string, string> || {}),
     };
 
-    // Add Authorization header if we have a token
-    if (accessToken) {
-      headers.Authorization = `Bearer ${accessToken}`;
-      console.log('Authorization header set with token');
+    // Add Authorization header if we have an App JWT
+    if (appJwt) {
+      headers.Authorization = `Bearer ${appJwt}`;
+      console.log('Authorization header set with App JWT');
     } else {
-      console.warn('No access token available for API request');
+      console.warn('No App JWT available for API request');
     }
 
     const res = await fetchWithTimeout(url, {
@@ -304,11 +309,46 @@ async function handle401Refresh() {
 
   isRefreshing = true;
   try {
-    // In Azure AD + MSAL environment, token refresh is handled by MSAL
-    // We just need to trigger a new token acquisition
-    if (getAccessToken) {
-      await getAccessToken(); // This will trigger MSAL's automatic token refresh
+    // Use the refresh endpoint with HttpOnly cookie
+    const response = await fetch(join(API_BASE, '/auth/refresh'), {
+      method: 'POST',
+      credentials: 'include', // Include HttpOnly cookies
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const newAppJwt = data.accessToken;
+      
+      if (newAppJwt) {
+        // Store new App JWT
+        localStorage.setItem('appJwt', newAppJwt);
+        console.log('App JWT refreshed successfully');
+      } else {
+        throw new Error('No access token in refresh response');
+      }
+    } else {
+      // Refresh failed - clear tokens and redirect to login
+      console.warn('Token refresh failed:', response.status);
+      clearAppJwt();
+      
+      // Only redirect if we're not already on the login page
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login?error=session_expired';
+      }
+      throw new Error('Token refresh failed');
     }
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    clearAppJwt();
+    
+    // Only redirect if we're not already on the login page
+    if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+      window.location.href = '/login?error=session_expired';
+    }
+    throw error;
   } finally {
     isRefreshing = false;
     pending401Queue.forEach((fn) => fn());

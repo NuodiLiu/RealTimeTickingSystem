@@ -4,4 +4,9 @@ export declare const authParams: {
     redirectUri: string;
     scopes: string[];
 };
+export declare const urls: {
+    baseUrl: string;
+    frontendUrl: string;
+    isProduction: boolean;
+};
 //# sourceMappingURL=azure.d.ts.map

@@ -27,15 +27,46 @@ export function createExpressApp(): express.Application {
   // Trust proxies - Azure Functions behind load balancer
   app.set("trust proxy", 1);
   
-  // Enhanced CORS configuration for Azure Functions - no credentials needed for Bearer auth
+  // Enhanced CORS configuration for multi-domain support and HTTPS
   const corsOptions: cors.CorsOptions = {
     origin: (origin, callback) => {
-      // Allow requests from configured frontend URL
-      const allowedOrigins = [
-        process.env.FRONTEND_URL || "http://localhost:3001",
-        // Add Azure Static Web Apps domains if needed
-        process.env.ADDITIONAL_CORS_ORIGINS?.split(',') || []
-      ].flat().filter(Boolean);
+      // Build allowed origins based on environment
+      const allowedOrigins = [];
+      
+      if (process.env.NODE_ENV === 'production') {
+        // Production HTTPS domains
+        allowedOrigins.push(
+          'https://ticketing-system.com',
+          'https://www.ticketing-system.com',
+          'https://api.ticketing-system.com'
+        );
+        
+        // Additional production origins from env
+        if (process.env.ALLOWED_ORIGINS) {
+          allowedOrigins.push(...process.env.ALLOWED_ORIGINS.split(','));
+        }
+      } else {
+        // Development domains - include HTTPS proxy and dual domains
+        allowedOrigins.push(
+          // HTTP origins (直接访问)
+          'http://localhost:3001',
+          'http://localhost:3000',
+          'http://127.0.0.1:3001',
+          'http://127.0.0.1:3000',
+          // HTTPS proxy origins (旧配置)
+          'https://localhost:8443',
+          'https://127.0.0.1:8443',
+          // nginx双域名代理 (新配置)
+          'https://api.localhost',
+          'https://app.localhost'
+        );
+      }
+      
+      // Add configured frontend URL
+      const frontendUrl = process.env.FRONTEND_URL;
+      if (frontendUrl && !allowedOrigins.includes(frontendUrl)) {
+        allowedOrigins.push(frontendUrl);
+      }
       
       // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) return callback(null, true);
@@ -43,7 +74,7 @@ export function createExpressApp(): express.Application {
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.warn(`CORS blocked origin: ${origin}`);
+        console.warn(`CORS blocked origin: ${origin}. Allowed: ${allowedOrigins.join(', ')}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
