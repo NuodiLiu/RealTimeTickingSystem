@@ -150,18 +150,16 @@ export default function useQueue(userId?: string) {
 
     // Connect to SignalR
     signalR.connect(userId).then(() => {
-      console.log('SignalR connected for real-time updates');
+      console.log('✅ useQueue: SignalR connected for real-time updates');
     }).catch((error) => {
-      console.error('SignalR connection error:', error);
+      console.error('❌ useQueue: SignalR connection error:', error);
+      console.log('🔍 useQueue: Current JWT:', localStorage.getItem('appJwt') ? 'Present' : 'Missing');
+      console.log('🔍 useQueue: Will rely on manual refresh until SignalR is fixed');
     });
 
-    // Set up periodic refresh as fallback
-    const intervalId = setInterval(load, 10000); 
-
     return () => {
-      console.log('Cleaning up SignalR and interval...');
+      console.log('Cleaning up SignalR subscriptions...');
       unsubscribe();
-      clearInterval(intervalId);
       // Note: We don't disconnect SignalR here as it's a singleton
       // and might be used by other components
     };

@@ -12,6 +12,7 @@ import ExcelExportModal from "../components/ExcelExport/ExcelExportModal";
 import { useAuthStore } from "../stores/authStore";
 import useQueue from "../hooks/useQueue";
 import useDevices from "../hooks/useDevices";
+import { useAutoRefreshToken } from "../hooks/useAutoRefreshToken";
 import { FeedbackAPI, HealthAPI } from "../lib/api";
 import { 
   isCasePendingFeedback,
@@ -26,6 +27,9 @@ function DashboardContent() {
   console.log('[DashboardPage] Dashboard page loading...');
   const { user, isLoading, logout } = useAuthStore();
   console.log('[DashboardPage] Auth state:', { user: !!user, isLoading, userId: user?.id });
+  
+  // Enable automatic JWT token refresh
+  useAutoRefreshToken();
   
   const { queued, myActive, loading, take, takeNext, resolve, escalate, reload } = useQueue(user?.id);
   const { feedbackDevices, reload: reloadDevices } = useDevices();

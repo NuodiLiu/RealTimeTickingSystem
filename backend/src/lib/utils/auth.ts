@@ -65,7 +65,7 @@ export function signStaffToken(staffData: {
       email: staffData.email,
     } as StaffJwtPayload,
     process.env.JWT_SECRET!,
-    { expiresIn: '15m' } // Short-lived: 15 minutes
+    { expiresIn: '2h' } // Extended: 2 hours for development
   );
 }
 

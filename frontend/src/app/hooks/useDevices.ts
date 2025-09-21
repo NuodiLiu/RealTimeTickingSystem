@@ -131,7 +131,7 @@ export default function useDevices() {
         case 'device:paired':
         case 'device:unpaired':
         case 'device:mode_changed':
-          console.log(`Device structural change [${event.type}], reloading devices...`);
+          console.log(`🔄 Device structural change [${event.type}], reloading devices...`, event.payload);
           loadDevices();
           break;
 
@@ -154,23 +154,21 @@ export default function useDevices() {
 
     // Connect to SignalR
     signalR.connect().then(() => {
-      console.log('useDevices: SignalR connected for device updates');
+      console.log('✅ useDevices: SignalR connected for device updates');
     }).catch((error) => {
-      console.error('useDevices: SignalR connection error:', error);
+      console.error('❌ useDevices: SignalR connection error:', error);
+      console.log('🔍 useDevices: Current JWT:', localStorage.getItem('appJwt') ? 'Present' : 'Missing');
+      console.log('🔍 useDevices: Will rely on manual refresh until SignalR is fixed');
     });
 
-    // periodic refresh as fallback 
-    const intervalId = setInterval(loadDevices, 30000); 
-
     return () => {
-      console.log('Cleaning up device SignalR subscriptions and interval...');
+      console.log('Cleaning up device SignalR subscriptions...');
       unsubscribeDevice();
       unsubscribeStatus();
       unsubscribeOnline();
       unsubscribePaired();
       unsubscribeUnpaired();
       unsubscribeModeChanged();
-      clearInterval(intervalId);
       // Note: We don't disconnect SignalR here as it's a singleton
     };
   }, [loadDevices, updateDevice]);
