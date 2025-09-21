@@ -17,6 +17,7 @@ declare class AzureSignalRServiceConfig implements SignalRConfig {
     private accessKey;
     constructor();
     private get hmacKey();
+    private get baseEndpoint();
     private parseConnectionString;
     private buildClientToken;
     private buildServerToken;

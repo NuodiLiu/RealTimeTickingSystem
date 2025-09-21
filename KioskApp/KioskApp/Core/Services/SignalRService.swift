@@ -364,6 +364,7 @@ final class SignalRService {
             await connection.on("unpaired") { @Sendable (_: [Any]) in
                 print("SignalRService: unpaired received from server")
                 Task { @MainActor in
+                    print("SignalRService: Calling gatewayDeviceUnpaired on MainActor")
                     delegate?.gatewayDeviceUnpaired()
                 }
             }

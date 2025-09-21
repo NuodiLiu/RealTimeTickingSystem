@@ -59,11 +59,18 @@ final class GatewayCenter: ObservableObject, DeviceGatewayDelegate {
     
     func gatewayDeviceUnpaired() {
         print("GatewayCenter: Device unpaired by server - setting deviceUnpaired = true")
-        deviceUnpaired = true
+        print("GatewayCenter: Current thread: \(Thread.isMainThread ? "main" : "background")")
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            print("GatewayCenter: Resetting deviceUnpaired flag")
-            self.deviceUnpaired = false
+        // Ensure UI updates happen immediately on main thread
+        DispatchQueue.main.async {
+            print("GatewayCenter: Setting deviceUnpaired = true on main thread")
+            self.deviceUnpaired = true
+            
+            // Reset the flag after a short delay to allow RootViewModel to process the event
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                print("GatewayCenter: Resetting deviceUnpaired flag")
+                self.deviceUnpaired = false
+            }
         }
     }
 }

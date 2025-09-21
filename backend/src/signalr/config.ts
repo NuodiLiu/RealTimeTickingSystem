@@ -45,6 +45,14 @@ class AzureSignalRServiceConfig implements SignalRConfig {
     return this.accessKey; // Use Base64 string directly
   }
 
+  // 🎯 CRITICAL: Get base endpoint URL for REST API calls
+  // this.endpoint is like: https://ticketing-system.service.signalr.net/client/?hub=realtimeticket
+  // We need: https://ticketing-system.service.signalr.net
+  private get baseEndpoint(): string {
+    const endpointUrl = new URL(this.endpoint);
+    return `${endpointUrl.protocol}//${endpointUrl.host}`;
+  }
+
   private parseConnectionString(connectionString: string): { endpoint: string; accessKey: string } {
     console.log('🔍 [SignalR Config] Parsing connection string...');
     console.log('🔍 [SignalR Config] Connection string length:', connectionString?.length || 0);
@@ -145,15 +153,30 @@ class AzureSignalRServiceConfig implements SignalRConfig {
     return token;
   }
 
-  // Generate server token for REST API calls (sendToUser, sendToGroup, etc.)
-  private buildServerToken(): string {
-    console.log('� [SignalR Config] Generating SERVER access token for REST API');
+  // Generate server token for REST API calls with specific resource path
+  private buildServerToken(resourcePath: string = ''): string {
+    console.log('🔐 [SignalR Config] Generating SERVER access token for REST API');
+    console.log('🔐 [SignalR Config] Resource path:', resourcePath);
     
     const now = Math.floor(Date.now() / 1000);
     const exp = now + (60 * 10); // 10 minutes (shorter for server tokens)
     
-    // SERVER audience: https://<service>.service.signalr.net/api/v1/hubs/<hubName>
-    const audience = `${this.endpoint.replace(/\/+$/, '')}/api/v1/hubs/${this.hubName}`;
+    // 🎯 CRITICAL FIX: Get base URL from endpoint (remove client path)
+    const baseEndpoint = this.baseEndpoint;
+    
+    // 🎯 CRITICAL: Use specific resource path for audience
+    // For sendToUser: https://<service>.service.signalr.net/api/v1/hubs/<hubName>/users/<userId>
+    // For sendToGroup: https://<service>.service.signalr.net/api/v1/hubs/<hubName>/groups/<group>
+    // For broadcast: https://<service>.service.signalr.net/api/v1/hubs/<hubName>
+    const basePath = `${baseEndpoint}/api/v1/hubs/${this.hubName}`;
+    const audience = resourcePath ? `${basePath}${resourcePath}` : basePath;
+    
+    console.log('🚨 [DEBUG] Server token audience construction:');
+    console.log('🚨 [DEBUG] - Raw endpoint:', this.endpoint);
+    console.log('🚨 [DEBUG] - Base endpoint:', baseEndpoint);
+    console.log('🚨 [DEBUG] - Hub name:', this.hubName);
+    console.log('🚨 [DEBUG] - Resource path:', resourcePath);
+    console.log('🚨 [DEBUG] - Final audience:', audience);
     
     const payload = {
       aud: audience,
@@ -217,8 +240,8 @@ class AzureSignalRServiceConfig implements SignalRConfig {
     // Broadcast to all connected users instead of using groups
     try {
       // Use the correct endpoint for broadcasting to all connections
-      const url = `${this.endpoint}/api/v1/hubs/${this.hubName}`;
-      const token = this.buildServerToken(); // Use server token for REST API
+      const url = `${this.baseEndpoint}/api/v1/hubs/${this.hubName}`;
+      const token = this.buildServerToken(); // Use server token for REST API (broadcast to all)
 
       // Format message for Azure SignalR Service REST API
       // The correct format for sending to all clients
@@ -257,8 +280,8 @@ class AzureSignalRServiceConfig implements SignalRConfig {
 
   async sendToGroup(group: string, message: any): Promise<void> {
     try {
-      const url = `${this.endpoint}/api/v1/hubs/${this.hubName}/groups/${group}`;
-      const token = this.buildServerToken(); // Use server token for REST API
+      const url = `${this.baseEndpoint}/api/v1/hubs/${this.hubName}/groups/${group}`;
+      const token = this.buildServerToken(`/groups/${group}`); // Use server token for REST API (send to group)
 
       const response = await fetch(url, {
         method: 'POST',
@@ -282,8 +305,52 @@ class AzureSignalRServiceConfig implements SignalRConfig {
 
   async sendToUser(userId: string, message: any): Promise<void> {
     try {
-      const url = `${this.endpoint}/api/v1/hubs/${this.hubName}/users/${userId}`;
-      const token = this.buildServerToken(); // Use server token for REST API
+      const url = `${this.baseEndpoint}/api/v1/hubs/${this.hubName}/users/${userId}`;
+      const token = this.buildServerToken(`/users/${userId}`); // Use server token for REST API (send to user)
+
+      // 🎯 CRITICAL FIX: Format message properly for Azure SignalR Service
+      // Convert from {type: "SHOW_FEEDBACK", payload: {...}} to Azure SignalR format
+      let signalRMessage;
+      
+      if (message.type) {
+        // Map our internal message types to SignalR method names that iPad expects
+        const methodNameMap: { [key: string]: string } = {
+          'SHOW_FEEDBACK': 'showFeedback',
+          'DISMISS': 'dismiss', 
+          'PING': 'ping',
+          'LOCK_ASSIGNED': 'lockAssigned',
+          'MODE_CHANGED': 'modeChanged',
+          'UNPAIRED': 'unpaired'
+        };
+        
+        const methodName = methodNameMap[message.type] || message.type.toLowerCase();
+        
+        // Format for Azure SignalR Service REST API
+        signalRMessage = {
+          target: methodName,  // The method name the iPad client expects
+          arguments: message.payload ? [message.payload] : []  // Arguments array
+        };
+        
+        // 🚨 CRITICAL DEBUG: Special logging for UNPAIRED messages
+        if (message.type === 'UNPAIRED') {
+          console.log(`🚨 [UNPAIR DEBUG] Sending UNPAIRED message to device ${userId}:`);
+          console.log(`🚨 [UNPAIR DEBUG] - Original message:`, JSON.stringify(message, null, 2));
+          console.log(`🚨 [UNPAIR DEBUG] - Mapped method name: ${methodName}`);
+          console.log(`🚨 [UNPAIR DEBUG] - Final SignalR message:`, JSON.stringify(signalRMessage, null, 2));
+          console.log(`🚨 [UNPAIR DEBUG] - Target URL: ${url}`);
+        }
+        
+        console.log(`📤 [SignalR Config] Sending to device ${userId}:`, {
+          originalType: message.type,
+          signalRMethod: methodName,
+          hasPayload: !!message.payload
+        });
+      } else {
+        // Fallback for raw SignalR messages
+        signalRMessage = message;
+      }
+
+      console.log(`📤 [SignalR Config] Final SignalR message for ${userId}:`, JSON.stringify(signalRMessage, null, 2));
 
       const response = await fetch(url, {
         method: 'POST',
@@ -291,24 +358,29 @@ class AzureSignalRServiceConfig implements SignalRConfig {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(message)
+        body: JSON.stringify(signalRMessage)
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to send message to user ${userId}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error(`❌ [SignalR Config] Failed to send message to user ${userId}:`, response.status, errorText);
+        console.error(`❌ [SignalR Config] Request URL:`, url);
+        console.error(`❌ [SignalR Config] Request payload:`, JSON.stringify(signalRMessage, null, 2));
+        console.error(`❌ [SignalR Config] Response headers:`, Object.fromEntries(response.headers.entries()));
+        throw new Error(`Failed to send message to user ${userId}: ${response.statusText} - ${errorText}`);
       }
 
-      console.log(`Message sent to user ${userId}:`, message.type);
+      console.log(`✅ [SignalR Config] Message sent to user ${userId}:`, message.type || 'custom');
     } catch (error) {
-      console.error(`Failed to send message to user ${userId}:`, error);
+      console.error(`❌ [SignalR Config] Failed to send message to user ${userId}:`, error);
       throw error;
     }
   }
 
   async addUserToGroup(userId: string, group: string): Promise<void> {
     try {
-      const url = `${this.endpoint}/api/v1/hubs/${this.hubName}/groups/${group}/users/${userId}`;
-      const token = this.buildServerToken(); // Use server token for REST API
+      const url = `${this.baseEndpoint}/api/v1/hubs/${this.hubName}/groups/${group}/users/${userId}`;
+      const token = this.buildServerToken(`/groups/${group}/users/${userId}`); // Use server token for REST API (add user to group)
 
       const response = await fetch(url, {
         method: 'PUT',
@@ -331,8 +403,8 @@ class AzureSignalRServiceConfig implements SignalRConfig {
 
   async removeUserFromGroup(userId: string, group: string): Promise<void> {
     try {
-      const url = `${this.endpoint}/api/v1/hubs/${this.hubName}/groups/${group}/users/${userId}`;
-      const token = this.buildServerToken(); // Use server token for REST API
+      const url = `${this.baseEndpoint}/api/v1/hubs/${this.hubName}/groups/${group}/users/${userId}`;
+      const token = this.buildServerToken(`/groups/${group}/users/${userId}`); // Use server token for REST API (remove user from group)
 
       const response = await fetch(url, {
         method: 'DELETE',

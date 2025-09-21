@@ -60,6 +60,7 @@ final class RootViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isUnpaired in
                 print("📱 RootViewModel: deviceUnpaired changed to: \(isUnpaired)")
+                print("📱 RootViewModel: Current thread: \(Thread.isMainThread ? "main" : "background")")
                 if isUnpaired {
                     print("📱 RootViewModel: *** SERVER UNPAIR TRIGGERED *** Processing server unpair event")
                     self?.handleServerUnpair()
@@ -202,20 +203,26 @@ final class RootViewModel: ObservableObject {
         print("📱 *** HANDLING SERVER UNPAIR EVENT ***")
         print("📱 Current state - isPaired: \(isPaired), mode: \(currentMode), route: \(route)")
         
-        do {
-            try env.authProvider.clearDevice()
-            env.modeStore.clear()
-            env.signalRService.disconnect()
+        // Ensure all UI updates happen on main thread
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             
-            // 重置状态，返回配对界面
-            isPaired = false
-            currentMode = .REGISTRATION
-            route = .register
-            
-            print("📱 After server unpair - isPaired: \(isPaired), mode: \(currentMode), route: \(route)")
-            print("✅ Successfully handled server unpair - returning to pairing screen")
-        } catch {
-            print("❌ Failed to handle server unpair: \(error)")
+            do {
+                try self.env.authProvider.clearDevice()
+                self.env.modeStore.clear()
+                self.env.signalRService.disconnect()
+                
+                // 重置状态，返回配对界面
+                self.isPaired = false
+                self.currentMode = .REGISTRATION
+                self.route = .register
+                self.pendingFeedback = nil  // Clear any pending feedback
+                
+                print("📱 After server unpair - isPaired: \(self.isPaired), mode: \(self.currentMode), route: \(self.route)")
+                print("✅ Successfully handled server unpair - returning to pairing screen")
+            } catch {
+                print("❌ Failed to handle server unpair: \(error)")
+            }
         }
     }
 
