@@ -23,9 +23,14 @@ router.post('/negotiate',
       res.json({
         url: connectionInfo.url,
         accessToken: connectionInfo.accessToken,
-        // These fields are for compatibility with iOS app
+        // Legacy format for backward compatibility with frontend
         deviceId: req.device.deviceId,
-        mode: req.device.device?.mode || 'REGISTRATION' // fallback to REGISTRATION mode
+        mode: req.device.device?.mode || 'REGISTRATION',
+        // New nested format for iPad app compatibility
+        user: {
+          id: req.device.deviceId,
+          type: req.device.device?.mode || 'REGISTRATION'
+        }
       });
     } catch (error) {
       console.error('Error in SignalR negotiate:', error);

@@ -15,7 +15,7 @@ struct KioskApp: App {
 
     init() {
         let environment = AppEnvironment.shared
-        environment.gatewayCenter = GatewayCenter()
+        // gatewayCenter is already initialized in AppEnvironment with the correct signalRService
         environment.signalRService.delegate = environment.gatewayCenter
         _rootVM = StateObject(wrappedValue: RootViewModel(env: environment))
     }

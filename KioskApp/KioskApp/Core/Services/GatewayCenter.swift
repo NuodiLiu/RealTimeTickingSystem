@@ -1,75 +1,89 @@
-//
-//  GatewayCenter.swift
-//  KioskApp
-//
-//  Created by liunuodi on 9/9/2025.
-//
-
+// Core/Services/GatewayCenter.swift
 import Foundation
 import Combine
 
-final class GatewayCenter: ObservableObject, DeviceGatewayDelegate {
-    @Published var isConnected: Bool = false
-    @Published var showFeedback: FeedbackShowPayload?
-    @Published var lockAssigned: LockAssignedPayload?
-    @Published var modeChanged: DeviceMode?
-    @Published var deviceUnpaired: Bool = false
-    
-    // Keep reference to SignalR service
-    weak var signalRService: SignalRService?
-    
-    // Helper property for connection status
-    var isSignalRConnected: Bool { signalRService?.isConnected ?? false }
-    
-    // Updated connection status
-    private func updateConnectionStatus() {
-        let wasConnected = isConnected
-        isConnected = isSignalRConnected
-        
-        if wasConnected != isConnected {
-            print("GatewayCenter: Connection status changed - SignalR: \(isSignalRConnected), Overall: \(isConnected)")
+/// 将 SignalR 收到的消息转换为可订阅的 UI 事件
+final class GatewayCenter: ObservableObject, SignalRServiceDelegate {
+
+    // MARK: - 对外事件（供外部使用 $publisher 订阅）
+    @Published var modeChanged: DeviceMode?                  // 订阅：env.gatewayCenter.$modeChanged
+    @Published var showFeedback: FeedbackShowPayload?        // 订阅：env.gatewayCenter.$showFeedback
+    @Published var deviceUnpaired: Bool = false              // 订阅：env.gatewayCenter.$deviceUnpaired
+    @Published var lastPing: PingPayload?                    // 可选：最近一次 PING
+    @Published var socketConnected: Bool = false 
+
+    private let signalR: SignalRService
+
+    init(signalR: SignalRService) {
+        self.signalR = signalR
+    }
+
+    // 也可让 RootViewModel 直接调用 start/stop；你目前是在外部设置 delegate 并调用 connect()，两种都可。
+    func start() {
+        signalR.delegate = self
+        signalR.connect()
+    }
+
+    func stop() {
+        signalR.disconnect()
+    }
+
+    // MARK: - SignalRServiceDelegate
+
+    func signalRConnected() {
+        DispatchQueue.main.async {
+            self.socketConnected = true
+            print("🔌 [GatewayCenter] SignalR CONNECTED")
         }
     }
-
-    func gatewayDidConnect() { 
-        updateConnectionStatus()
-    }
-    func gatewayDidDisconnect() { 
-        updateConnectionStatus()
-    }
-
-    func gatewayShowFeedback(_ payload: FeedbackShowPayload, raw: [String : Any]) {
-        print("GatewayCenter: gatewayShowFeedback called")
-        print("GatewayCenter: Payload: \(payload)")
-        print("GatewayCenter: Setting showFeedback = payload")
-        showFeedback = payload
-    }
-
-    func gatewayDismiss() {
-        showFeedback = nil
-    }
-
-    func gatewayLockAssigned(_ payload: LockAssignedPayload, raw: [String : Any]) {
-        lockAssigned = payload
-    }
-
-    func gatewayModeChanged(_ mode: DeviceMode) {
-        modeChanged = mode
-    }
-    
-    func gatewayDeviceUnpaired() {
-        print("GatewayCenter: Device unpaired by server - setting deviceUnpaired = true")
-        print("GatewayCenter: Current thread: \(Thread.isMainThread ? "main" : "background")")
-        
-        // Ensure UI updates happen immediately on main thread
+    func signalRDisconnected() {
         DispatchQueue.main.async {
-            print("GatewayCenter: Setting deviceUnpaired = true on main thread")
-            self.deviceUnpaired = true
-            
-            // Reset the flag after a short delay to allow RootViewModel to process the event
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                print("GatewayCenter: Resetting deviceUnpaired flag")
-                self.deviceUnpaired = false
+            self.socketConnected = false
+            print("🔌 [GatewayCenter] SignalR DISCONNECTED")
+        }
+    }
+    func signalRReconnected() {
+        DispatchQueue.main.async {
+            self.socketConnected = true
+            print("🔌 [GatewayCenter] SignalR RECONNECTED")
+        }
+    }
+    func signalRError(_ error: Error) {
+        print("❌ [GatewayCenter] SignalR ERROR:", error)
+    }
+
+    /// 收到服务端 Envelope（{type, payload}）
+    func signalRReceived(_ envelope: ServerEnvelope) {
+        DispatchQueue.main.async {
+            switch envelope.type {
+            case "SHOW_FEEDBACK":
+                if let p = try? envelope.payload?.decodePayload(as: FeedbackShowPayload.self) {
+                    self.showFeedback = p
+                }
+
+            case "DISMISS":
+                // 清除当前展示
+                self.showFeedback = nil
+
+            case "PING":
+                let p = try? envelope.payload?.decodePayload(as: PingPayload.self)
+                self.lastPing = p
+
+            case "MODE_CHANGED":
+                if let m = try? envelope.payload?.decodePayload(as: ModeChangedPayload.self) {
+                    self.modeChanged = m.mode
+                }
+
+            case "UNPAIRED":
+                self.deviceUnpaired = true
+
+            case "LOCK_ASSIGNED":
+                // 如有需要，这里也可以发布一个 @Published 事件
+                break
+
+            default:
+                // 未知类型，忽略或记录
+                break
             }
         }
     }

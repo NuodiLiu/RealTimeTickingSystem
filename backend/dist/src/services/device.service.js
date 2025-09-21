@@ -314,19 +314,30 @@ class DeviceService {
                 },
             });
         });
-        // notify iPad client to unpair (if online)
+        // 🎯 CRITICAL: Send unpair message to BOTH iPad device AND all dashboards
+        console.log(`🔄 [Device Unpair] Sending unpair notifications for device: ${deviceId}`);
+        // 1. Notify the specific iPad device that it's been unpaired
         try {
-            signalr_1.SignalRGateway.unpairDevice(deviceId);
+            console.log(`📱 [Device Unpair] Sending UNPAIRED message to iPad device: ${deviceId}`);
+            const deviceUnpairResult = await signalr_1.SignalRGateway.unpairDevice(deviceId);
+            console.log(`📱 [Device Unpair] iPad notification result: ${deviceUnpairResult ? 'SUCCESS' : 'FAILED'}`);
         }
-        catch {
-            // ignore
+        catch (error) {
+            console.error(`❌ [Device Unpair] Failed to notify iPad device ${deviceId}:`, error);
         }
-        ;
-        // Real-time update: Notify dashboard about the unpair
-        signalr_1.SignalRGateway.notifyDashboard({
-            type: "device:unpaired",
-            payload: { deviceId }
-        });
+        // 2. Notify all dashboards about the device unpair
+        try {
+            console.log(`🖥️ [Device Unpair] Broadcasting device:unpaired to all dashboards for device: ${deviceId}`);
+            await signalr_1.SignalRGateway.notifyDashboard({
+                type: "device:unpaired",
+                payload: { deviceId }
+            });
+            console.log(`🖥️ [Device Unpair] Dashboard broadcast completed successfully`);
+        }
+        catch (error) {
+            console.error(`❌ [Device Unpair] Failed to notify dashboards about device ${deviceId}:`, error);
+        }
+        console.log(`✅ [Device Unpair] All unpair notifications sent for device: ${deviceId}`);
     }
     static async checkPairingStatus(deviceId) {
         const device = await prisma_1.prisma.kioskDevice.findUnique({

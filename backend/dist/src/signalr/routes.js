@@ -8,7 +8,7 @@ const auth_1 = require("./auth");
 const router = (0, express_1.Router)();
 // Standard SignalR negotiate endpoint for devices
 router.post('/negotiate', auth_middleware_1.requireDevice, async (req, res) => {
-    var _a;
+    var _a, _b;
     try {
         if (!req.device) {
             return res.status(401).json({ error: 'Device authentication required' });
@@ -19,9 +19,14 @@ router.post('/negotiate', auth_middleware_1.requireDevice, async (req, res) => {
         res.json({
             url: connectionInfo.url,
             accessToken: connectionInfo.accessToken,
-            // These fields are for compatibility with iOS app
+            // Legacy format for backward compatibility with frontend
             deviceId: req.device.deviceId,
-            mode: ((_a = req.device.device) === null || _a === void 0 ? void 0 : _a.mode) || 'REGISTRATION' // fallback to REGISTRATION mode
+            mode: ((_a = req.device.device) === null || _a === void 0 ? void 0 : _a.mode) || 'REGISTRATION',
+            // New nested format for iPad app compatibility
+            user: {
+                id: req.device.deviceId,
+                type: ((_b = req.device.device) === null || _b === void 0 ? void 0 : _b.mode) || 'REGISTRATION'
+            }
         });
     }
     catch (error) {

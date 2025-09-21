@@ -59,11 +59,14 @@ final class RootViewModel: ObservableObject {
         env.gatewayCenter.$deviceUnpaired
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isUnpaired in
-                print("📱 RootViewModel: deviceUnpaired changed to: \(isUnpaired)")
-                print("📱 RootViewModel: Current thread: \(Thread.isMainThread ? "main" : "background")")
+                print("� [CRITICAL] RootViewModel: *** DEVICE UNPAIRED CHANGED *** to: \(isUnpaired)")
+                print("� [CRITICAL] RootViewModel: Current thread: \(Thread.isMainThread ? "main" : "background")")
+                print("🚨 [CRITICAL] RootViewModel: Current state - isPaired: \(self?.isPaired ?? false), route: \(self?.route ?? .register)")
                 if isUnpaired {
-                    print("📱 RootViewModel: *** SERVER UNPAIR TRIGGERED *** Processing server unpair event")
+                    print("� [CRITICAL] RootViewModel: *** SERVER UNPAIR TRIGGERED *** Processing server unpair event")
                     self?.handleServerUnpair()
+                } else {
+                    print("🚨 [CRITICAL] RootViewModel: Device unpaired flag reset to false - no action taken")
                 }
             }.store(in: &bag)
         
@@ -171,18 +174,20 @@ final class RootViewModel: ObservableObject {
     
     // 手动触发的 unpair（目前没有UI）
     func unpairDevice() {
-        do {
-            try env.authProvider.clearDevice()
-            env.modeStore.clear()
-            env.signalRService.disconnect()
-            
-            isPaired = false
-            currentMode = .REGISTRATION
-            route = .register
-            
-            print("📱 Device unpaired successfully")
-        } catch {
-            print("❌ Failed to unpair device: \(error)")
+        Task { @MainActor in
+            do {
+                try env.authProvider.clearDevice()
+                env.modeStore.clear()
+                env.signalRService.disconnect()
+                
+                isPaired = false
+                currentMode = .REGISTRATION
+                route = .register
+                
+                print("📱 Device unpaired successfully")
+            } catch {
+                print("❌ Failed to unpair device: \(error)")
+            }
         }
     }
     
@@ -200,28 +205,41 @@ final class RootViewModel: ObservableObject {
     
     // 处理服务器发送的 unpair 事件
     private func handleServerUnpair() {
-        print("📱 *** HANDLING SERVER UNPAIR EVENT ***")
-        print("📱 Current state - isPaired: \(isPaired), mode: \(currentMode), route: \(route)")
+        print("� [CRITICAL] *** HANDLING SERVER UNPAIR EVENT ***")
+        print("� [CRITICAL] Current state - isPaired: \(isPaired), mode: \(currentMode), route: \(route)")
+        print("🚨 [CRITICAL] Current thread: \(Thread.isMainThread ? "main" : "background")")
         
         // Ensure all UI updates happen on main thread
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
+            guard let self else { 
+                print("🚨 [CRITICAL] Self is nil in handleServerUnpair!")
+                return 
+            }
+            
+            print("🚨 [CRITICAL] About to clear device credentials...")
             
             do {
                 try self.env.authProvider.clearDevice()
+                print("🚨 [CRITICAL] Device credentials cleared successfully")
+                
                 self.env.modeStore.clear()
+                print("🚨 [CRITICAL] Mode store cleared")
+                
                 self.env.signalRService.disconnect()
+                print("🚨 [CRITICAL] SignalR service disconnected")
                 
                 // 重置状态，返回配对界面
+                print("🚨 [CRITICAL] BEFORE state change - isPaired: \(self.isPaired), mode: \(self.currentMode), route: \(self.route)")
+                
                 self.isPaired = false
                 self.currentMode = .REGISTRATION
                 self.route = .register
                 self.pendingFeedback = nil  // Clear any pending feedback
                 
-                print("📱 After server unpair - isPaired: \(self.isPaired), mode: \(self.currentMode), route: \(self.route)")
-                print("✅ Successfully handled server unpair - returning to pairing screen")
+                print("� [CRITICAL] AFTER state change - isPaired: \(self.isPaired), mode: \(self.currentMode), route: \(self.route)")
+                print("🚨 [CRITICAL] ✅ Successfully handled server unpair - should return to pairing screen")
             } catch {
-                print("❌ Failed to handle server unpair: \(error)")
+                print("🚨 [CRITICAL] ❌ Failed to handle server unpair: \(error)")
             }
         }
     }

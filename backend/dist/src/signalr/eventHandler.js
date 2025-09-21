@@ -8,8 +8,8 @@ class SignalREventHandler {
     async handleDeviceConnect(deviceId, connectionId, mode) {
         try {
             console.log(`Device ${deviceId} connecting to SignalR with mode ${mode}`);
-            // Add device to groups
-            await client_1.signalRClient.addDeviceToGroups(deviceId, connectionId, mode);
+            // In userId mode, no group management needed - device is identified by userId (deviceId)
+            console.log(`Device ${deviceId} identified by userId - no group management needed`);
             // Update device status in database
             await prisma_1.prisma.kioskDevice.upsert({
                 where: { id: deviceId },
@@ -40,15 +40,8 @@ class SignalREventHandler {
     async handleDeviceDisconnect(deviceId, connectionId) {
         try {
             console.log(`Device ${deviceId} disconnecting from SignalR`);
-            // Get device info from database to know the mode
-            const device = await prisma_1.prisma.kioskDevice.findUnique({
-                where: { id: deviceId },
-                select: { mode: true }
-            });
-            if (device) {
-                // Remove from groups
-                await client_1.signalRClient.removeDeviceFromGroups(deviceId, connectionId, device.mode);
-            }
+            // In userId mode, no group management needed
+            console.log(`Device ${deviceId} disconnected - no group management needed in userId mode`);
             // Update device status in database
             await prisma_1.prisma.kioskDevice.update({
                 where: { id: deviceId },
@@ -71,8 +64,8 @@ class SignalREventHandler {
     async handleDashboardConnect(connectionId, userId) {
         try {
             console.log(`Dashboard connecting to SignalR`, { connectionId, userId });
-            // Add dashboard to group
-            await client_1.signalRClient.addDashboardToGroup(connectionId);
+            // In userId mode, no group management needed
+            console.log(`Dashboard connected - no group management needed in userId mode`);
             // Send current device statuses
             const devices = await prisma_1.prisma.kioskDevice.findMany({
                 select: {
@@ -107,8 +100,8 @@ class SignalREventHandler {
     async handleDashboardDisconnect(connectionId) {
         try {
             console.log(`Dashboard disconnecting from SignalR`, { connectionId });
-            // Remove dashboard from group
-            await client_1.signalRClient.removeDashboardFromGroup(connectionId);
+            // In userId mode, no group management needed
+            console.log(`Dashboard disconnected - no group management needed in userId mode`);
             console.log(`Dashboard successfully disconnected from SignalR`);
         }
         catch (error) {

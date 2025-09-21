@@ -36,11 +36,11 @@ final class FeedbackViewModel: ObservableObject {
 
     // MARK: - Lifecycle Hooks
     /// Called when the view appears: ACK upstream, report status heartbeat, etc.
-    func onAppear() {
+    func onAppear() async {
         if let payload = pendingPayload {
-            env.signalRService.sendDelivered(sessionId: payload.sessionId)
+            try? await env.signalRService.sendDelivered(sessionId: payload.sessionId)
         }
-        env.signalRService.sendStatusPing()
+        try? await env.signalRService.sendStatusPing()
     }
 
     // MARK: - Validation
@@ -72,20 +72,20 @@ final class FeedbackViewModel: ObservableObject {
                 text: text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
             )
             submitted = true
-            env.signalRService.sendStatusPing()
+            try? await env.signalRService.sendStatusPing()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
     
     // MARK: - cancel
-    func cancel() {
+    func cancel() async {
         guard let sessionId = pendingPayload?.sessionId else {
             print("FeedbackViewModel: No sessionId to cancel")
             return
         }
 
         print("FeedbackViewModel: Sending FEEDBACK_CANCELLED for session \(sessionId)")
-        env.signalRService.sendFeedbackCancelled(sessionId: sessionId)
+        try? await env.signalRService.sendFeedbackCancelled(sessionId: sessionId)
     }
 }

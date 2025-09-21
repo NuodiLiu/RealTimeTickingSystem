@@ -1,4 +1,3 @@
-// Core/AppEnvironment.swift
 import Foundation
 
 final class AppEnvironment {
@@ -12,15 +11,15 @@ final class AppEnvironment {
     let casesAPI: CasesAPI
     let feedbackAPI: FeedbackAPI
     let signalRService: SignalRService
+    let gatewayCenter: GatewayCenter
     let modeStore = DeviceModeStore()
-    var gatewayCenter = GatewayCenter()
-    
+
     private init() {
-        // 优先使用xcconfig配置，fallback到localhost
-        let apiString = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String 
-            ?? Bundle.main.object(forInfoDictionaryKey: "INFOPLIST_KEY_API_BASE_URL") as? String 
+        // 优先使用 xcconfig 配置，fallback 到 localhost
+        let apiString = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "INFOPLIST_KEY_API_BASE_URL") as? String
             ?? "https://api.localhost/api/app"
-        
+
         print("AppEnvironment: All Info.plist keys:", Bundle.main.infoDictionary?.keys.sorted() ?? [])
         print("AppEnvironment: API_BASE_URL from Bundle: \(Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") ?? "nil")")
         print("AppEnvironment: INFOPLIST_KEY_API_BASE_URL from Bundle: \(Bundle.main.object(forInfoDictionaryKey: "INFOPLIST_KEY_API_BASE_URL") ?? "nil")")
@@ -32,13 +31,16 @@ final class AppEnvironment {
         let keychain = KeychainStore(service: "com.yourorg.kiosk")
         let auth = DeviceAuthProvider(keychain: keychain)
         self.authProvider = auth
-        self.apiClient = ApiClient(baseURL: apiURL, authProvider: auth)
 
+        self.apiClient = ApiClient(baseURL: apiURL, authProvider: auth)
         self.pairAPI = PairAPI(client: apiClient)
         self.casesAPI = CasesAPI(client: apiClient)
         self.feedbackAPI = FeedbackAPI(client: apiClient)
 
-        self.signalRService = SignalRService(apiBaseURL: apiURL, authProvider: auth, apiClient: apiClient)
-        
+        // ✅ 使用实际存在的初始化签名
+        self.signalRService = SignalRService(apiClient: apiClient, authProvider: auth)
+
+        // ✅ 这里才能安全地用 signalRService 去构造 GatewayCenter
+        self.gatewayCenter = GatewayCenter(signalR: self.signalRService)
     }
 }

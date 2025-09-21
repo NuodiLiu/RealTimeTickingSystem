@@ -9,8 +9,8 @@ export class SignalREventHandler {
     try {
       console.log(`Device ${deviceId} connecting to SignalR with mode ${mode}`);
       
-      // Add device to groups
-      await signalRClient.addDeviceToGroups(deviceId, connectionId, mode);
+      // In userId mode, no group management needed - device is identified by userId (deviceId)
+      console.log(`Device ${deviceId} identified by userId - no group management needed`);
       
       // Update device status in database
       await prisma.kioskDevice.upsert({
@@ -45,16 +45,8 @@ export class SignalREventHandler {
     try {
       console.log(`Device ${deviceId} disconnecting from SignalR`);
       
-      // Get device info from database to know the mode
-      const device = await prisma.kioskDevice.findUnique({
-        where: { id: deviceId },
-        select: { mode: true }
-      });
-      
-      if (device) {
-        // Remove from groups
-        await signalRClient.removeDeviceFromGroups(deviceId, connectionId, device.mode);
-      }
+      // In userId mode, no group management needed
+      console.log(`Device ${deviceId} disconnected - no group management needed in userId mode`);
       
       // Update device status in database
       await prisma.kioskDevice.update({
@@ -81,8 +73,8 @@ export class SignalREventHandler {
     try {
       console.log(`Dashboard connecting to SignalR`, { connectionId, userId });
       
-      // Add dashboard to group
-      await signalRClient.addDashboardToGroup(connectionId);
+      // In userId mode, no group management needed
+      console.log(`Dashboard connected - no group management needed in userId mode`);
       
       // Send current device statuses
       const devices = await prisma.kioskDevice.findMany({
@@ -122,8 +114,8 @@ export class SignalREventHandler {
     try {
       console.log(`Dashboard disconnecting from SignalR`, { connectionId });
       
-      // Remove dashboard from group
-      await signalRClient.removeDashboardFromGroup(connectionId);
+      // In userId mode, no group management needed
+      console.log(`Dashboard disconnected - no group management needed in userId mode`);
       
       console.log(`Dashboard successfully disconnected from SignalR`);
     } catch (error) {

@@ -308,41 +308,35 @@ class AzureSignalRServiceConfig implements SignalRConfig {
       const url = `${this.baseEndpoint}/api/v1/hubs/${this.hubName}/users/${userId}`;
       const token = this.buildServerToken(`/users/${userId}`); // Use server token for REST API (send to user)
 
-      // 🎯 CRITICAL FIX: Format message properly for Azure SignalR Service
-      // Convert from {type: "SHOW_FEEDBACK", payload: {...}} to Azure SignalR format
+      // 🎯 CRITICAL FIX: Use unified method name that iPad expects
+      // iPad app only listens to "deviceMessage" method
       let signalRMessage;
       
       if (message.type) {
-        // Map our internal message types to SignalR method names that iPad expects
-        const methodNameMap: { [key: string]: string } = {
-          'SHOW_FEEDBACK': 'showFeedback',
-          'DISMISS': 'dismiss', 
-          'PING': 'ping',
-          'LOCK_ASSIGNED': 'lockAssigned',
-          'MODE_CHANGED': 'modeChanged',
-          'UNPAIRED': 'unpaired'
+        // Format message as envelope that iPad expects: {type, payload}
+        const envelope = {
+          type: message.type,
+          payload: message.payload || null
         };
         
-        const methodName = methodNameMap[message.type] || message.type.toLowerCase();
-        
-        // Format for Azure SignalR Service REST API
+        // Use the method name that iPad app is listening for
         signalRMessage = {
-          target: methodName,  // The method name the iPad client expects
-          arguments: message.payload ? [message.payload] : []  // Arguments array
+          target: "deviceMessage",  // Must match iPad's serverToDeviceTarget
+          arguments: [envelope]     // Send envelope as single argument
         };
         
         // 🚨 CRITICAL DEBUG: Special logging for UNPAIRED messages
         if (message.type === 'UNPAIRED') {
           console.log(`🚨 [UNPAIR DEBUG] Sending UNPAIRED message to device ${userId}:`);
           console.log(`🚨 [UNPAIR DEBUG] - Original message:`, JSON.stringify(message, null, 2));
-          console.log(`🚨 [UNPAIR DEBUG] - Mapped method name: ${methodName}`);
+          console.log(`🚨 [UNPAIR DEBUG] - Using unified deviceMessage method`);
           console.log(`🚨 [UNPAIR DEBUG] - Final SignalR message:`, JSON.stringify(signalRMessage, null, 2));
           console.log(`🚨 [UNPAIR DEBUG] - Target URL: ${url}`);
         }
         
         console.log(`📤 [SignalR Config] Sending to device ${userId}:`, {
           originalType: message.type,
-          signalRMethod: methodName,
+          signalRMethod: 'deviceMessage',
           hasPayload: !!message.payload
         });
       } else {

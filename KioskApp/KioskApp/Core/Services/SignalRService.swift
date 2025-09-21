@@ -1,505 +1,260 @@
-// Core/Services/SignalRService.swift
+//
+//  SignalRService.swift
+//  KioskApp
+//
+
 import Foundation
-import UIKit
 import SignalRClient
 
-// MARK: - DeviceGatewayDelegate Protocol
-protocol DeviceGatewayDelegate: AnyObject {
-    func gatewayDidConnect()
-    func gatewayDidDisconnect()
-    func gatewayShowFeedback(_ payload: FeedbackShowPayload, raw: [String: Any])
-    func gatewayDismiss()
-    func gatewayLockAssigned(_ payload: LockAssignedPayload, raw: [String: Any])
-    func gatewayModeChanged(_ mode: DeviceMode)
-    func gatewayDeviceUnpaired()
-}
-
-extension DeviceGatewayDelegate {
-    func gatewayModeChanged(_ mode: DeviceMode) {}
-    func gatewayDeviceUnpaired() {}
-}
-
-// MARK: - Data Models
-struct FeedbackShowPayload: Decodable { 
+// MARK: - 基础模型（与后端文档一致）
+struct StaffInfo: Codable { let id: String; let name: String? }
+struct FeedbackShowPayload: Codable {
     let sessionId: String
     let caseId: String
     let staff: StaffInfo
     let expireAt: String
 }
 
-struct StaffInfo: Decodable {
-    let id: String
-    let name: String
+struct ModeChangedPayload: Codable { let mode: DeviceMode }
+struct PingPayload: Codable { let now: String? }
+
+// 服务端 → 设备的 Envelope（统一 {type, payload}）
+struct ServerEnvelope: Codable {
+    let type: String
+    let payload: JSONValue?
 }
 
-struct LockAssignedPayload: Decodable { 
-    let lockId: String?
-    let caseId: String?
-    let staffName: String?
-    let leaseExpireAt: String? 
+// 设备 → 服务端的 Envelope（统一 {type, payload}）
+struct ClientEnvelope<Payload: Encodable>: Encodable {
+    let type: String
+    let payload: Payload?
 }
 
-// MARK: - SignalR Connection State Enum
-enum SignalRConnectionState {
-    case disconnected
-    case connecting
-    case connected
-    case reconnecting
+// 任意 JSON 值（用来接 envelope.payload 动态解码）
+enum JSONValue: Codable {
+    case string(String), number(Double), bool(Bool), object([String: JSONValue]), array([JSONValue]), null
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if c.decodeNil() { self = .null; return }
+        if let b = try? c.decode(Bool.self) { self = .bool(b); return }
+        if let d = try? c.decode(Double.self) { self = .number(d); return }
+        if let s = try? c.decode(String.self) { self = .string(s); return }
+        if let a = try? c.decode([JSONValue].self) { self = .array(a); return }
+        if let o = try? c.decode([String: JSONValue].self) { self = .object(o); return }
+        throw DecodingError.dataCorrupted(.init(codingPath: c.codingPath, debugDescription: "Unsupported JSON"))
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        switch self {
+        case .null: try c.encodeNil()
+        case .bool(let b): try c.encode(b)
+        case .number(let d): try c.encode(d)
+        case .string(let s): try c.encode(s)
+        case .array(let a): try c.encode(a)
+        case .object(let o): try c.encode(o)
+        }
+    }
+
+    /// 将 JSONValue 转回任意 Foundation 对象
+    func toAny() -> Any {
+        switch self {
+        case .null: return NSNull()
+        case .bool(let b): return b
+        case .number(let d):
+            // 尽量保持整数外观
+            return floor(d) == d ? NSNumber(value: Int64(d)) : d
+        case .string(let s): return s
+        case .array(let a): return a.map { $0.toAny() }
+        case .object(let o): return Dictionary(uniqueKeysWithValues: o.map { ($0.key, $0.value.toAny()) })
+        }
+    }
+
+    /// payload → 具体类型
+    func decodePayload<T: Decodable>(as: T.Type) throws -> T {
+        let any = toAny()
+        guard JSONSerialization.isValidJSONObject(any) else {
+            // 基本类型时也支持（如 string/number/bool）
+            let data = try JSONEncoder().encode(self)
+            return try JSONDecoder().decode(T.self, from: data)
+        }
+        let data = try JSONSerialization.data(withJSONObject: any, options: [])
+        return try JSONDecoder().decode(T.self, from: data)
+    }
 }
 
-// MARK: - SignalR Connection Error
-enum SignalRConnectionError: Error {
-    case invalidURL
-    case missingToken
-    case connectionFailed(String)
+// MARK: - 委托
+@MainActor
+protocol SignalRServiceDelegate: AnyObject {
+    func signalRConnected()
+    func signalRDisconnected()
+    func signalRReconnected()
+    func signalRReceived(_ envelope: ServerEnvelope)
+    func signalRError(_ error: Error)
 }
 
-// MARK: - SignalR Service
-final class SignalRService {
-    private var hubConnection: HubConnection?
-    private let apiBaseURL: URL
-    private let authProvider: AuthProviding
-    private let apiClient: ApiClient
-    private var isIntentionallyDisconnected = false
-    private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
-    private var isConnecting = false  // 🚨 添加连接状态保护
-    
-    weak var delegate: DeviceGatewayDelegate?
-    
-    init(apiBaseURL: URL, authProvider: AuthProviding, apiClient: ApiClient) {
-        self.apiBaseURL = apiBaseURL
-        self.authProvider = authProvider
-        self.apiClient = apiClient
-        setupApplicationLifecycleNotifications()
+// MARK: - 服务
+@MainActor
+final class SignalRService: @unchecked Sendable {
+    // 与后端 REST/Upstream 完全一致的“方法名”
+    private let serverToDeviceTarget = "deviceMessage" // 服务端 → 客户端
+    private let deviceToServerMethod = "deviceEvent"   // 客户端 → 服务端
+
+    private let api: ApiClient
+    private let auth: AuthProviding
+    private var connection: HubConnection?
+    private(set) var isConnected = false
+    private var isConnecting = false
+
+    weak var delegate: SignalRServiceDelegate?
+
+    init(apiClient: ApiClient, authProvider: AuthProviding) {
+        self.api = apiClient
+        self.auth = authProvider
     }
-    
-    deinit {
-        removeApplicationLifecycleNotifications()
-        endBackgroundTask()
-    }
-    
-    // MARK: - Application Lifecycle Management
-    
-    private func setupApplicationLifecycleNotifications() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationWillEnterForeground),
-            name: UIApplication.willEnterForegroundNotification,
-            object: nil
-        )
-        
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationDidEnterBackground),
-            name: UIApplication.didEnterBackgroundNotification,
-            object: nil
-        )
-        
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationWillTerminate),
-            name: UIApplication.willTerminateNotification,
-            object: nil
-        )
-        
-        // Add ping notification observer
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handlePingNotification(_:)),
-            name: NSNotification.Name("SignalRPingReceived"),
-            object: nil
-        )
-    }
-    
-    private func removeApplicationLifecycleNotifications() {
-        NotificationCenter.default.removeObserver(self)
-    }
-    
-    @objc private func applicationWillEnterForeground() {
-        print("📱 SignalRService: App entering foreground, checking connection...")
-        endBackgroundTask()
-        
-        if authProvider.appJwt != nil && authProvider.deviceId != nil && !isIntentionallyDisconnected {
-            if !isConnected {
-                print("SignalRService: Auto-reconnecting on foreground...")
-                connect()
-            }
-        }
-    }
-    
-    @objc private func applicationDidEnterBackground() {
-        print("SignalRService: App entering background, starting background task...")
-        
-        backgroundTask = UIApplication.shared.beginBackgroundTask { [weak self] in
-            print("📱 SignalRService: Background task expired")
-            self?.endBackgroundTask()
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.endBackgroundTask()
-        }
-    }
-    
-    @objc private func applicationWillTerminate() {
-        print("SignalRService: App will terminate, disconnecting...")
-        disconnect()
-    }
-    
-    @objc private func handlePingNotification(_ notification: Notification) {
-        print("SignalRService: Handling ping notification")
-        let payload = notification.userInfo as? [String: Any] ?? [:]
-        Task {
-            await invokePong(payload: payload)
-        }
-    }
-    
-    private func endBackgroundTask() {
-        if backgroundTask != .invalid {
-            UIApplication.shared.endBackgroundTask(backgroundTask)
-            backgroundTask = .invalid
-        }
-    }
-    
-    // MARK: - Connection Management
-    
+
+    /// 建立连接（自动完成 App JWT → negotiate → 构建 HubConnection）
     func connect() {
-        Task {
-            await performConnect()
-        }
-    }
-    
-    @MainActor
-    private func performConnect() async {
-        // 🚨 防止并发连接
-        guard !isConnecting else {
-            print("SignalRService: [CONCURRENT] Connection already in progress, skipping...")
+        if isConnecting || isConnected {
+            print("ℹ️ [SignalRService] connect() skipped (isConnecting=\(isConnecting), isConnected=\(isConnected))")
             return
         }
-        
-        guard let deviceId = authProvider.deviceId else {
-            print("SignalRService.connect() skipped: no device ID available")
-            return
-        }
-        
-        guard authProvider.appJwt != nil else {
-            print("SignalRService.connect() skipped: no App JWT available")
-            return
-        }
-
-        print("SignalRService.connect() starting for device: \(String(deviceId.prefix(8)))...")
-        
-        isConnecting = true  // 🚨 设置连接状态
-        defer { isConnecting = false }  // 🚨 确保状态重置
-        
-        do {
-            // 检查配对状态...
-            let isPaired = try await apiClient.checkPairingStatus(deviceId: deviceId)
-            if !isPaired {
-                print("SignalRService: Device is no longer paired on server, clearing credentials...")
-                
-                do {
-                    try authProvider.clearDevice()
-                } catch {
-                    print("SignalRService: Failed to clear device credentials: \(error)")
+        isConnecting = true
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                // 1) 若缺少 App JWT，先用设备 API Key 换取
+                if self.auth.appJwt == nil {
+                    let jwt = try await self.api.generateDeviceJWT()
+                    try self.auth.storeAppJwt(jwt.appJwt)
                 }
-                
-                // Ensure UI updates happen on main thread
+
+                // 2) 调 negotiate（/api/negotiate），拿到 url + accessToken
+                let info = try await self.api.getSignalRConnectionInfo()
+                try self.auth.storeSignalRInfo(token: info.token, endpoint: info.url) // Keychain 持久化
+                // 3) 构建 HubConnection（将 accessToken 提供给每次请求）
+                var options = HttpConnectionOptions()
+                options.accessTokenFactory = { [weak self] in
+                    await self?.auth.signalRToken ?? ""
+                }
+
+                let conn = HubConnectionBuilder()
+                    .withUrl(url: info.url, options: options) // 传入 token 工厂（Serverless 必需）
+                    .withAutomaticReconnect(retryDelays: [0, 2, 10, 30])   // 官方默认回连策略
+                    .build()
+
+                // 注册回调应在 start() 之前（官方最佳实践）
+                await conn.on(serverToDeviceTarget) { (envelope: ServerEnvelope) in
+                    Task { @MainActor in
+                        self.delegate?.signalRReceived(envelope)
+                    }
+                }
+
+                await conn.onReconnecting { error in
+                    Task { @MainActor in
+                        self.isConnected = false
+                        if let error { self.delegate?.signalRError(error) }
+                    }
+                }
+                await conn.onReconnected {
+                    Task { @MainActor in
+                        self.isConnected = true
+                        self.delegate?.signalRReconnected()
+                    }
+                }
+
+                try await conn.start()
+                print("✅ [SignalRService] HubConnection started")
                 await MainActor.run {
-                    delegate?.gatewayDeviceUnpaired()
+                    self.connection = conn
+                    self.isConnected = true
+                    self.isConnecting = false
+                    self.delegate?.signalRConnected()
                 }
-                return
-            }
-            print("SignalRService: Device pairing status confirmed, proceeding with connection...")
-        } catch {
-            print("SignalRService: Failed to check pairing status: \(error)")
-            print("SignalRService: Proceeding with connection anyway...")
-        }
-        
-        isIntentionallyDisconnected = false
-        
-        // Get SignalR connection details from the backend first
-        do {
-            let connectionInfo = try await getNegotiateInfo()
-            
-            // Disconnect existing connection
-            if let existingConnection = hubConnection {
-                await existingConnection.stop()
-                hubConnection = nil
-            }
-            
-            // 🎯 CORRECT SOLUTION: Use HttpConnectionOptions with accessTokenFactory
-            // This ensures the token is properly passed to Azure SignalR's negotiate endpoint
-            print("SignalRService: [CORRECT] Using HttpConnectionOptions with accessTokenFactory")
-            print("SignalRService: [CORRECT] Base URL: \(connectionInfo.url)")
-            
-            // Create HttpConnectionOptions with accessTokenFactory
-            var connectionOptions = HttpConnectionOptions()
-            connectionOptions.accessTokenFactory = {
-                print("🎯 [TOKEN PROVIDER] SignalR client requesting access token for negotiate...")
-                print("🎯 [TOKEN PROVIDER] Providing Azure SignalR token: \(connectionInfo.accessToken.prefix(20))...")
-                return connectionInfo.accessToken
-            }
-            
-            hubConnection = HubConnectionBuilder()
-                .withUrl(url: connectionInfo.url, options: connectionOptions)
-                .withAutomaticReconnect()
-                .build()
-            
-            setupSignalRHandlers()
-            
-            // Start connection
-            try await hubConnection?.start()
-            print("SignalRService: Connected successfully!")
-            
-            // Ensure UI updates happen on main thread
-            await MainActor.run {
-                delegate?.gatewayDidConnect()
-            }
-            
-        } catch {
-            print("SignalRService: Failed to connect: \(error)")
-            
-            // Ensure UI updates happen on main thread
-            await MainActor.run {
-                delegate?.gatewayDidDisconnect()
+            } catch {
+                await MainActor.run {
+                    self.isConnected = false
+                    self.isConnecting = false
+                    self.delegate?.signalRError(error)
+                }
             }
         }
     }
-    
+
     func disconnect() {
-        print("SignalRService: Manual disconnect requested")
-        isIntentionallyDisconnected = true
         Task {
-            await hubConnection?.stop()
-            hubConnection = nil
-            
-            // Ensure UI updates happen on main thread
+            await connection?.stop()
             await MainActor.run {
-                delegate?.gatewayDidDisconnect()
-            }
-        }
-        endBackgroundTask()
-    }
-    
-    func reconnect() {
-        print("SignalRService: Manual reconnect requested")
-        if authProvider.appJwt != nil && authProvider.deviceId != nil {
-            connect()
-        } else {
-            print("SignalRService: Cannot reconnect - no App JWT or device ID")
-        }
-    }
-    
-    var isConnected: Bool {
-        hubConnection != nil
-    }
-    
-    // MARK: - SignalR Hub Methods Setup
-    
-    private func setupSignalRHandlers() {
-        guard let connection = hubConnection else { return }
-        
-        // Store delegate reference to avoid capturing self
-        let delegate = self.delegate
-        
-        // Server to Device methods (following the backend SignalR implementation)
-        
-        Task {
-            await connection.on("showFeedback") { @Sendable (arguments: [Any]) in
-                guard let payload = arguments.first as? [String: Any] else { return }
-                
-                print("SignalRService: *** showFeedback received ***")
-                print("SignalRService: Payload: \(payload)")
-                
-                if let decoded: FeedbackShowPayload = SignalRService.decode(payload) {
-                    print("SignalRService: Successfully decoded showFeedback, calling delegate")
-                    Task { @MainActor in
-                        delegate?.gatewayShowFeedback(decoded, raw: payload)
-                    }
-                } else {
-                    print("SignalRService: Failed to decode showFeedback payload")
-                }
-            }
-            
-            await connection.on("dismiss") { @Sendable (_: [Any]) in
-                print("SignalRService: dismiss received")
-                Task { @MainActor in
-                    delegate?.gatewayDismiss()
-                }
-            }
-            
-            await connection.on("ping") { @Sendable (arguments: [Any]) in
-                print("SignalRService: ping received")
-                // Respond with pong - handle this via notification or different mechanism
-                let payload = arguments.first as? [String: Any] ?? [:]
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("SignalRPingReceived"), 
-                    object: nil, 
-                    userInfo: payload
-                )
-            }
-            
-            await connection.on("lockAssigned") { @Sendable (arguments: [Any]) in
-                guard let payload = arguments.first as? [String: Any] else { return }
-                
-                print("SignalRService: lockAssigned received")
-                if let decoded: LockAssignedPayload = SignalRService.decode(payload) {
-                    Task { @MainActor in
-                        delegate?.gatewayLockAssigned(decoded, raw: payload)
-                    }
-                }
-            }
-            
-            await connection.on("modeChanged") { @Sendable (arguments: [Any]) in
-                guard let payload = arguments.first as? [String: Any],
-                      let modeString = payload["mode"] as? String,
-                      let mode = DeviceMode(rawValue: modeString) else { return }
-                
-                print("SignalRService: modeChanged received: \(mode)")
-                Task { @MainActor in
-                    delegate?.gatewayModeChanged(mode)
-                }
-            }
-            
-            await connection.on("unpaired") { @Sendable (_: [Any]) in
-                print("SignalRService: unpaired received from server")
-                Task { @MainActor in
-                    print("SignalRService: Calling gatewayDeviceUnpaired on MainActor")
-                    delegate?.gatewayDeviceUnpaired()
-                }
-            }
-        }
-        
-        // Note: Connection lifecycle events might need to be handled differently
-        // based on the actual SignalR Swift client API
-    }
-    
-    // MARK: - Device to Server Hub Methods
-    
-    func invokePong(payload: [String: Any] = [:]) async {
-        do {
-            try await hubConnection?.invoke(method: "pong", arguments: [payload])
-        } catch {
-            print("SignalRService: Failed to send pong: \(error)")
-        }
-    }
-    
-    func invokeDelivered(sessionId: String) {
-        let payload = ["sessionId": sessionId]
-        Task {
-            do {
-                try await hubConnection?.invoke(method: "delivered", arguments: [payload])
-            } catch {
-                print("SignalRService: Failed to send delivered: \(error)")
+                isConnected = false
+                delegate?.signalRDisconnected()
             }
         }
     }
-    
-    func invokeFeedbackCancelled(sessionId: String) {
-        let payload = ["sessionId": sessionId]
-        Task {
-            do {
-                try await hubConnection?.invoke(method: "feedbackCancelled", arguments: [payload])
-            } catch {
-                print("SignalRService: Failed to send feedbackCancelled: \(error)")
-            }
-        }
+
+    // MARK: - 设备 → 服务端：便捷发送
+    func sendPong(payload: PingPayload? = nil) async throws {
+        try await send(type: "PONG", payload: payload)
     }
-    
-    func invokeLease() {
-        guard let deviceId = authProvider.deviceId else { return }
-        let payload = ["deviceId": deviceId]
-        Task {
-            do {
-                try await hubConnection?.invoke(method: "lease", arguments: [payload])
-            } catch {
-                print("SignalRService: Failed to send lease: \(error)")
-            }
-        }
+
+    func sendDelivered(sessionId: String) async throws {
+        struct Delivered: Encodable { let sessionId: String }
+        try await send(type: "DELIVERED", payload: Delivered(sessionId: sessionId))
     }
-    
-    func invokeStatus() {
-        Task {
-            do {
-                try await hubConnection?.invoke(method: "status", arguments: [])
-            } catch {
-                print("SignalRService: Failed to send status: \(error)")
-            }
-        }
+
+    func sendLease(deviceId: String) async throws {
+        struct Lease: Encodable { let deviceId: String }
+        try await send(type: "LEASE", payload: Lease(deviceId: deviceId))
     }
-    
-    // MARK: - Helper Methods
-    
-    private func getNegotiateInfo() async throws -> NegotiateInfo {
-        print("SignalRService: [Token Flow] Starting negotiate process...")
-        print("SignalRService: [Token Flow] Step 1: Using App JWT to call /negotiate endpoint")
-        
-        // 🚨 DEBUG: 验证使用的认证类型
-        print("🚨 [DEBUG] Authentication check before negotiate:")
-        if let appJwt = authProvider.appJwt {
-            print("🚨 [DEBUG] - App JWT available: \(appJwt.prefix(30))...")
-            print("🚨 [DEBUG] - App JWT will be used in Authorization header")
-        } else {
-            print("🚨 [DEBUG] - No App JWT available!")
-        }
-        
-        // Use the existing ApiClient method to get connection info
-        let response = try await apiClient.getSignalRConnectionInfo()
-        
-        print("SignalRService: [Token Flow] Step 2: Received SignalR connection token from backend")
-        print("SignalRService: [Token Flow] SignalR Token: \(response.token.prefix(20))...")
-        print("SignalRService: [Token Flow] SignalR URL: \(response.url)")
-        
-        // 🚨 DEBUG: 分析返回的 token 和 URL
-        print("🚨 [DEBUG] Response analysis:")
-        print("🚨 [DEBUG] - Response URL matches expected pattern: \(response.url.contains("ticketing-system.service.signalr.net"))")
-        print("🚨 [DEBUG] - Response URL contains hub parameter: \(response.url.contains("hub=realtimeticket"))")
-        print("🚨 [DEBUG] - Token type appears to be JWT: \(response.token.hasPrefix("eyJ"))")
-        print("🚨 [DEBUG] - Token length: \(response.token.count) characters")
-        
-        // Store the SignalR token and endpoint
-        try authProvider.storeSignalRInfo(token: response.token, endpoint: response.url)
-        
-        print("SignalRService: [Token Flow] Step 3: SignalR credentials stored successfully")
-        
-        return NegotiateInfo(
-            url: response.url,
-            accessToken: response.token
-        )
+
+    func sendStatus() async throws {
+        // 无 payload
+        try await send(type: "STATUS", payload: EmptyCodable())
     }
-    
-    static func decode<T: Decodable>(_ dict: [String: Any]) -> T? {
-        guard JSONSerialization.isValidJSONObject(dict),
-              let data = try? JSONSerialization.data(withJSONObject: dict) else { return nil }
-        return try? JSONDecoder().decode(T.self, from: data)
+
+    func sendFeedbackUpdate<T: Encodable>(payload: T?) async throws {
+        try await send(type: "FEEDBACK_UPDATE", payload: payload)
+    }
+
+    func sendFeedbackCancelled(sessionId: String) async throws {
+        struct Cancelled: Encodable { let sessionId: String }
+        try await send(type: "FEEDBACK_CANCELLED", payload: Cancelled(sessionId: sessionId))
+    }
+
+    // 泛型封装：发送统一的 {type, payload}
+    private func send<T: Encodable>(type: String, payload: T?) async throws {
+        guard let conn = connection else {
+            throw NSError(domain: "SignalRService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Connection is not started"])
+        }
+        // 注意：SignalR Swift 的 send 支持将 Encodable 作为单个参数传递
+        let envelope = ClientEnvelope(type: type, payload: payload)
+        try await conn.send(method: deviceToServerMethod, arguments: envelope)
     }
 }
 
-// MARK: - Legacy Methods for Compatibility
-
+/// 空 payload 的占位类型
+private struct EmptyCodable: Encodable {}
 extension SignalRService {
-    // These methods maintain compatibility with the existing SocketService interface
-    
-    func sendDelivered(sessionId: String) {
-        invokeDelivered(sessionId: sessionId)
+    /// 兼容调用：发送“状态心跳”= PONG(now: ISO8601)
+    func sendStatusPing() async throws {
+        let now = ISO8601DateFormatter().string(from: Date())
+        try await self.sendPong(payload: PingPayload(now: now))
     }
-    
-    func sendFeedbackCancelled(sessionId: String) {
-        invokeFeedbackCancelled(sessionId: sessionId)
-    }
-    
-    func sendLeaseTick() {
-        invokeLease()
-    }
-    
-    func sendStatusPing() {
-        invokeStatus()
-    }
-}
 
-// MARK: - Connection Info Models
+    /// 非阻塞便捷版（无需 await/try，在非 async 场景直接用）
+    @discardableResult
+    func sendStatusPingNow() -> Task<Void, Never> {
+        Task { try? await self.sendStatusPing() }
+    }
 
-struct NegotiateInfo {
-    let url: String
-    let accessToken: String
+    func reconnect() {
+        Task { [weak self] in
+            guard let self else { return }
+            if self.isConnected {
+                await self.connection?.stop()
+                self.isConnected = false
+            }
+            self.connect()
+        }
+    }
 }

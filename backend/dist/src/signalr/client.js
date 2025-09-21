@@ -29,12 +29,14 @@ class SignalRClient {
     }
     async broadcastToDevices(message, mode) {
         try {
-            // Broadcast to all connected users instead of specific device groups
-            await config_1.signalRConfig.sendToDashboard(message);
-            console.log(`Message broadcasted to all users:`, message.type);
+            // In serverless mode with userId-based messaging, we need to send to each device individually
+            // TODO: Implement device list retrieval from database to get active device IDs
+            // For now, log the broadcast attempt - this method would need a list of device IDs
+            console.log(`Broadcast request for message ${message.type} to devices with mode: ${mode || 'all'}`);
+            console.log(`Note: In serverless mode, broadcast requires individual device IDs. Use sendToDevice for specific devices.`);
         }
         catch (error) {
-            console.error(`Failed to broadcast message to all users:`, error);
+            console.error(`Failed to broadcast message to devices:`, error);
         }
     }
     // Specific message methods matching websocket interface
@@ -114,75 +116,39 @@ class SignalRClient {
     }
     async pingAllDevices() {
         try {
-            // Broadcast ping to all connected users
-            await config_1.signalRConfig.sendToDashboard({ type: "PING", payload: { now: new Date().toISOString() } });
-            console.log('Ping broadcasted to all connected users');
+            // In serverless mode with userId-based messaging, we need device IDs to ping individually
+            // TODO: Implement device list retrieval from database to get active device IDs
+            console.log('Ping all devices requested - requires individual device IDs in serverless mode');
         }
         catch (error) {
-            console.error('Failed to ping all users:', error);
+            console.error('Failed to ping all devices:', error);
         }
     }
-    // Group management (simplified for serverless)
+    // Group management (simplified for serverless userId mode)
     async addDeviceToGroups(connectionId, deviceId, mode) {
-        try {
-            // In serverless mode, group management is handled by Azure SignalR Service
-            // Groups are assigned during connection negotiation
-            await config_1.signalRConfig.addUserToGroup(deviceId, 'devices');
-            await config_1.signalRConfig.addUserToGroup(deviceId, `device-${deviceId}`);
-            await config_1.signalRConfig.addUserToGroup(deviceId, `mode-${mode.toLowerCase()}`);
-            console.log(`Device ${deviceId} added to groups for mode ${mode}`);
-        }
-        catch (error) {
-            console.error(`Failed to add device ${deviceId} to groups:`, error);
-        }
+        // In serverless userId mode, no group management needed
+        // Devices are identified by their userId (deviceId) directly
+        console.log(`Device ${deviceId} connected with mode ${mode} - no group management needed in userId mode`);
     }
     async removeDeviceFromGroups(connectionId, deviceId, mode) {
-        try {
-            await config_1.signalRConfig.removeUserFromGroup(deviceId, 'devices');
-            await config_1.signalRConfig.removeUserFromGroup(deviceId, `device-${deviceId}`);
-            await config_1.signalRConfig.removeUserFromGroup(deviceId, `mode-${mode.toLowerCase()}`);
-            console.log(`Device ${deviceId} removed from groups`);
-        }
-        catch (error) {
-            console.error(`Failed to remove device ${deviceId} from groups:`, error);
-        }
+        // In serverless userId mode, no group management needed
+        console.log(`Device ${deviceId} disconnected - no group management needed in userId mode`);
     }
     async addDashboardToGroup(connectionId) {
-        try {
-            // In serverless mode, we use userId instead of connectionId
-            await config_1.signalRConfig.addUserToGroup(connectionId, 'dashboard');
-            console.log(`Dashboard connection ${connectionId} added to group`);
-        }
-        catch (error) {
-            console.error(`Failed to add dashboard connection ${connectionId} to group:`, error);
-        }
+        // In serverless userId mode, no group management needed
+        console.log(`Dashboard connection added - no group management needed in userId mode`);
     }
     async removeDashboardFromGroup(connectionId) {
-        try {
-            await config_1.signalRConfig.removeUserFromGroup(connectionId, 'dashboard');
-            console.log(`Dashboard connection ${connectionId} removed from group`);
-        }
-        catch (error) {
-            console.error(`Failed to remove dashboard connection ${connectionId} from group:`, error);
-        }
+        // In serverless userId mode, no group management needed
+        console.log(`Dashboard connection removed - no group management needed in userId mode`);
     }
     async addDashboardUserToGroup(connectionId, userId) {
-        try {
-            await config_1.signalRConfig.addUserToGroup(userId, 'dashboard');
-            console.log(`Dashboard user ${userId} added to group`);
-        }
-        catch (error) {
-            console.error(`Failed to add dashboard user ${userId} to group:`, error);
-        }
+        // In serverless userId mode, no group management needed
+        console.log(`Dashboard user ${userId} connected - no group management needed in userId mode`);
     }
     async removeDashboardUserFromGroup(connectionId, userId) {
-        try {
-            await config_1.signalRConfig.removeUserFromGroup(userId, 'dashboard');
-            console.log(`Dashboard user ${userId} removed from group`);
-        }
-        catch (error) {
-            console.error(`Failed to remove dashboard user ${userId} from group:`, error);
-        }
+        // In serverless userId mode, no group management needed
+        console.log(`Dashboard user ${userId} disconnected - no group management needed in userId mode`);
     }
     // Utility methods
     getConnectionStats() {

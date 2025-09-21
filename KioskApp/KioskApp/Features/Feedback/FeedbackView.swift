@@ -103,7 +103,9 @@ struct FeedbackView: View {
                     HStack(spacing: 20) {
                         if onDismiss != nil {
                             Button {
-                                vm.cancel() 
+                                Task {
+                                    await vm.cancel()
+                                }
                                 onDismiss?()
                             } label: {
                                 HStack(spacing: 8) {
@@ -157,7 +159,7 @@ struct FeedbackView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { vm.onAppear() }
+        .onAppear { Task { await vm.onAppear() } }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
