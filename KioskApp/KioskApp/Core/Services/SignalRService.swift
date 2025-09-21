@@ -85,7 +85,6 @@ enum JSONValue: Codable {
 }
 
 // MARK: - 委托
-@MainActor
 protocol SignalRServiceDelegate: AnyObject {
     func signalRConnected()
     func signalRDisconnected()
@@ -95,7 +94,6 @@ protocol SignalRServiceDelegate: AnyObject {
 }
 
 // MARK: - 服务
-@MainActor
 final class SignalRService: @unchecked Sendable {
     // 与后端 REST/Upstream 完全一致的“方法名”
     private let serverToDeviceTarget = "deviceMessage" // 服务端 → 客户端
@@ -146,19 +144,19 @@ final class SignalRService: @unchecked Sendable {
 
                 // 注册回调应在 start() 之前（官方最佳实践）
                 await conn.on(serverToDeviceTarget) { (envelope: ServerEnvelope) in
-                    Task { @MainActor in
+                    DispatchQueue.main.async {
                         self.delegate?.signalRReceived(envelope)
                     }
                 }
 
                 await conn.onReconnecting { error in
-                    Task { @MainActor in
+                    DispatchQueue.main.async {
                         self.isConnected = false
                         if let error { self.delegate?.signalRError(error) }
                     }
                 }
                 await conn.onReconnected {
-                    Task { @MainActor in
+                    DispatchQueue.main.async {
                         self.isConnected = true
                         self.delegate?.signalRReconnected()
                     }
@@ -166,14 +164,14 @@ final class SignalRService: @unchecked Sendable {
 
                 try await conn.start()
                 print("✅ [SignalRService] HubConnection started")
-                await MainActor.run {
+                DispatchQueue.main.async {
                     self.connection = conn
                     self.isConnected = true
                     self.isConnecting = false
                     self.delegate?.signalRConnected()
                 }
             } catch {
-                await MainActor.run {
+                DispatchQueue.main.async {
                     self.isConnected = false
                     self.isConnecting = false
                     self.delegate?.signalRError(error)
@@ -185,9 +183,9 @@ final class SignalRService: @unchecked Sendable {
     func disconnect() {
         Task {
             await connection?.stop()
-            await MainActor.run {
-                isConnected = false
-                delegate?.signalRDisconnected()
+            DispatchQueue.main.async {
+                self.isConnected = false
+                self.delegate?.signalRDisconnected()
             }
         }
     }
@@ -252,7 +250,9 @@ extension SignalRService {
             guard let self else { return }
             if self.isConnected {
                 await self.connection?.stop()
-                self.isConnected = false
+                DispatchQueue.main.async {
+                    self.isConnected = false
+                }
             }
             self.connect()
         }
