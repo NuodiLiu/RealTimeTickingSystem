@@ -193,8 +193,19 @@ class AzureSignalRServiceConfig implements SignalRConfig {
   async sendToDashboard(message: any): Promise<void> {
     // Broadcast to all connected users instead of using groups
     try {
+      // Use the correct endpoint for broadcasting to all connections
       const url = `${this.endpoint}/api/v1/hubs/${this.hubName}`;
       const token = this.buildServerToken(); // Use server token for REST API
+
+      // Format message for Azure SignalR Service REST API
+      // The correct format for sending to all clients
+      const signalRMessage = {
+        target: "message",  // The method name on the client
+        arguments: [message]  // Array of arguments to pass to the client method
+      };
+
+      console.log('📤 [SignalR Config] Sending dashboard message:', JSON.stringify(signalRMessage, null, 2));
+      console.log('📤 [SignalR Config] Using URL:', url);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -202,16 +213,21 @@ class AzureSignalRServiceConfig implements SignalRConfig {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(message)
+        body: JSON.stringify(signalRMessage)
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to broadcast message to all users: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('❌ [SignalR Config] Dashboard broadcast failed:', response.status, errorText);
+        console.error('❌ [SignalR Config] Request URL:', url);
+        console.error('❌ [SignalR Config] Request payload:', JSON.stringify(signalRMessage, null, 2));
+        console.error('❌ [SignalR Config] Response headers:', Object.fromEntries(response.headers.entries()));
+        throw new Error(`Failed to broadcast message to all users: ${response.statusText} - ${errorText}`);
       }
 
-      console.log(`Message broadcasted to all users:`, message.type);
+      console.log(`✅ [SignalR Config] Message broadcasted to all users:`, message.type);
     } catch (error) {
-      console.error(`Failed to broadcast message to all users:`, error);
+      console.error(`❌ [SignalR Config] Failed to broadcast message to all users:`, error);
       throw error;
     }
   }

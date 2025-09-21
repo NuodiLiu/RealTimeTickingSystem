@@ -39,17 +39,7 @@ export class PairController {
   // POST /pair/complete
   static async completePairing(req: Request, res: Response, next: NextFunction) {
     try {
-      // Workaround for Azure Functions body parsing issue
-      let bodyData = req.body;
-      if ((!bodyData || Object.keys(bodyData).length === 0) && (req as any).rawBody) {
-        try {
-          bodyData = JSON.parse((req as any).rawBody.toString('utf8'));
-        } catch (parseError) {
-          // Continue with empty body if parsing fails
-        }
-      }
-      
-      const result = await PairService.completePairing(bodyData);
+      const result = await PairService.completePairing(req.body);
       res.status(201).json(result);
     } catch (err) {
       next(err);

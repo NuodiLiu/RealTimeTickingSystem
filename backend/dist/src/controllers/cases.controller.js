@@ -31,17 +31,7 @@ class CasesController {
     }
     static async postCase(req, res, next) {
         try {
-            // Workaround for Azure Functions body parsing issue
-            let bodyData = req.body;
-            if ((!bodyData || Object.keys(bodyData).length === 0) && req.rawBody) {
-                try {
-                    bodyData = JSON.parse(req.rawBody.toString('utf8'));
-                }
-                catch (parseError) {
-                    // Continue with empty body if parsing fails
-                }
-            }
-            const created = await cases_service_1.CasesService.postCase(bodyData);
+            const created = await cases_service_1.CasesService.postCase(req.body);
             res.status(201).json(created);
         }
         catch (err) {

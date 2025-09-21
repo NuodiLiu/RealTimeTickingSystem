@@ -95,21 +95,59 @@ export function createExpressApp(): express.Application {
   
   app.use(cors(corsOptions));
 
-  // Force body parsing for Azure Functions - temporary fix
-  app.use(express.json({ 
-    limit: process.env.JSON_LIMIT || "50mb",
-    verify: (req: any, res, buf) => {
-      // Store raw body for signature verification (webhooks, etc.)
-      req.rawBody = buf;
-    }
-  }));
-  app.use(express.urlencoded({ 
-    limit: process.env.URLENCODED_LIMIT || "50mb", 
-    extended: true,
-    verify: (req: any, res, buf) => {
-      if (!req.rawBody) req.rawBody = buf;
-    }
-  }));
+  // Conditional middleware based on environment
+  // 在 Azure Functions 环境中，body 已经在 Functions 层解析过了
+  const isAzureFunctions = process.env.FUNCTIONS_WORKER_RUNTIME || process.env.AzureWebJobsScriptRoot;
+  
+  if (!isAzureFunctions) {
+    // 仅在非 Azure Functions 环境中使用 Express body parsers
+    app.use(express.json({ 
+      limit: process.env.JSON_LIMIT || "50mb",
+      verify: (req: any, res, buf) => {
+        // Store raw body for signature verification (webhooks, etc.)
+        req.rawBody = buf;
+      }
+    }));
+    app.use(express.urlencoded({ 
+      limit: process.env.URLENCODED_LIMIT || "50mb", 
+      extended: true,
+      verify: (req: any, res, buf) => {
+        if (!req.rawBody) req.rawBody = buf;
+      }
+    }));
+  } else {
+    // Azure Functions 环境：添加中间件来处理 raw body 解析
+    app.use((req: any, res, next) => {
+      // 检查是否已经有 _body 标记且 body 已经是对象（来自 Azure Functions wrapper）
+      if (req._body && req.body !== undefined && typeof req.body === 'object') {
+        // Body 已经解析过，跳过
+        return next();
+      }
+      
+      // 如果有 rawBody 但没有解析过的 body，手动解析 JSON
+      if (req.rawBody && (req.method !== 'GET' && req.method !== 'HEAD')) {
+        console.warn('Body not pre-parsed in Azure Functions environment, falling back to Express parsing');
+        
+        try {
+          const contentType = req.headers['content-type'] || '';
+          if (contentType.includes('application/json') && req.rawBody.length > 0) {
+            req.body = JSON.parse(req.rawBody.toString('utf8'));
+            req._body = true;
+          } else if (contentType.includes('application/x-www-form-urlencoded')) {
+            // Parse URL-encoded data if needed
+            const querystring = require('querystring');
+            req.body = querystring.parse(req.rawBody.toString('utf8'));
+            req._body = true;
+          }
+        } catch (error) {
+          console.error('Failed to parse request body:', error);
+          // Leave body undefined to trigger validation errors downstream
+        }
+      }
+      
+      next();
+    });
+  }
   
   // Enhanced helmet configuration for Azure Functions
   if (process.env.NODE_ENV === 'production') {
