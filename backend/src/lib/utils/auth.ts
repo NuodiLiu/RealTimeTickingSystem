@@ -81,9 +81,9 @@ export function verifyStaffToken(token: string): StaffJwtPayload {
  * Format: Authorization: Device <deviceId>:<deviceSecret>
  */
 export async function validateDeviceApiKey(authHeader: string) {
-  // format: Authorisation: Device <deviceId>:<deviceSecret>
+  // format: Authorization: Device <deviceId>:<deviceSecret>
   if (!authHeader?.startsWith('Device ')) {
-    throw new BadRequestError('Missing or invalid Authorisation header');
+    throw new BadRequestError('Missing or invalid Authorization header');
   }
   const token = authHeader.slice('Device '.length).trim(); // "<id>:<secret>"
   const sep = token.indexOf(':');

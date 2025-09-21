@@ -76,6 +76,16 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next): void =
     return;
   }
 
-  res.status(400).json({ error: 'An unknown error occurred' });
+  // In development, provide more detailed error information
+  console.error('Unhandled error:', err);
+  if (process.env.NODE_ENV === 'development') {
+    res.status(500).json({ 
+      error: 'An unknown error occurred',
+      details: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined
+    });
+  } else {
+    res.status(500).json({ error: 'An unknown error occurred' });
+  }
   return;
 };

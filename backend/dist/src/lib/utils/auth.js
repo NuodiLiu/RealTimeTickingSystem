@@ -45,9 +45,9 @@ function verifyStaffToken(token) {
  * Format: Authorization: Device <deviceId>:<deviceSecret>
  */
 async function validateDeviceApiKey(authHeader) {
-    // format: Authorisation: Device <deviceId>:<deviceSecret>
+    // format: Authorization: Device <deviceId>:<deviceSecret>
     if (!(authHeader === null || authHeader === void 0 ? void 0 : authHeader.startsWith('Device '))) {
-        throw new error_1.BadRequestError('Missing or invalid Authorisation header');
+        throw new error_1.BadRequestError('Missing or invalid Authorization header');
     }
     const token = authHeader.slice('Device '.length).trim(); // "<id>:<secret>"
     const sep = token.indexOf(':');

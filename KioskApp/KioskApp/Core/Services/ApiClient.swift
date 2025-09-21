@@ -95,9 +95,9 @@ final class ApiClient {
 
         // Authentication headers
         if endpoint.needsDeviceAuth, let key = authProvider.deviceApiKey {
-            req.setValue("Device \(key)", forHTTPHeaderField: "Authorisation")
+            req.setValue("Device \(key)", forHTTPHeaderField: "Authorization")
         } else if endpoint.needsAppJwt, let jwt = authProvider.appJwt {
-            req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorisation")
+            req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
         }
         
         // Extra headers
@@ -196,13 +196,26 @@ final class ApiClient {
     
     /// Get SignalR connection information for the device
     func getSignalRConnectionInfo() async throws -> SignalRConnectionResponse {
+        print("ApiClient: [Negotiate] Calling negotiate endpoint with App JWT...")
+        print("ApiClient: [Negotiate] BaseURL: \(baseURL)")
+        print("ApiClient: [Negotiate] Endpoint path: /api/negotiate (not under /api/app)")
+        print("ApiClient: [Negotiate] Auth method: App JWT (Bearer token)")
+        
         let endpoint = Endpoint<SignalRConnectionResponse>(
-            path: "/api/negotiate",  // 与前端一致的路径
+            path: "../negotiate",   // 回到上级目录: /api/app/../negotiate = /api/negotiate
             method: .POST,
-            needsDeviceAuth: false,  // 不再使用 Device 认证
+            needsDeviceAuth: false,  // 不使用 Device 认证
             needsAppJwt: true        // 使用 App JWT 认证
         )
-        return try await request(endpoint)
+        
+        let response = try await request(endpoint)
+        
+        print("ApiClient: [Negotiate] Successfully received SignalR connection info")
+        print("ApiClient: [Negotiate] SignalR URL: \(response.url)")
+        print("ApiClient: [Negotiate] Device ID: \(response.deviceId)")
+        print("ApiClient: [Negotiate] Mode: \(response.mode)")
+        
+        return response
     }
     
     /// Generate App JWT for device
@@ -227,6 +240,27 @@ struct SignalRConnectionResponse: Decodable {
     let token: String
     let deviceId: String
     let mode: String
+    
+    enum CodingKeys: String, CodingKey {
+        case url
+        case token = "accessToken"
+        case user
+    }
+    
+    struct User: Decodable {
+        let id: String
+        let type: String
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        url = try container.decode(String.self, forKey: .url)
+        token = try container.decode(String.self, forKey: .token)
+        
+        let user = try container.decode(User.self, forKey: .user)
+        deviceId = user.id
+        mode = user.type
+    }
 }
 
 struct DeviceJWTResponse: Decodable {

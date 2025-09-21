@@ -85,11 +85,24 @@ class AzureSignalRServiceConfig implements SignalRConfig {
     console.log('🔐 [SignalR Config] Generating CLIENT access token for user:', userId);
     console.log('🔐 [SignalR Config] Roles:', roles);
     
+    // 🚨 DEBUG: 验证使用的密钥类型
+    console.log('🚨 [DEBUG] Checking signing key type...');
+    console.log('🚨 [DEBUG] JWT_SECRET exists:', !!process.env.JWT_SECRET);
+    console.log('🚨 [DEBUG] AZURE_SIGNALR_CONNECTION_STRING exists:', !!process.env.AZURE_SIGNALR_CONNECTION_STRING);
+    console.log('🚨 [DEBUG] Using hmacKey (Azure SignalR AccessKey):', this.hmacKey.substring(0, 20) + '...');
+    console.log('🚨 [DEBUG] NOT using JWT_SECRET for SignalR token generation');
+    
     const now = Math.floor(Date.now() / 1000);
     const exp = now + (60 * 60); // 1 hour
     
     // CLIENT audience: https://<service>.service.signalr.net/client/?hub=<hubName>
     const audience = `${this.endpoint.replace(/\/+$/, '')}/client/?hub=${this.hubName}`;
+    
+    // 🚨 DEBUG: 验证 audience 构建
+    console.log('🚨 [DEBUG] Audience details:');
+    console.log('🚨 [DEBUG] - Raw endpoint:', this.endpoint);
+    console.log('🚨 [DEBUG] - Hub name:', this.hubName);
+    console.log('🚨 [DEBUG] - Final audience:', audience);
     
     const payload = {
       aud: audience,
@@ -108,13 +121,23 @@ class AzureSignalRServiceConfig implements SignalRConfig {
       exp: exp
     });
     
+    // 🚨 DEBUG: 显示时间信息
+    const currentTime = new Date(now * 1000).toISOString();
+    const expiryTime = new Date(exp * 1000).toISOString();
+    console.log('🚨 [DEBUG] Token timing:');
+    console.log('🚨 [DEBUG] - Current time (iat):', currentTime);
+    console.log('🚨 [DEBUG] - Expiry time (exp):', expiryTime);
+    console.log('🚨 [DEBUG] - Valid for (hours):', (exp - now) / 3600);
+    
     const token = jwt.sign(payload, this.hmacKey, { algorithm: 'HS256' });
     console.log('✅ [SignalR Config] CLIENT Access token generated, length:', token.length);
+    console.log('🚨 [DEBUG] Token preview:', token.substring(0, 50) + '...');
     
     // Verify the token immediately to ensure it's valid
     try {
       const decoded = jwt.verify(token, this.hmacKey, { algorithms: ['HS256'] }) as any;
       console.log('✅ [SignalR Config] CLIENT Token verification successful');
+      console.log('🚨 [DEBUG] Decoded token payload:', decoded);
     } catch (verifyError) {
       console.error('❌ [SignalR Config] CLIENT Token verification failed:', verifyError);
     }

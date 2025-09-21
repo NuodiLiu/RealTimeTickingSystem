@@ -278,8 +278,7 @@ export class DeviceService {
         typ: 'device', 
         sub: device.id, 
         mode: device.mode,
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60
+        iat: Math.floor(Date.now() / 1000)
       },
       process.env.JWT_SECRET!,
       { expiresIn }

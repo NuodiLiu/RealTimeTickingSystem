@@ -5,7 +5,7 @@
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "AZURE_SIGNALR_CONNECTION_STRING": "Endpoint=https://ticketing-system.service.signalr.net;AccessKey=GHxtlVk9gmuipNGrkwaiZv82vG9oLMr7q7yKlOr9uo2DB1xemog9JQQJ99BIACL93NaXJ3w3AAAAASRSe70g;Version=1.0;",
     "AZURE_SIGNALR_HUB_NAME": "realtimeticket",
-    "SIGNALR_HUB_NAME": "ticketingHub",
+    "SIGNALR_HUB_NAME": "realtimeticket",
     "JWT_SECRET": "8d9f26a0792311435eadfa7face37e5bb074ff744fe704846dd3a1a70cc20b4a181c5b7090f87f3897da34c04e692016a01a61777e9e2279ef4c9c33e32439b0",
     "SESSION_KEYS": "296fe6bce5f49d270b6c7da4c4b35127c2865469465f4a639ce43802ec66420b,4b4dd8f9909397428476234ebf71b48f3a2e3bc95cdaf1c63b6c33f77b90b566",
     "FRONTEND_URL": "https://app.localhost",

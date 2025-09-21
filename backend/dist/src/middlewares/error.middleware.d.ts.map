@@ -1,1 +1,1 @@
-{"version":3,"file":"error.middleware.d.ts","sourceRoot":"","sources":["../../../src/middlewares/error.middleware.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,mBAAmB,EAAE,MAAM,SAAS,CAAC;AAenD,eAAO,MAAM,YAAY,EAAE,mBAgE1B,CAAC"}
+{"version":3,"file":"error.middleware.d.ts","sourceRoot":"","sources":["../../../src/middlewares/error.middleware.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,mBAAmB,EAAE,MAAM,SAAS,CAAC;AAenD,eAAO,MAAM,YAAY,EAAE,mBA0E1B,CAAC"}

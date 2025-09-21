@@ -45,8 +45,8 @@ export const requireAdmin = requireRoleAtLeast("ADMIN");
 
 export async function requireDevice(req: Request, _res: Response, next: NextFunction) {
   try {
-    const auth = req.header("Authorisation") ?? req.header("authorisation") ?? "";
-    if (!auth) throw new AuthError("Missing Authorisation header", 401);
+    const auth = req.header("Authorization") ?? req.header("authorization") ?? "";
+    if (!auth) throw new AuthError("Missing Authorization header", 401);
 
     const { deviceId, device } = await validateDeviceApiKey(auth);
     req.device = { deviceId, device };

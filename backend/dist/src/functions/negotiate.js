@@ -12,7 +12,7 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
  * This function validates App JWT tokens (signed by our backend) and generates SignalR connection info
  */
 async function negotiate(request, context) {
-    var _a;
+    var _a, _b;
     context.log('🚀 [SignalR Negotiate] Function started with App JWT validation.');
     context.log('🚀 [SignalR Negotiate] Request method:', request.method);
     context.log('🚀 [SignalR Negotiate] Request URL:', request.url);
@@ -39,12 +39,13 @@ async function negotiate(request, context) {
             };
         }
         const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-        context.log('🔑 [SignalR Negotiate] Token extracted, length:', token.length);
-        context.log('🔑 [SignalR Negotiate] Token preview:', token.substring(0, 30) + '...');
+        context.log('🔑 [SignalR Negotiate] App JWT extracted, length:', token.length);
+        context.log('🔑 [SignalR Negotiate] App JWT preview (first 30 chars):', token.substring(0, 30) + '...');
+        context.log('🔑 [SignalR Negotiate] Token type: App JWT (for negotiate authentication)');
         // Validate JWT token (verify App JWT signature)
         let jwtPayload;
         try {
-            context.log('🔒 [SignalR Negotiate] Verifying App JWT with JWT_SECRET...');
+            context.log('🔒 [SignalR Negotiate] Verifying App JWT with backend JWT_SECRET...');
             context.log('🔒 [SignalR Negotiate] JWT_SECRET present:', !!process.env.JWT_SECRET);
             // Verify App JWT token with our JWT_SECRET
             jwtPayload = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
@@ -117,6 +118,12 @@ async function negotiate(request, context) {
         try {
             context.log('🔧 [SignalR Negotiate] Generating SignalR connection info...');
             context.log('🔧 [SignalR Negotiate] AZURE_SIGNALR_CONNECTION_STRING present:', !!process.env.AZURE_SIGNALR_CONNECTION_STRING);
+            // 🚨 DEBUG: 验证环境配置一致性
+            context.log('🚨 [DEBUG] Environment Configuration Check:');
+            context.log('🚨 [DEBUG] - AZURE_SIGNALR_HUB_NAME:', process.env.AZURE_SIGNALR_HUB_NAME);
+            context.log('🚨 [DEBUG] - SIGNALR_HUB_NAME:', process.env.SIGNALR_HUB_NAME);
+            context.log('🚨 [DEBUG] - JWT_SECRET present:', !!process.env.JWT_SECRET);
+            context.log('🚨 [DEBUG] - Connection string endpoint preview:', ((_a = process.env.AZURE_SIGNALR_CONNECTION_STRING) === null || _a === void 0 ? void 0 : _a.split(';')[0]) || 'not found');
             if (userType === 'device') {
                 context.log('🔧 [SignalR Negotiate] Generating device connection info...');
                 connectionInfo = (0, config_1.generateDeviceConnectionInfo)(userId);
@@ -128,7 +135,8 @@ async function negotiate(request, context) {
             context.log('✅ [SignalR Negotiate] Connection info generated:', {
                 url: connectionInfo.url,
                 accessTokenPresent: !!connectionInfo.accessToken,
-                accessTokenLength: ((_a = connectionInfo.accessToken) === null || _a === void 0 ? void 0 : _a.length) || 0
+                accessTokenLength: ((_b = connectionInfo.accessToken) === null || _b === void 0 ? void 0 : _b.length) || 0,
+                tokenType: 'Azure SignalR Connection Token (NOT App JWT)'
             });
             // Since we broadcast to all users, no need for complex group management
             context.log('🔧 [SignalR Negotiate] Using broadcast mode - no group management needed');

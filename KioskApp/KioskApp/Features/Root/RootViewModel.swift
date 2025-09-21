@@ -98,8 +98,15 @@ final class RootViewModel: ObservableObject {
 
     func attachSocket() {
         print("📱 RootViewModel: Attaching socket...")
-        env.signalRService.delegate = env.gatewayCenter
-        env.signalRService.connect()
+        
+        // 首先检查App JWT是否存在，如果不存在则获取
+        Task {
+            await ensureAppJWT()
+            await MainActor.run {
+                env.signalRService.delegate = env.gatewayCenter
+                env.signalRService.connect()
+            }
+        }
         
         // 监听应用生命周期来处理连接状态
         NotificationCenter.default.addObserver(
@@ -111,11 +118,32 @@ final class RootViewModel: ObservableObject {
         }
     }
     
+    private func ensureAppJWT() async {
+        guard env.authProvider.appJwt == nil else {
+            print("📱 RootViewModel: App JWT already exists, skipping refresh")
+            return
+        }
+        
+        print("📱 RootViewModel: App JWT missing, attempting to obtain...")
+        do {
+            let jwtResponse = try await env.apiClient.generateDeviceJWT()
+            try env.authProvider.storeAppJwt(jwtResponse.appJwt)
+            print("📱 RootViewModel: Successfully obtained and stored App JWT")
+        } catch {
+            print("📱 RootViewModel: Failed to obtain App JWT: \(error)")
+        }
+    }
+    
     private func handleAppBecameActive() {
         // 当应用重新激活时，检查连接状态
         if isPaired && !env.signalRService.isConnected {
             print("📱 RootViewModel: App became active, reconnecting socket...")
-            env.signalRService.reconnect()
+            Task {
+                await ensureAppJWT()
+                await MainActor.run {
+                    env.signalRService.reconnect()
+                }
+            }
         }
     }
 

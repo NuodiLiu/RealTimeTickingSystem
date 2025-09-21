@@ -46,7 +46,10 @@ final class DeviceAuthProvider: AuthProviding {
     }
     var signalRToken: String? { 
         let token = try? keychain.get(Keys.signalRToken)
-        print("AuthProvider: signalRToken requested, found: \(token?.prefix(20) ?? "nil")")
+        print("AuthProvider: [SignalR Token] requested, found: \(token?.prefix(20) ?? "nil")")
+        if token != nil {
+            print("AuthProvider: [SignalR Token] type: Azure SignalR Connection Token")
+        }
         return token
     }
     var signalREndpoint: String? { 
@@ -56,7 +59,10 @@ final class DeviceAuthProvider: AuthProviding {
     }
     var appJwt: String? {
         let jwt = try? keychain.get(Keys.appJwt)
-        print("AuthProvider: appJwt requested, found: \(jwt?.prefix(20) ?? "nil")")
+        print("AuthProvider: [App JWT] requested, found: \(jwt?.prefix(20) ?? "nil")")
+        if jwt != nil {
+            print("AuthProvider: [App JWT] type: Backend Application JWT for API authentication")
+        }
         return jwt
     }
 
@@ -74,23 +80,23 @@ final class DeviceAuthProvider: AuthProviding {
     }
 
     func storeSignalRInfo(token: String, endpoint: String) throws {
-        print("AuthProvider: Storing SignalR credentials")
-        print("AuthProvider: SignalR Token: \(token.prefix(20))...")
-        print("AuthProvider: SignalR Endpoint: \(endpoint)")
+        print("AuthProvider: [SignalR Token] Storing SignalR connection credentials")
+        print("AuthProvider: [SignalR Token] Token (Azure SignalR): \(token.prefix(20))...")
+        print("AuthProvider: [SignalR Token] Endpoint: \(endpoint)")
         
         try keychain.set(token, for: Keys.signalRToken)
         try keychain.set(endpoint, for: Keys.signalREndpoint)
         
-        print("AuthProvider: Successfully stored SignalR credentials")
+        print("AuthProvider: [SignalR Token] Successfully stored SignalR connection credentials")
     }
 
     func storeAppJwt(_ jwt: String) throws {
-        print("AuthProvider: Storing App JWT")
-        print("AuthProvider: App JWT: \(jwt.prefix(20))...")
+        print("AuthProvider: [App JWT] Storing App JWT")
+        print("AuthProvider: [App JWT] JWT (Backend Auth): \(jwt.prefix(20))...")
         
         try keychain.set(jwt, for: Keys.appJwt)
         
-        print("AuthProvider: Successfully stored App JWT")
+        print("AuthProvider: [App JWT] Successfully stored App JWT")
     }
 
     func clearDevice() throws {

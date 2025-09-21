@@ -47,6 +47,13 @@ enum SignalRConnectionState {
     case reconnecting
 }
 
+// MARK: - SignalR Connection Error
+enum SignalRConnectionError: Error {
+    case invalidURL
+    case missingToken
+    case connectionFailed(String)
+}
+
 // MARK: - SignalR Service
 final class SignalRService {
     private var hubConnection: HubConnection?
@@ -55,6 +62,7 @@ final class SignalRService {
     private let apiClient: ApiClient
     private var isIntentionallyDisconnected = false
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+    private var isConnecting = false  // 🚨 添加连接状态保护
     
     weak var delegate: DeviceGatewayDelegate?
     
@@ -162,6 +170,12 @@ final class SignalRService {
     
     @MainActor
     private func performConnect() async {
+        // 🚨 防止并发连接
+        guard !isConnecting else {
+            print("SignalRService: [CONCURRENT] Connection already in progress, skipping...")
+            return
+        }
+        
         guard let deviceId = authProvider.deviceId else {
             print("SignalRService.connect() skipped: no device ID available")
             return
@@ -174,7 +188,11 @@ final class SignalRService {
 
         print("SignalRService.connect() starting for device: \(String(deviceId.prefix(8)))...")
         
+        isConnecting = true  // 🚨 设置连接状态
+        defer { isConnecting = false }  // 🚨 确保状态重置
+        
         do {
+            // 检查配对状态...
             let isPaired = try await apiClient.checkPairingStatus(deviceId: deviceId)
             if !isPaired {
                 print("SignalRService: Device is no longer paired on server, clearing credentials...")
@@ -184,7 +202,11 @@ final class SignalRService {
                 } catch {
                     print("SignalRService: Failed to clear device credentials: \(error)")
                 }
-                delegate?.gatewayDeviceUnpaired()
+                
+                // Ensure UI updates happen on main thread
+                await MainActor.run {
+                    delegate?.gatewayDeviceUnpaired()
+                }
                 return
             }
             print("SignalRService: Device pairing status confirmed, proceeding with connection...")
@@ -195,7 +217,7 @@ final class SignalRService {
         
         isIntentionallyDisconnected = false
         
-        // Get SignalR connection details from the backend
+        // Get SignalR connection details from the backend first
         do {
             let connectionInfo = try await getNegotiateInfo()
             
@@ -205,13 +227,22 @@ final class SignalRService {
                 hubConnection = nil
             }
             
-            // Create new connection using official SignalR client
-            let urlWithToken = connectionInfo.url + (connectionInfo.url.contains("?") ? "&" : "?") +
-                              "access_token=" + (connectionInfo.accessToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")
+            // 🎯 CORRECT SOLUTION: Use HttpConnectionOptions with accessTokenFactory
+            // This ensures the token is properly passed to Azure SignalR's negotiate endpoint
+            print("SignalRService: [CORRECT] Using HttpConnectionOptions with accessTokenFactory")
+            print("SignalRService: [CORRECT] Base URL: \(connectionInfo.url)")
+            
+            // Create HttpConnectionOptions with accessTokenFactory
+            var connectionOptions = HttpConnectionOptions()
+            connectionOptions.accessTokenFactory = {
+                print("🎯 [TOKEN PROVIDER] SignalR client requesting access token for negotiate...")
+                print("🎯 [TOKEN PROVIDER] Providing Azure SignalR token: \(connectionInfo.accessToken.prefix(20))...")
+                return connectionInfo.accessToken
+            }
             
             hubConnection = HubConnectionBuilder()
-                .withUrl(url: urlWithToken, transport: .webSockets)
-                .withAutomaticReconnect() // Enable automatic reconnection
+                .withUrl(url: connectionInfo.url, options: connectionOptions)
+                .withAutomaticReconnect()
                 .build()
             
             setupSignalRHandlers()
@@ -219,11 +250,19 @@ final class SignalRService {
             // Start connection
             try await hubConnection?.start()
             print("SignalRService: Connected successfully!")
-            delegate?.gatewayDidConnect()
+            
+            // Ensure UI updates happen on main thread
+            await MainActor.run {
+                delegate?.gatewayDidConnect()
+            }
             
         } catch {
             print("SignalRService: Failed to connect: \(error)")
-            delegate?.gatewayDidDisconnect()
+            
+            // Ensure UI updates happen on main thread
+            await MainActor.run {
+                delegate?.gatewayDidDisconnect()
+            }
         }
     }
     
@@ -233,9 +272,13 @@ final class SignalRService {
         Task {
             await hubConnection?.stop()
             hubConnection = nil
+            
+            // Ensure UI updates happen on main thread
+            await MainActor.run {
+                delegate?.gatewayDidDisconnect()
+            }
         }
         endBackgroundTask()
-        delegate?.gatewayDidDisconnect()
     }
     
     func reconnect() {
@@ -387,11 +430,36 @@ final class SignalRService {
     // MARK: - Helper Methods
     
     private func getNegotiateInfo() async throws -> NegotiateInfo {
+        print("SignalRService: [Token Flow] Starting negotiate process...")
+        print("SignalRService: [Token Flow] Step 1: Using App JWT to call /negotiate endpoint")
+        
+        // 🚨 DEBUG: 验证使用的认证类型
+        print("🚨 [DEBUG] Authentication check before negotiate:")
+        if let appJwt = authProvider.appJwt {
+            print("🚨 [DEBUG] - App JWT available: \(appJwt.prefix(30))...")
+            print("🚨 [DEBUG] - App JWT will be used in Authorization header")
+        } else {
+            print("🚨 [DEBUG] - No App JWT available!")
+        }
+        
         // Use the existing ApiClient method to get connection info
         let response = try await apiClient.getSignalRConnectionInfo()
         
+        print("SignalRService: [Token Flow] Step 2: Received SignalR connection token from backend")
+        print("SignalRService: [Token Flow] SignalR Token: \(response.token.prefix(20))...")
+        print("SignalRService: [Token Flow] SignalR URL: \(response.url)")
+        
+        // 🚨 DEBUG: 分析返回的 token 和 URL
+        print("🚨 [DEBUG] Response analysis:")
+        print("🚨 [DEBUG] - Response URL matches expected pattern: \(response.url.contains("ticketing-system.service.signalr.net"))")
+        print("🚨 [DEBUG] - Response URL contains hub parameter: \(response.url.contains("hub=realtimeticket"))")
+        print("🚨 [DEBUG] - Token type appears to be JWT: \(response.token.hasPrefix("eyJ"))")
+        print("🚨 [DEBUG] - Token length: \(response.token.count) characters")
+        
         // Store the SignalR token and endpoint
         try authProvider.storeSignalRInfo(token: response.token, endpoint: response.url)
+        
+        print("SignalRService: [Token Flow] Step 3: SignalR credentials stored successfully")
         
         return NegotiateInfo(
             url: response.url,
