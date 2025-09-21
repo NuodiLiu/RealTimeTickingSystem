@@ -36,11 +36,11 @@ export class SignalRClient {
 
   public async broadcastToDevices(message: ServerToDevice, mode?: DeviceMode): Promise<void> {
     try {
-      const targetGroup = mode ? `mode-${mode.toLowerCase()}` : 'devices';
-      await signalRConfig.sendToGroup(targetGroup, message);
-      console.log(`Broadcast message sent to ${targetGroup}:`, message.type);
+      // Broadcast to all connected users instead of specific device groups
+      await signalRConfig.sendToDashboard(message);
+      console.log(`Message broadcasted to all users:`, message.type);
     } catch (error) {
-      console.error(`Failed to broadcast message to devices:`, error);
+      console.error(`Failed to broadcast message to all users:`, error);
     }
   }
 
@@ -138,10 +138,11 @@ export class SignalRClient {
 
   public async pingAllDevices(): Promise<void> {
     try {
-      await signalRConfig.sendToGroup('devices', { type: "PING", payload: { now: new Date().toISOString() } });
-      console.log('Ping sent to all devices');
+      // Broadcast ping to all connected users
+      await signalRConfig.sendToDashboard({ type: "PING", payload: { now: new Date().toISOString() } });
+      console.log('Ping broadcasted to all connected users');
     } catch (error) {
-      console.error('Failed to ping all devices:', error);
+      console.error('Failed to ping all users:', error);
     }
   }
 

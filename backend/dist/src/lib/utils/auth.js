@@ -31,7 +31,7 @@ function signStaffToken(staffData) {
         identityKey: staffData.identityKey,
         name: staffData.name,
         email: staffData.email,
-    }, process.env.JWT_SECRET, { expiresIn: '15m' } // Short-lived: 15 minutes
+    }, process.env.JWT_SECRET, { expiresIn: '2h' } // Extended: 2 hours for development
     );
 }
 /**

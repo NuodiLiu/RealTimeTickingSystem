@@ -7,6 +7,7 @@ export declare class DeviceController {
     static getDevicesByMode(req: Request, res: Response, next: NextFunction): Promise<void>;
     static getOnlineDevicesByMode(req: Request, res: Response, next: NextFunction): Promise<void>;
     static issueWsToken(req: Request, res: Response, next: NextFunction): Promise<void>;
+    static issueAppJWT(req: Request, res: Response, next: NextFunction): Promise<void>;
     static changeMode(req: Request, res: Response, next: NextFunction): Promise<void>;
     static unpairDevice(req: Request, res: Response, next: NextFunction): Promise<void>;
     static checkPairingStatus(req: Request, res: Response, next: NextFunction): Promise<void>;

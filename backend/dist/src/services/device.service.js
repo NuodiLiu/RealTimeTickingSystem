@@ -243,6 +243,23 @@ class DeviceService {
         const token = jsonwebtoken_1.default.sign({ typ: 'device', sub: device.id, mode: device.mode }, process.env.JWT_SECRET, { expiresIn: '12h' });
         return token;
     }
+    static async issueAppJWT(deviceId) {
+        const device = await prisma_1.prisma.kioskDevice.findUnique({
+            where: { id: deviceId }, select: { id: true, mode: true, deletedAt: true }
+        });
+        if (!device || device.deletedAt)
+            throw new error_1.NotFoundError('Device not found');
+        const expiresIn = '24h';
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        const token = jsonwebtoken_1.default.sign({
+            typ: 'device',
+            sub: device.id,
+            mode: device.mode,
+            iat: Math.floor(Date.now() / 1000),
+            exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60
+        }, process.env.JWT_SECRET, { expiresIn });
+        return { token, expiresAt };
+    }
     static async changeMode(deviceId, newMode) {
         var _a;
         const device = await prisma_1.prisma.kioskDevice.findUnique({

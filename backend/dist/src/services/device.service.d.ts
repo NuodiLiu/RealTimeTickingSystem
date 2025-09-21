@@ -86,6 +86,10 @@ export declare class DeviceService {
         } | null;
     }[]>;
     static issueWsToken(deviceId: string): Promise<string>;
+    static issueAppJWT(deviceId: string): Promise<{
+        token: string;
+        expiresAt: string;
+    }>;
     static changeMode(deviceId: string, newMode: DeviceMode): Promise<{
         id: string;
         name: string;

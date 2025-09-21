@@ -11,19 +11,21 @@ async function onConnected(request, context) {
         const body = await request.json();
         const { userId, connectionId } = body;
         if (userId && connectionId) {
-            // Add user to appropriate groups based on user type
-            if (userId.startsWith('device-')) {
-                await config_1.signalRConfig.addUserToGroup(userId, 'devices');
-                context.log(`Device ${userId} connected and added to devices group`);
-            }
-            else {
-                await config_1.signalRConfig.addUserToGroup(userId, 'dashboard');
-                context.log(`User ${userId} connected and added to dashboard group`);
-            }
-            // Notify dashboard about new connection
+            context.log(`Processing connection for userId: ${userId}, connectionId: ${connectionId}`);
+            // Get user type from request body or query params
+            const userType = body.userType || 'dashboard';
+            context.log(`User type determined: ${userType}`);
+            // Since we broadcast to all users, we don't need complex group management
+            context.log(`User ${userId} connected (${userType}) - using broadcast mode`);
+            // Send welcome message to all users about the connection
             await config_1.signalRConfig.sendToDashboard({
-                type: 'userConnected',
-                payload: { userId, connectionId, timestamp: new Date().toISOString() }
+                type: userType === 'device' ? 'device:connected' : 'user:connected',
+                payload: {
+                    userId,
+                    userType,
+                    connectionId,
+                    timestamp: new Date().toISOString()
+                }
             });
         }
         return {
@@ -45,19 +47,21 @@ async function onDisconnected(request, context) {
         const body = await request.json();
         const { userId, connectionId } = body;
         if (userId && connectionId) {
-            // Remove user from groups
-            if (userId.startsWith('device-')) {
-                await config_1.signalRConfig.removeUserFromGroup(userId, 'devices');
-                context.log(`Device ${userId} disconnected and removed from devices group`);
-            }
-            else {
-                await config_1.signalRConfig.removeUserFromGroup(userId, 'dashboard');
-                context.log(`User ${userId} disconnected and removed from dashboard group`);
-            }
-            // Notify dashboard about disconnection
+            context.log(`Processing disconnection for userId: ${userId}, connectionId: ${connectionId}`);
+            // Get user type from request body
+            const userType = body.userType || 'dashboard';
+            context.log(`User type determined: ${userType}`);
+            // Since we broadcast to all users, we don't need complex group management
+            context.log(`User ${userId} disconnected (${userType}) - using broadcast mode`);
+            // Send disconnection notice to all users
             await config_1.signalRConfig.sendToDashboard({
-                type: 'userDisconnected',
-                payload: { userId, connectionId, timestamp: new Date().toISOString() }
+                type: userType === 'device' ? 'device:disconnected' : 'user:disconnected',
+                payload: {
+                    userId,
+                    userType,
+                    connectionId,
+                    timestamp: new Date().toISOString()
+                }
             });
         }
         return {

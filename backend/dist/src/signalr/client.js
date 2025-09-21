@@ -29,12 +29,12 @@ class SignalRClient {
     }
     async broadcastToDevices(message, mode) {
         try {
-            const targetGroup = mode ? `mode-${mode.toLowerCase()}` : 'devices';
-            await config_1.signalRConfig.sendToGroup(targetGroup, message);
-            console.log(`Broadcast message sent to ${targetGroup}:`, message.type);
+            // Broadcast to all connected users instead of specific device groups
+            await config_1.signalRConfig.sendToDashboard(message);
+            console.log(`Message broadcasted to all users:`, message.type);
         }
         catch (error) {
-            console.error(`Failed to broadcast message to devices:`, error);
+            console.error(`Failed to broadcast message to all users:`, error);
         }
     }
     // Specific message methods matching websocket interface
@@ -114,11 +114,12 @@ class SignalRClient {
     }
     async pingAllDevices() {
         try {
-            await config_1.signalRConfig.sendToGroup('devices', { type: "PING", payload: { now: new Date().toISOString() } });
-            console.log('Ping sent to all devices');
+            // Broadcast ping to all connected users
+            await config_1.signalRConfig.sendToDashboard({ type: "PING", payload: { now: new Date().toISOString() } });
+            console.log('Ping broadcasted to all connected users');
         }
         catch (error) {
-            console.error('Failed to ping all devices:', error);
+            console.error('Failed to ping all users:', error);
         }
     }
     // Group management (simplified for serverless)

@@ -255,7 +255,7 @@ router.post('/refresh', async (req, res) => {
         res.json({
             accessToken: newAppJwt,
             tokenType: 'Bearer',
-            expiresIn: 15 * 60, // 15 minutes in seconds
+            expiresIn: 2 * 60 * 60, // 2 hours in seconds
         });
     }
     catch (error) {

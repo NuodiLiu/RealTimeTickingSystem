@@ -15,6 +15,7 @@ router.get("/", jwt_auth_middleware_1.requireJWTAuth, auth_middleware_1.requireS
 router.get("/by-mode/:mode", jwt_auth_middleware_1.requireJWTAuth, auth_middleware_1.requireStaff, device_controller_1.DeviceController.getDevicesByMode);
 router.get("/online/:mode", jwt_auth_middleware_1.requireJWTAuth, auth_middleware_1.requireStaff, device_controller_1.DeviceController.getOnlineDevicesByMode);
 router.post("/ws-token", auth_middleware_1.requireDevice, device_controller_1.DeviceController.issueWsToken);
+router.post("/token", auth_middleware_1.requireDevice, device_controller_1.DeviceController.issueAppJWT);
 router.patch("/:id/mode", jwt_auth_middleware_1.requireJWTAuth, auth_middleware_1.requireStaff, device_controller_1.DeviceController.changeMode);
 router.patch("/:id/name", jwt_auth_middleware_1.requireJWTAuth, auth_middleware_1.requireStaff, device_controller_1.DeviceController.updateDeviceName);
 router.delete("/:id", jwt_auth_middleware_1.requireJWTAuth, auth_middleware_1.requireStaff, device_controller_1.DeviceController.unpairDevice);

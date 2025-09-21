@@ -135,14 +135,16 @@ class AzureSignalRServiceConfig implements SignalRConfig {
     const payload = {
       aud: audience,
       iat: now,
-      exp: exp
-      // No nameid or role needed for server tokens
+      exp: exp,
+      // CRITICAL: Add server role for group management permissions
+      role: ['signalr.serviceOwner', 'signalr.hubOwner']
     };
 
     console.log('🔐 [SignalR Config] SERVER Token payload:', {
       aud: audience,
       iat: now,
-      exp: exp
+      exp: exp,
+      role: payload.role
     });
     
     const token = jwt.sign(payload, this.hmacKey, { algorithm: 'HS256' });
@@ -189,7 +191,29 @@ class AzureSignalRServiceConfig implements SignalRConfig {
   }
 
   async sendToDashboard(message: any): Promise<void> {
-    await this.sendToGroup('dashboard', message);
+    // Broadcast to all connected users instead of using groups
+    try {
+      const url = `${this.endpoint}/api/v1/hubs/${this.hubName}`;
+      const token = this.buildServerToken(); // Use server token for REST API
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(message)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to broadcast message to all users: ${response.statusText}`);
+      }
+
+      console.log(`Message broadcasted to all users:`, message.type);
+    } catch (error) {
+      console.error(`Failed to broadcast message to all users:`, error);
+      throw error;
+    }
   }
 
   async sendToGroup(group: string, message: any): Promise<void> {

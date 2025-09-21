@@ -249,37 +249,49 @@ export class SignalRService {
       this.reconnectAttempts = 0;
     });
 
-    // Handle incoming messages
+    // Handle incoming messages from Azure SignalR Service REST API
+    // When messages are sent via REST API, they arrive as the message object directly
+    
+    // Handle generic messages sent via REST API (this is the primary method)
+    this.connection.on('message', (message: any) => {
+      console.log('SignalR REST API message received:', message);
+      if (message && message.type) {
+        console.log(`Processing message type: ${message.type}`);
+        this.emit(message);
+      } else {
+        console.log('Received message without type:', message);
+      }
+    });
+
+    // Fallback: Also listen for direct hub method calls (in case they're used)
     this.connection.on('caseUpdated', (payload: any) => {
+      console.log('Direct hub call - caseUpdated:', payload);
       this.emit({ type: 'case:updated', payload });
     });
 
     this.connection.on('caseCreated', (payload: any) => {
+      console.log('Direct hub call - caseCreated:', payload);
       this.emit({ type: 'case:created', payload });
     });
 
     this.connection.on('deviceUpdated', (payload: any) => {
+      console.log('Direct hub call - deviceUpdated:', payload);
       this.emit({ type: 'device:updated', payload });
     });
 
     this.connection.on('deviceConnected', (payload: any) => {
+      console.log('Direct hub call - deviceConnected:', payload);
       this.emit({ type: 'device:connected', payload });
     });
 
     this.connection.on('deviceDisconnected', (payload: any) => {
+      console.log('Direct hub call - deviceDisconnected:', payload);
       this.emit({ type: 'device:disconnected', payload });
     });
 
     this.connection.on('deviceStatus', (payload: any) => {
+      console.log('Direct hub call - deviceStatus:', payload);
       this.emit({ type: 'device:status', payload });
-    });
-
-    // Generic message handler
-    this.connection.on('message', (message: any) => {
-      console.log('SignalR message received:', message);
-      if (message.type) {
-        this.emit(message);
-      }
     });
   }
 

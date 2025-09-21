@@ -144,6 +144,9 @@ export async function negotiate(request: HttpRequest, context: InvocationContext
         accessTokenLength: connectionInfo.accessToken?.length || 0
       });
       
+      // Since we broadcast to all users, no need for complex group management
+      context.log('🔧 [SignalR Negotiate] Using broadcast mode - no group management needed');
+      
       // Add user metadata as additional response fields
       response = {
         ...connectionInfo,
