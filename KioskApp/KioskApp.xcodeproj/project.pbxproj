@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		018F61A32E6F119200EC2FE1 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = 018F61A22E6F119200EC2FE1 /* SocketIO */; };
+		018F61A32E6F119200EC2FE1 /* SignalRClient in Frameworks */ = {isa = PBXBuildFile; productRef = 018F61A22E6F119200EC2FE1 /* SignalRClient */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,7 +61,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				018F61A32E6F119200EC2FE1 /* SocketIO in Frameworks */,
+				018F61A32E6F119200EC2FE1 /* SignalRClient in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -124,7 +124,7 @@
 			);
 			name = KioskApp;
 			packageProductDependencies = (
-				018F61A22E6F119200EC2FE1 /* SocketIO */,
+				018F61A22E6F119200EC2FE1 /* SignalRClient */,
 			);
 			productName = KioskApp;
 			productReference = 018F616B2E6F105C00EC2FE1 /* KioskApp.app */;
@@ -209,7 +209,7 @@
 			mainGroup = 018F61622E6F105C00EC2FE1;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				018F61A12E6F119200EC2FE1 /* XCRemoteSwiftPackageReference "socket" */,
+				018F61A12E6F119200EC2FE1 /* XCRemoteSwiftPackageReference "signalr-client-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 018F616C2E6F105C00EC2FE1 /* Products */;
@@ -426,7 +426,6 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_WS_BASE_URL = "$(WS_BASE_URL)";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -459,7 +458,6 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_WS_BASE_URL = "$(WS_BASE_URL)";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -552,7 +550,7 @@
 				018F618B2E6F105D00EC2FE1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		018F618C2E6F105D00EC2FE1 /* Build configuration list for PBXNativeTarget "KioskApp" */ = {
 			isa = XCConfigurationList;
@@ -561,7 +559,7 @@
 				018F618E2E6F105D00EC2FE1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		018F618F2E6F105D00EC2FE1 /* Build configuration list for PBXNativeTarget "KioskAppTests" */ = {
 			isa = XCConfigurationList;
@@ -570,7 +568,7 @@
 				018F61912E6F105D00EC2FE1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		018F61922E6F105D00EC2FE1 /* Build configuration list for PBXNativeTarget "KioskAppUITests" */ = {
 			isa = XCConfigurationList;
@@ -579,26 +577,26 @@
 				018F61942E6F105D00EC2FE1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		018F61A12E6F119200EC2FE1 /* XCRemoteSwiftPackageReference "socket" */ = {
+		018F61A12E6F119200EC2FE1 /* XCRemoteSwiftPackageReference "signalr-client-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/socketio/socket.io-client-swift";
+			repositoryURL = "https://github.com/dotnet/signalr-client-swift";
 			requirement = {
-				branch = master;
+				branch = main;
 				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		018F61A22E6F119200EC2FE1 /* SocketIO */ = {
+		018F61A22E6F119200EC2FE1 /* SignalRClient */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 018F61A12E6F119200EC2FE1 /* XCRemoteSwiftPackageReference "socket" */;
-			productName = SocketIO;
+			package = 018F61A12E6F119200EC2FE1 /* XCRemoteSwiftPackageReference "signalr-client-swift" */;
+			productName = SignalRClient;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

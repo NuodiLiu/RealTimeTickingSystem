@@ -113,10 +113,8 @@ final class PairingViewModel: ObservableObject {
                 let deviceId: String
                 let deviceSecret: String
                 let apiKey: String
-                let wsToken: String?       
                 let deviceName: String
-                let mode: DeviceMode       
-                let wsEndpoint: String?    
+                let mode: DeviceMode
             }
             let ep = Endpoint<EPResp>(path: "/pair/complete", method: .POST, needsDeviceAuth: false)
             let deviceName = UIDevice.current.name
@@ -136,8 +134,6 @@ final class PairingViewModel: ObservableObject {
             print("   PairingViewModel: Received response from server:")
             print("   Device ID: \(resp.deviceId)")
             print("   Server returned mode: \(resp.mode.rawValue)")
-            print("   Has WS Token: \(resp.wsToken != nil)")
-            print("   Has WS Endpoint: \(resp.wsEndpoint != nil)")
             
             let finalMode = resp.mode
             print("PairingViewModel: Final mode determined: \(finalMode.rawValue)")
@@ -145,14 +141,28 @@ final class PairingViewModel: ObservableObject {
             let creds = DeviceCredentials(
                 deviceId: resp.deviceId, 
                 apiKey: resp.apiKey, 
-                wsToken: resp.wsToken,
-                wsEndpoint: resp.wsEndpoint,
                 mode: finalMode
             )
             
             print("PairingViewModel: About to store device credentials...")
             try env.authProvider.storeDevice(credentials: creds)
             print("Stored device, id:", creds.deviceId.prefix(6), "mode:", creds.mode.rawValue)
+            
+            // 获取 App JWT
+            print("PairingViewModel: Getting App JWT for device...")
+            do {
+                let jwtResponse = try await env.apiClient.generateDeviceJWT()
+                print("PairingViewModel: Successfully obtained App JWT")
+                try env.authProvider.storeAppJwt(jwtResponse.appJwt)
+                print("PairingViewModel: App JWT stored successfully")
+                
+                // 主动触发SignalR连接
+                print("PairingViewModel: Triggering SignalR connection...")
+                env.signalRService.connect()
+            } catch {
+                print("PairingViewModel: Failed to get App JWT: \(error)")
+                // 继续处理，JWT获取失败不应该阻止pairing完成
+            }
             
             print("PairingViewModel: About to save mode to store...")
             modeStore.save(finalMode)

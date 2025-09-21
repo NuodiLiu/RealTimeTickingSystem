@@ -5,18 +5,32 @@
 
 import Foundation
 
-enum HTTPMethod: String { case GET, POST, PUT, PATCH, DELETE }
+enum HTTPMethod: String { 
+    case GET, POST, PUT, PATCH, DELETE 
+}
 
-public struct EmptyResponse: Codable { public init() {} }
+public struct EmptyResponse: Codable { 
+    public init() {} 
+}
 
 struct Endpoint<Response: Decodable> {
     let path: String
     let method: HTTPMethod
     let needsDeviceAuth: Bool
+    let needsAppJwt: Bool
     var query: [URLQueryItem] = []
     var headers: [String: String] = [:]
+    
+    // 便利构造器保持向后兼容
+    init(path: String, method: HTTPMethod, needsDeviceAuth: Bool = false, needsAppJwt: Bool = false, query: [URLQueryItem] = [], headers: [String: String] = [:]) {
+        self.path = path
+        self.method = method
+        self.needsDeviceAuth = needsDeviceAuth
+        self.needsAppJwt = needsAppJwt
+        self.query = query
+        self.headers = headers
+    }
 }
-
 
 public enum ApiError: LocalizedError {
     case badURL
@@ -63,24 +77,34 @@ final class ApiClient {
         _ endpoint: Endpoint<Response>,
         body: Body? = nil
     ) async throws -> Response {
-        //  Build URL
+        // Build URL
         var url = baseURL
         url.appendPathComponent(endpoint.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
-        guard var comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else { throw ApiError.badURL }
+        guard var comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else { 
+            throw ApiError.badURL 
+        }
         comps.queryItems = endpoint.query.isEmpty ? nil : endpoint.query
-        guard let finalURL = comps.url else { throw ApiError.badURL }
+        guard let finalURL = comps.url else { 
+            throw ApiError.badURL 
+        }
 
-        //  Build Request
+        // Build Request
         var req = URLRequest(url: finalURL)
         req.httpMethod = endpoint.method.rawValue
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        // Device auth header
+        // Authentication headers
         if endpoint.needsDeviceAuth, let key = authProvider.deviceApiKey {
-            req.setValue("Device \(key)", forHTTPHeaderField: "Authorization")
+            req.setValue("Device \(key)", forHTTPHeaderField: "Authorisation")
+        } else if endpoint.needsAppJwt, let jwt = authProvider.appJwt {
+            req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorisation")
         }
+        
         // Extra headers
-        for (k, v) in endpoint.headers { req.setValue(v, forHTTPHeaderField: k) }
+        for (k, v) in endpoint.headers { 
+            req.setValue(v, forHTTPHeaderField: k) 
+        }
+        
         // Body
         if let body {
             req.httpBody = try JSONEncoder().encode(body)
@@ -119,38 +143,42 @@ final class ApiClient {
         return try await request(endpoint, body: nil as EmptyResponse?)
     }
 
-    private struct ErrorBox: Decodable { let error: String? }
-    
     private func handleResponse<Response: Decodable>(data: Data, response: URLResponse) throws -> Response {
-        guard let http = response as? HTTPURLResponse else { throw ApiError.unknown("No HTTPURLResponse") }
-        let status = http.statusCode
-
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ApiError.unknown("Invalid response type")
+        }
         
-        if !(200...299).contains(status) {
-            let msg = (try? JSONDecoder().decode(ErrorBox.self, from: data).error)
-                      ?? String(data: data, encoding: .utf8)
-            switch status {
-            case 401: throw ApiError.unauthorized(msg)
-            case 403: throw ApiError.forbidden(msg)
-            case 404: throw ApiError.notFound(msg)
-            case 422: throw ApiError.validation(msg)
-            case 429:
-                let retryAfter = http.value(forHTTPHeaderField: "Retry-After").flatMap { TimeInterval($0) }
-                throw ApiError.rateLimited(retryAfter: retryAfter)
-            case 500...599: throw ApiError.server(msg)
-            default: throw ApiError.unknown(msg)
-            }
+        let statusCode = httpResponse.statusCode
+        
+        switch statusCode {
+        case 200...299:
+            // Success case - decode the response
+            break
+        case 400:
+            throw ApiError.validation(String(data: data, encoding: .utf8))
+        case 401:
+            throw ApiError.unauthorized(String(data: data, encoding: .utf8))
+        case 403:
+            throw ApiError.forbidden(String(data: data, encoding: .utf8))
+        case 404:
+            throw ApiError.notFound(String(data: data, encoding: .utf8))
+        case 429:
+            let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After")
+                .flatMap(TimeInterval.init)
+            throw ApiError.rateLimited(retryAfter: retryAfter)
+        case 500...599:
+            throw ApiError.server(String(data: data, encoding: .utf8))
+        default:
+            throw ApiError.unknown("HTTP \(statusCode)")
         }
-
-        // Decode success
-        if Response.self == EmptyResponse.self {
-            return EmptyResponse() as! Response
-        }
+        
         do {
             let decoder = JSONDecoder()
             return try decoder.decode(Response.self, from: data)
         } catch {
-            if data.isEmpty { throw ApiError.decoding("Empty body") }
+            if data.isEmpty { 
+                throw ApiError.decoding("Empty body") 
+            }
             throw ApiError.decoding(String(describing: error))
         }
     }
@@ -169,13 +197,26 @@ final class ApiClient {
     /// Get SignalR connection information for the device
     func getSignalRConnectionInfo() async throws -> SignalRConnectionResponse {
         let endpoint = Endpoint<SignalRConnectionResponse>(
-            path: "/api/signalr/device/token",
+            path: "/api/negotiate",  // 与前端一致的路径
             method: .POST,
-            needsDeviceAuth: true
+            needsDeviceAuth: false,  // 不再使用 Device 认证
+            needsAppJwt: true        // 使用 App JWT 认证
+        )
+        return try await request(endpoint)
+    }
+    
+    /// Generate App JWT for device
+    func generateDeviceJWT() async throws -> DeviceJWTResponse {
+        let endpoint = Endpoint<DeviceJWTResponse>(
+            path: "/device/token",   // 设备JWT端点
+            method: .POST,
+            needsDeviceAuth: true    // 使用 Device API Key 获取 JWT
         )
         return try await request(endpoint)
     }
 }
+
+// MARK: - Response Models
 
 struct PairingStatusResponse: Decodable {
     let isPaired: Bool
@@ -186,4 +227,9 @@ struct SignalRConnectionResponse: Decodable {
     let token: String
     let deviceId: String
     let mode: String
+}
+
+struct DeviceJWTResponse: Decodable {
+    let appJwt: String
+    let expiresAt: String
 }

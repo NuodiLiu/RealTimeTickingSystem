@@ -80,7 +80,7 @@ struct DevResetGesture: ViewModifier {
         do {
             try appEnv.authProvider.clearDevice()
             appEnv.modeStore.clear()
-            appEnv.socketService.disconnect()
+            appEnv.signalRService.disconnect()
             print("Dev reset completed - device unpaired")
             
             NotificationCenter.default.post(name: .deviceResetRequested, object: nil)

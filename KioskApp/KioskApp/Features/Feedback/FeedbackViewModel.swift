@@ -38,9 +38,9 @@ final class FeedbackViewModel: ObservableObject {
     /// Called when the view appears: ACK upstream, report status heartbeat, etc.
     func onAppear() {
         if let payload = pendingPayload {
-            env.socketService.sendDelivered(sessionId: payload.sessionId)
+            env.signalRService.sendDelivered(sessionId: payload.sessionId)
         }
-        env.socketService.sendStatusPing()
+        env.signalRService.sendStatusPing()
     }
 
     // MARK: - Validation
@@ -72,7 +72,7 @@ final class FeedbackViewModel: ObservableObject {
                 text: text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
             )
             submitted = true
-            env.socketService.sendStatusPing()
+            env.signalRService.sendStatusPing()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -86,6 +86,6 @@ final class FeedbackViewModel: ObservableObject {
         }
 
         print("FeedbackViewModel: Sending FEEDBACK_CANCELLED for session \(sessionId)")
-        env.socketService.sendFeedbackCancelled(sessionId: sessionId)
+        env.signalRService.sendFeedbackCancelled(sessionId: sessionId)
     }
 }

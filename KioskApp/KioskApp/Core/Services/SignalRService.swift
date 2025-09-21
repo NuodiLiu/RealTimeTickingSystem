@@ -1,17 +1,45 @@
 // Core/Services/SignalRService.swift
 import Foundation
 import UIKit
+import SignalRClient
 
-// MARK: - SignalR Connection Protocol
-protocol SignalRConnectionProtocol: AnyObject {
-    func start(completion: @escaping (Error?) -> Void)
-    func stop()
-    func invoke(method: String, arguments: [Any], completion: @escaping (Error?) -> Void)
-    func on(method: String, callback: @escaping ([Any?]) -> Void)
-    var connectionState: SignalRConnectionState { get }
+// MARK: - DeviceGatewayDelegate Protocol
+protocol DeviceGatewayDelegate: AnyObject {
+    func gatewayDidConnect()
+    func gatewayDidDisconnect()
+    func gatewayShowFeedback(_ payload: FeedbackShowPayload, raw: [String: Any])
+    func gatewayDismiss()
+    func gatewayLockAssigned(_ payload: LockAssignedPayload, raw: [String: Any])
+    func gatewayModeChanged(_ mode: DeviceMode)
+    func gatewayDeviceUnpaired()
 }
 
-// MARK: - Connection State Enum
+extension DeviceGatewayDelegate {
+    func gatewayModeChanged(_ mode: DeviceMode) {}
+    func gatewayDeviceUnpaired() {}
+}
+
+// MARK: - Data Models
+struct FeedbackShowPayload: Decodable { 
+    let sessionId: String
+    let caseId: String
+    let staff: StaffInfo
+    let expireAt: String
+}
+
+struct StaffInfo: Decodable {
+    let id: String
+    let name: String
+}
+
+struct LockAssignedPayload: Decodable { 
+    let lockId: String?
+    let caseId: String?
+    let staffName: String?
+    let leaseExpireAt: String? 
+}
+
+// MARK: - SignalR Connection State Enum
 enum SignalRConnectionState {
     case disconnected
     case connecting
@@ -19,183 +47,9 @@ enum SignalRConnectionState {
     case reconnecting
 }
 
-// MARK: - SignalR Hub Connection
-/// A basic SignalR Hub Connection implementation
-/// This is a simplified implementation - in production, you would use the official Microsoft SignalR iOS SDK
-class SignalRHubConnection: SignalRConnectionProtocol {
-    private var urlSession: URLSession?
-    private var webSocketTask: URLSessionWebSocketTask?
-    private var connectionUrl: String?
-    private var accessToken: String?
-    
-    private var methodCallbacks: [String: ([Any?]) -> Void] = [:]
-    private var isRunning = false
-    
-    var connectionState: SignalRConnectionState {
-        guard isRunning else { return .disconnected }
-        guard let task = webSocketTask else { return .disconnected }
-        
-        switch task.state {
-        case .running:
-            return .connected
-        case .suspended:
-            return .reconnecting
-        default:
-            return .disconnected
-        }
-    }
-    
-    init(url: String, accessToken: String) {
-        self.connectionUrl = url
-        self.accessToken = accessToken
-        self.urlSession = URLSession(configuration: .default)
-    }
-    
-    func start(completion: @escaping (Error?) -> Void) {
-        guard let urlString = connectionUrl,
-              let url = URL(string: urlString) else {
-            completion(SignalRError.invalidUrl)
-            return
-        }
-        
-        var request = URLRequest(url: url)
-        if let token = accessToken {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        
-        webSocketTask = urlSession?.webSocketTask(with: request)
-        isRunning = true
-        
-        webSocketTask?.resume()
-        
-        // Start listening for messages
-        receiveMessage()
-        
-        // Send handshake
-        let handshake = ["protocol": "json", "version": 1]
-        if let data = try? JSONSerialization.data(withJSONObject: handshake),
-           let handshakeString = String(data: data, encoding: .utf8) {
-            let message = URLSessionWebSocketTask.Message.string(handshakeString + "\u{1e}")
-            webSocketTask?.send(message) { error in
-                completion(error)
-            }
-        }
-    }
-    
-    func stop() {
-        isRunning = false
-        webSocketTask?.cancel()
-        webSocketTask = nil
-    }
-    
-    func invoke(method: String, arguments: [Any], completion: @escaping (Error?) -> Void) {
-        let invocation: [String: Any] = [
-            "type": 1,
-            "target": method,
-            "arguments": arguments
-        ]
-        
-        guard let data = try? JSONSerialization.data(withJSONObject: invocation),
-              let jsonString = String(data: data, encoding: .utf8) else {
-            completion(SignalRError.serializationError)
-            return
-        }
-        
-        let message = URLSessionWebSocketTask.Message.string(jsonString + "\u{1e}")
-        webSocketTask?.send(message, completionHandler: completion)
-    }
-    
-    func on(method: String, callback: @escaping ([Any?]) -> Void) {
-        methodCallbacks[method] = callback
-    }
-    
-    private func receiveMessage() {
-        guard isRunning else { return }
-        
-        webSocketTask?.receive { [weak self] result in
-            guard let self = self else { return }
-            
-            switch result {
-            case .success(let message):
-                self.handleMessage(message)
-                self.receiveMessage() // Continue listening
-            case .failure(let error):
-                print("SignalR: Receive error: \(error)")
-                // Attempt reconnection logic here if needed
-            }
-        }
-    }
-    
-    private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
-        switch message {
-        case .string(let text):
-            // Remove the record separator
-            let cleanText = text.replacingOccurrences(of: "\u{1e}", with: "")
-            guard !cleanText.isEmpty,
-                  let data = cleanText.data(using: .utf8),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                return
-            }
-            
-            handleJsonMessage(json)
-            
-        case .data(let data):
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                handleJsonMessage(json)
-            }
-        @unknown default:
-            break
-        }
-    }
-    
-    private func handleJsonMessage(_ json: [String: Any]) {
-        guard let type = json["type"] as? Int else { return }
-        
-        switch type {
-        case 1: // Invocation
-            if let target = json["target"] as? String,
-               let arguments = json["arguments"] as? [Any?],
-               let callback = methodCallbacks[target] {
-                callback(arguments)
-            }
-        case 6: // Ping
-            // Respond with pong
-            let pong = ["type": 6]
-            if let data = try? JSONSerialization.data(withJSONObject: pong),
-               let pongString = String(data: data, encoding: .utf8) {
-                let message = URLSessionWebSocketTask.Message.string(pongString + "\u{1e}")
-                webSocketTask?.send(message) { _ in }
-            }
-        default:
-            break
-        }
-    }
-}
-
-// MARK: - SignalR Errors
-enum SignalRError: Error {
-    case invalidUrl
-    case serializationError
-    case connectionFailed
-    case notConnected
-    
-    var localizedDescription: String {
-        switch self {
-        case .invalidUrl:
-            return "Invalid SignalR URL"
-        case .serializationError:
-            return "Failed to serialize SignalR message"
-        case .connectionFailed:
-            return "SignalR connection failed"
-        case .notConnected:
-            return "SignalR not connected"
-        }
-    }
-}
-
-// MARK: - Main SignalR Service
+// MARK: - SignalR Service
 final class SignalRService {
-    private var hubConnection: SignalRConnectionProtocol?
+    private var hubConnection: HubConnection?
     private let apiBaseURL: URL
     private let authProvider: AuthProviding
     private let apiClient: ApiClient
@@ -239,6 +93,14 @@ final class SignalRService {
             name: UIApplication.willTerminateNotification,
             object: nil
         )
+        
+        // Add ping notification observer
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handlePingNotification(_:)),
+            name: NSNotification.Name("SignalRPingReceived"),
+            object: nil
+        )
     }
     
     private func removeApplicationLifecycleNotifications() {
@@ -249,8 +111,8 @@ final class SignalRService {
         print("📱 SignalRService: App entering foreground, checking connection...")
         endBackgroundTask()
         
-        if authProvider.signalRToken != nil && authProvider.deviceId != nil && !isIntentionallyDisconnected {
-            if hubConnection?.connectionState != .connected {
+        if authProvider.appJwt != nil && authProvider.deviceId != nil && !isIntentionallyDisconnected {
+            if !isConnected {
                 print("SignalRService: Auto-reconnecting on foreground...")
                 connect()
             }
@@ -275,6 +137,14 @@ final class SignalRService {
         disconnect()
     }
     
+    @objc private func handlePingNotification(_ notification: Notification) {
+        print("SignalRService: Handling ping notification")
+        let payload = notification.userInfo as? [String: Any] ?? [:]
+        Task {
+            await invokePong(payload: payload)
+        }
+    }
+    
     private func endBackgroundTask() {
         if backgroundTask != .invalid {
             UIApplication.shared.endBackgroundTask(backgroundTask)
@@ -297,6 +167,11 @@ final class SignalRService {
             return
         }
         
+        guard authProvider.appJwt != nil else {
+            print("SignalRService.connect() skipped: no App JWT available")
+            return
+        }
+
         print("SignalRService.connect() starting for device: \(String(deviceId.prefix(8)))...")
         
         do {
@@ -322,34 +197,32 @@ final class SignalRService {
         
         // Get SignalR connection details from the backend
         do {
-            let connectionInfo = try await getSignalRConnectionInfo()
+            let connectionInfo = try await getNegotiateInfo()
             
             // Disconnect existing connection
-            hubConnection?.stop()
+            if let existingConnection = hubConnection {
+                await existingConnection.stop()
+                hubConnection = nil
+            }
             
-            // Create new connection
-            hubConnection = SignalRHubConnection(
-                url: connectionInfo.url,
-                accessToken: connectionInfo.token
-            )
+            // Create new connection using official SignalR client
+            let urlWithToken = connectionInfo.url + (connectionInfo.url.contains("?") ? "&" : "?") +
+                              "access_token=" + (connectionInfo.accessToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")
+            
+            hubConnection = HubConnectionBuilder()
+                .withUrl(url: urlWithToken, transport: .webSockets)
+                .withAutomaticReconnect() // Enable automatic reconnection
+                .build()
             
             setupSignalRHandlers()
             
             // Start connection
-            hubConnection?.start { [weak self] error in
-                DispatchQueue.main.async {
-                    if let error = error {
-                        print("SignalRService: Connection failed: \(error)")
-                        self?.delegate?.gatewayDidDisconnect()
-                    } else {
-                        print("SignalRService: Connected successfully!")
-                        self?.delegate?.gatewayDidConnect()
-                    }
-                }
-            }
+            try await hubConnection?.start()
+            print("SignalRService: Connected successfully!")
+            delegate?.gatewayDidConnect()
             
         } catch {
-            print("SignalRService: Failed to get connection info: \(error)")
+            print("SignalRService: Failed to connect: \(error)")
             delegate?.gatewayDidDisconnect()
         }
     }
@@ -357,107 +230,122 @@ final class SignalRService {
     func disconnect() {
         print("SignalRService: Manual disconnect requested")
         isIntentionallyDisconnected = true
-        hubConnection?.stop()
-        hubConnection = nil
+        Task {
+            await hubConnection?.stop()
+            hubConnection = nil
+        }
         endBackgroundTask()
         delegate?.gatewayDidDisconnect()
     }
     
     func reconnect() {
         print("SignalRService: Manual reconnect requested")
-        if authProvider.signalRToken != nil && authProvider.deviceId != nil {
+        if authProvider.appJwt != nil && authProvider.deviceId != nil {
             connect()
         } else {
-            print("SignalRService: Cannot reconnect - no SignalR token or device ID")
+            print("SignalRService: Cannot reconnect - no App JWT or device ID")
         }
     }
     
     var isConnected: Bool {
-        hubConnection?.connectionState == .connected
+        hubConnection != nil
     }
     
     // MARK: - SignalR Hub Methods Setup
     
     private func setupSignalRHandlers() {
+        guard let connection = hubConnection else { return }
+        
+        // Store delegate reference to avoid capturing self
+        let delegate = self.delegate
+        
         // Server to Device methods (following the backend SignalR implementation)
         
-        hubConnection?.on(method: "showFeedback") { [weak self] arguments in
-            guard let self = self,
-                  let payload = arguments.first as? [String: Any] else { return }
-            
-            print("SignalRService: *** showFeedback received ***")
-            print("SignalRService: Payload: \(payload)")
-            
-            if let decoded: FeedbackShowPayload = Self.decode(payload) {
-                print("SignalRService: Successfully decoded showFeedback, calling delegate")
-                DispatchQueue.main.async {
-                    self.delegate?.gatewayShowFeedback(decoded, raw: payload)
-                }
-            } else {
-                print("SignalRService: Failed to decode showFeedback payload")
-            }
-        }
-        
-        hubConnection?.on(method: "dismiss") { [weak self] _ in
-            print("SignalRService: dismiss received")
-            DispatchQueue.main.async {
-                self?.delegate?.gatewayDismiss()
-            }
-        }
-        
-        hubConnection?.on(method: "ping") { [weak self] arguments in
-            print("SignalRService: ping received")
-            // Respond with pong
-            let payload = arguments.first as? [String: Any] ?? [:]
-            self?.invokePong(payload: payload)
-        }
-        
-        hubConnection?.on(method: "lockAssigned") { [weak self] arguments in
-            guard let self = self,
-                  let payload = arguments.first as? [String: Any] else { return }
-            
-            print("SignalRService: lockAssigned received")
-            if let decoded: LockAssignedPayload = Self.decode(payload) {
-                DispatchQueue.main.async {
-                    self.delegate?.gatewayLockAssigned(decoded, raw: payload)
+        Task {
+            await connection.on("showFeedback") { @Sendable (arguments: [Any]) in
+                guard let payload = arguments.first as? [String: Any] else { return }
+                
+                print("SignalRService: *** showFeedback received ***")
+                print("SignalRService: Payload: \(payload)")
+                
+                if let decoded: FeedbackShowPayload = SignalRService.decode(payload) {
+                    print("SignalRService: Successfully decoded showFeedback, calling delegate")
+                    Task { @MainActor in
+                        delegate?.gatewayShowFeedback(decoded, raw: payload)
+                    }
+                } else {
+                    print("SignalRService: Failed to decode showFeedback payload")
                 }
             }
-        }
-        
-        hubConnection?.on(method: "modeChanged") { [weak self] arguments in
-            guard let self = self,
-                  let payload = arguments.first as? [String: Any],
-                  let modeString = payload["mode"] as? String,
-                  let mode = DeviceMode(rawValue: modeString) else { return }
             
-            print("SignalRService: modeChanged received: \(mode)")
-            DispatchQueue.main.async {
-                self.delegate?.gatewayModeChanged(mode)
+            await connection.on("dismiss") { @Sendable (_: [Any]) in
+                print("SignalRService: dismiss received")
+                Task { @MainActor in
+                    delegate?.gatewayDismiss()
+                }
+            }
+            
+            await connection.on("ping") { @Sendable (arguments: [Any]) in
+                print("SignalRService: ping received")
+                // Respond with pong - handle this via notification or different mechanism
+                let payload = arguments.first as? [String: Any] ?? [:]
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("SignalRPingReceived"), 
+                    object: nil, 
+                    userInfo: payload
+                )
+            }
+            
+            await connection.on("lockAssigned") { @Sendable (arguments: [Any]) in
+                guard let payload = arguments.first as? [String: Any] else { return }
+                
+                print("SignalRService: lockAssigned received")
+                if let decoded: LockAssignedPayload = SignalRService.decode(payload) {
+                    Task { @MainActor in
+                        delegate?.gatewayLockAssigned(decoded, raw: payload)
+                    }
+                }
+            }
+            
+            await connection.on("modeChanged") { @Sendable (arguments: [Any]) in
+                guard let payload = arguments.first as? [String: Any],
+                      let modeString = payload["mode"] as? String,
+                      let mode = DeviceMode(rawValue: modeString) else { return }
+                
+                print("SignalRService: modeChanged received: \(mode)")
+                Task { @MainActor in
+                    delegate?.gatewayModeChanged(mode)
+                }
+            }
+            
+            await connection.on("unpaired") { @Sendable (_: [Any]) in
+                print("SignalRService: unpaired received from server")
+                Task { @MainActor in
+                    delegate?.gatewayDeviceUnpaired()
+                }
             }
         }
         
-        hubConnection?.on(method: "unpaired") { [weak self] _ in
-            print("SignalRService: unpaired received from server")
-            DispatchQueue.main.async {
-                self?.delegate?.gatewayDeviceUnpaired()
-            }
-        }
+        // Note: Connection lifecycle events might need to be handled differently
+        // based on the actual SignalR Swift client API
     }
     
     // MARK: - Device to Server Hub Methods
     
-    func invokePong(payload: [String: Any] = [:]) {
-        hubConnection?.invoke(method: "pong", arguments: [payload]) { error in
-            if let error = error {
-                print("SignalRService: Failed to send pong: \(error)")
-            }
+    func invokePong(payload: [String: Any] = [:]) async {
+        do {
+            try await hubConnection?.invoke(method: "pong", arguments: [payload])
+        } catch {
+            print("SignalRService: Failed to send pong: \(error)")
         }
     }
     
     func invokeDelivered(sessionId: String) {
         let payload = ["sessionId": sessionId]
-        hubConnection?.invoke(method: "delivered", arguments: [payload]) { error in
-            if let error = error {
+        Task {
+            do {
+                try await hubConnection?.invoke(method: "delivered", arguments: [payload])
+            } catch {
                 print("SignalRService: Failed to send delivered: \(error)")
             }
         }
@@ -465,8 +353,10 @@ final class SignalRService {
     
     func invokeFeedbackCancelled(sessionId: String) {
         let payload = ["sessionId": sessionId]
-        hubConnection?.invoke(method: "feedbackCancelled", arguments: [payload]) { error in
-            if let error = error {
+        Task {
+            do {
+                try await hubConnection?.invoke(method: "feedbackCancelled", arguments: [payload])
+            } catch {
                 print("SignalRService: Failed to send feedbackCancelled: \(error)")
             }
         }
@@ -475,16 +365,20 @@ final class SignalRService {
     func invokeLease() {
         guard let deviceId = authProvider.deviceId else { return }
         let payload = ["deviceId": deviceId]
-        hubConnection?.invoke(method: "lease", arguments: [payload]) { error in
-            if let error = error {
+        Task {
+            do {
+                try await hubConnection?.invoke(method: "lease", arguments: [payload])
+            } catch {
                 print("SignalRService: Failed to send lease: \(error)")
             }
         }
     }
     
     func invokeStatus() {
-        hubConnection?.invoke(method: "status", arguments: []) { error in
-            if let error = error {
+        Task {
+            do {
+                try await hubConnection?.invoke(method: "status", arguments: [])
+            } catch {
                 print("SignalRService: Failed to send status: \(error)")
             }
         }
@@ -492,22 +386,20 @@ final class SignalRService {
     
     // MARK: - Helper Methods
     
-    private func getSignalRConnectionInfo() async throws -> SignalRConnectionInfo {
-        // Get the SignalR connection info from the backend using the ApiClient
+    private func getNegotiateInfo() async throws -> NegotiateInfo {
+        // Use the existing ApiClient method to get connection info
         let response = try await apiClient.getSignalRConnectionInfo()
         
         // Store the SignalR token and endpoint
         try authProvider.storeSignalRInfo(token: response.token, endpoint: response.url)
         
-        return SignalRConnectionInfo(
+        return NegotiateInfo(
             url: response.url,
-            token: response.token,
-            deviceId: response.deviceId,
-            mode: response.mode
+            accessToken: response.token
         )
     }
     
-    private static func decode<T: Decodable>(_ dict: [String: Any]) -> T? {
+    static func decode<T: Decodable>(_ dict: [String: Any]) -> T? {
         guard JSONSerialization.isValidJSONObject(dict),
               let data = try? JSONSerialization.data(withJSONObject: dict) else { return nil }
         return try? JSONDecoder().decode(T.self, from: data)
@@ -536,23 +428,9 @@ extension SignalRService {
     }
 }
 
-// MARK: - SignalR Connection Info Models
+// MARK: - Connection Info Models
 
-struct SignalRConnectionInfo: Codable {
+struct NegotiateInfo {
     let url: String
-    let token: String
-    let deviceId: String
-    let mode: String
+    let accessToken: String
 }
-
-// MARK: - DeviceMode enum (if not already defined elsewhere)
-
-enum DeviceMode: String, CaseIterable {
-    case dual = "DUAL"
-    case feedbackOnly = "FEEDBACK_ONLY"
-    case registration = "REGISTRATION"
-    case feedback = "FEEDBACK"
-}
-
-// Keep the existing payload structs for compatibility
-// These should match the existing definitions in SocketService.swift

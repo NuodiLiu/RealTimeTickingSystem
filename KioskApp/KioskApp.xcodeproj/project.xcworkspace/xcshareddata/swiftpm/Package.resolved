@@ -1,22 +1,13 @@
 {
-  "originHash" : "c9fb241c5f575df8f20b39649006995779013948e60c51c3f85b729f83b054e7",
+  "originHash" : "ffa02a6cae5fc0e2ef612283493b3ffc358b5c4bfa225cc4d9b611f30d1fcea2",
   "pins" : [
     {
-      "identity" : "socket.io-client-swift",
+      "identity" : "signalr-client-swift",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/socketio/socket.io-client-swift",
+      "location" : "https://github.com/dotnet/signalr-client-swift",
       "state" : {
-        "branch" : "master",
-        "revision" : "42da871d9369f290d6ec4930636c40672143905b"
-      }
-    },
-    {
-      "identity" : "starscream",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/daltoniam/Starscream",
-      "state" : {
-        "revision" : "c6bfd1af48efcc9a9ad203665db12375ba6b145a",
-        "version" : "4.0.8"
+        "branch" : "main",
+        "revision" : "9a1cd1dcbb6918744037f834e411f11e2d15b5d3"
       }
     }
   ],

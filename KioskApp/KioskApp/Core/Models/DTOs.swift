@@ -10,9 +10,7 @@ enum DeviceStatus: String, Codable {
 // iPad locally stored credentials
 struct DeviceCredentials: Codable, Equatable {
     let deviceId: String
-    let apiKey: String         
-    let wsToken: String?       
-    let wsEndpoint: String?   
+    let apiKey: String
     let mode: DeviceMode
 }
 
@@ -26,10 +24,8 @@ struct PairCompleteResponse: Decodable {
     let deviceId: String
     let deviceSecret: String
     let apiKey: String
-    let wsToken: String?         
     let deviceName: String
     let mode: DeviceMode
-    let wsEndpoint: String?
 }
 
 // /cases

@@ -6,7 +6,35 @@ import { getDeviceConnectionUrl, signalRAuthMiddleware } from './auth';
 
 const router = Router();
 
-// Device connection endpoint - requires device API key
+// Standard SignalR negotiate endpoint for devices
+router.post('/negotiate', 
+  requireDevice,
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.device) {
+        return res.status(401).json({ error: 'Device authentication required' });
+      }
+
+      // Generate Azure SignalR connection info using device ID as user ID
+      const connectionInfo = signalRConfig.getConnectionInfo(req.device.deviceId);
+
+      console.log('Generated SignalR negotiate response for device:', req.device.deviceId);
+
+      res.json({
+        url: connectionInfo.url,
+        accessToken: connectionInfo.accessToken,
+        // These fields are for compatibility with iOS app
+        deviceId: req.device.deviceId,
+        mode: req.device.device?.mode || 'REGISTRATION' // fallback to REGISTRATION mode
+      });
+    } catch (error) {
+      console.error('Error in SignalR negotiate:', error);
+      res.status(500).json({ error: 'Failed to negotiate SignalR connection' });
+    }
+  }
+);
+
+// Device connection endpoint - requires device API key (legacy)
 router.get('/device/connect', 
   signalRAuthMiddleware as any, 
   getDeviceConnectionUrl as any

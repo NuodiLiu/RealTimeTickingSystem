@@ -15,22 +15,19 @@ final class GatewayCenter: ObservableObject, DeviceGatewayDelegate {
     @Published var modeChanged: DeviceMode?
     @Published var deviceUnpaired: Bool = false
     
-    // Keep references to both services for smooth transition
-    weak var socketService: SocketService?
+    // Keep reference to SignalR service
     weak var signalRService: SignalRService?
     
-    // Helper properties for connection status
-    var isSocketConnected: Bool { socketService?.isConnected ?? false }
+    // Helper property for connection status
     var isSignalRConnected: Bool { signalRService?.isConnected ?? false }
     
-    // Updated connection status based on which service is active
+    // Updated connection status
     private func updateConnectionStatus() {
-        // Prefer SignalR if available, fallback to WebSocket
         let wasConnected = isConnected
-        isConnected = isSignalRConnected || isSocketConnected
+        isConnected = isSignalRConnected
         
         if wasConnected != isConnected {
-            print("GatewayCenter: Connection status changed - SignalR: \(isSignalRConnected), WebSocket: \(isSocketConnected), Overall: \(isConnected)")
+            print("GatewayCenter: Connection status changed - SignalR: \(isSignalRConnected), Overall: \(isConnected)")
         }
     }
 

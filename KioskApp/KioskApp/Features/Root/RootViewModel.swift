@@ -77,7 +77,7 @@ final class RootViewModel: ObservableObject {
         if env.authProvider.deviceApiKey != nil {
             print("📱 RootViewModel: Found existing device credentials")
             print("📱 RootViewModel: API Key exists: \(env.authProvider.deviceApiKey?.prefix(20) ?? "nil")...")
-            print("📱 RootViewModel: WS Token exists: \(env.authProvider.wsToken?.prefix(20) ?? "nil")...")
+            print("📱 RootViewModel: App JWT exists: \(env.authProvider.appJwt?.prefix(20) ?? "nil")...")
             
             isPaired = true
             let stored = env.modeStore.load() ?? .REGISTRATION
@@ -98,8 +98,8 @@ final class RootViewModel: ObservableObject {
 
     func attachSocket() {
         print("📱 RootViewModel: Attaching socket...")
-        env.socketService.delegate = env.gatewayCenter
-        env.socketService.connect()
+        env.signalRService.delegate = env.gatewayCenter
+        env.signalRService.connect()
         
         // 监听应用生命周期来处理连接状态
         NotificationCenter.default.addObserver(
@@ -113,9 +113,9 @@ final class RootViewModel: ObservableObject {
     
     private func handleAppBecameActive() {
         // 当应用重新激活时，检查连接状态
-        if isPaired && !env.socketService.isConnected {
+        if isPaired && !env.signalRService.isConnected {
             print("📱 RootViewModel: App became active, reconnecting socket...")
-            env.socketService.reconnect()
+            env.signalRService.reconnect()
         }
     }
 
@@ -145,7 +145,7 @@ final class RootViewModel: ObservableObject {
         do {
             try env.authProvider.clearDevice()
             env.modeStore.clear()
-            env.socketService.disconnect()
+            env.signalRService.disconnect()
             
             isPaired = false
             currentMode = .REGISTRATION
@@ -177,7 +177,7 @@ final class RootViewModel: ObservableObject {
         do {
             try env.authProvider.clearDevice()
             env.modeStore.clear()
-            env.socketService.disconnect()
+            env.signalRService.disconnect()
             
             // 重置状态，返回配对界面
             isPaired = false

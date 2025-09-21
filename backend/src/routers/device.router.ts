@@ -17,6 +17,7 @@ router.get("/by-mode/:mode", requireJWTAuth, requireStaff, DeviceController.getD
 router.get("/online/:mode", requireJWTAuth, requireStaff, DeviceController.getOnlineDevicesByMode);
 
 router.post("/ws-token", requireDevice, DeviceController.issueWsToken);
+router.post("/token", requireDevice, DeviceController.issueAppJWT);
 
 router.patch("/:id/mode", requireJWTAuth, requireStaff, DeviceController.changeMode);
 router.patch("/:id/name", requireJWTAuth, requireStaff, DeviceController.updateDeviceName);

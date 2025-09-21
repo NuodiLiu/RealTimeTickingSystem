@@ -89,6 +89,18 @@ export class DeviceController {
     }
   }
 
+  static async issueAppJWT(req: Request, res: Response, next: NextFunction) {
+    try {
+      const deviceId = req.device?.deviceId;
+      if (!deviceId) throw new BadRequestError('Device authentication required');
+
+      const appJwt = await DeviceService.issueAppJWT(deviceId);
+      res.status(200).json({ appJwt: appJwt.token, expiresAt: appJwt.expiresAt });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async changeMode(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
