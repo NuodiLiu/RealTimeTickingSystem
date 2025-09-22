@@ -1,32 +1,33 @@
-// Load environment variables first - support multiple paths for Azure Functions
-import dotenv from 'dotenv';
-import path from 'path';
+// --- load local .env only when running outside Azure ---
+(function loadEnv() {
+  // In Azure these envs are injected via App Settings, no .env needed
+  const isAzure = !!(process.env.WEBSITE_SITE_NAME || process.env.FUNCTIONS_WORKER_RUNTIME);
 
-// Try loading .env from multiple possible locations
-const envPaths = [
-  path.resolve(process.cwd(), '.env'),
-  path.resolve(__dirname, '../.env'),
-  path.resolve(__dirname, '../../.env'),
-  '.env'
-];
+  if (!isAzure) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const dotenv = require('dotenv');
+      const path = require('path');
 
-let envLoaded = false;
-for (const envPath of envPaths) {
-  try {
-    const result = dotenv.config({ path: envPath });
-    if (!result.error) {
-      console.log(`Environment loaded from: ${envPath}`);
-      envLoaded = true;
-      break;
+      const envPaths = [
+        path.resolve(process.cwd(), '.env'),
+        path.resolve(__dirname, '../.env'),
+        path.resolve(__dirname, '../../.env'),
+        '.env'
+      ];
+
+      for (const p of envPaths) {
+        const r = dotenv.config({ path: p });
+        if (!r.error) {
+          console.log(`Environment loaded from: ${p}`);
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn('dotenv not loaded (likely prod/Azure):', (e as Error).message);
     }
-  } catch (error) {
-    // Continue to next path
   }
-}
-
-if (!envLoaded) {
-  console.warn('No .env file found, using process environment variables only');
-}
+})();
 
 // Validate critical environment variables
 const requiredEnvVars = ['DATABASE_URL'];
@@ -39,10 +40,25 @@ if (missingVars.length > 0) {
 
 import { app } from '@azure/functions';
 
+// Add canary function for basic health check
+app.http('canary', { 
+  methods: ['GET'], 
+  authLevel: 'anonymous',
+  route: 'canary',
+  handler: async () => ({ status: 200, body: 'ok' }) 
+});
+
+console.log('🚀 Functions.ts loading...');
+
 // Import all function modules to register them
+console.log('📥 Importing negotiate...');
 import './functions/negotiate';
+console.log('📥 Importing sendMessage...');
 import './functions/sendMessage';
+console.log('📥 Importing signalrEvents...');
 import './functions/signalrEvents';
+
+console.log('✅ All function modules imported');
 import { Readable } from 'stream';
 
 // Import the complete Express app
@@ -52,8 +68,8 @@ import { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functio
 // 配置化的路由前缀处理
 const CONFIG = {
   expressBase: process.env.EXPRESS_BASE_PATH || '/api/app',
-  // 修正 SignalR 路由：添加 /api/negotiate 和 /api/signalr
-  signalRPrefixes: (process.env.SIGNALR_PREFIXES || '/api/negotiate,/api/signalr').split(','),
+  // 只阻断通用 SignalR 路由，不包括具体的事件处理器端点
+  signalRPrefixes: (process.env.SIGNALR_PREFIXES || '/api/negotiate').split(','),
   timeout: parseInt(process.env.EXPRESS_TIMEOUT_MS || '30000', 10), // 30s for file downloads
 } as const;
 
@@ -134,11 +150,9 @@ export async function httpTrigger(request: HttpRequest, context: InvocationConte
       };
     }
 
-    // 白名单短路：SignalR 专属路由不要走 Express
-    // 注意：只有直接的 SignalR 路由才跳过，不包括 /api/negotiate
+    // 白名单短路：只阻断通用 SignalR 路由，允许事件处理器通过
     const isDirectSignalRRoute = CONFIG.signalRPrefixes.some(p => {
-      // 排除 negotiate 路由，因为它需要被单独的 Azure Function 处理
-      if (p === '/api/negotiate') return false;
+      // negotiate 路由有单独的 Azure Function 处理，不走 Express
       return requestPath === p || requestPath.startsWith(p + '/');
     });
     
@@ -178,7 +192,13 @@ export async function httpTrigger(request: HttpRequest, context: InvocationConte
           } else {
             // 如果没有响应被发送但也没有错误，可能是路由没有匹配
             if (!expressResponse.finished) {
-              console.warn('Express middleware completed but no response was sent for:', internalPath);
+              context.log(`⚠️ No Express route matched: ${internalPath}`);
+              // 手动设置 404 响应
+              expressResponse.status(404).json({ 
+                error: 'Not Found', 
+                path: internalPath,
+                timestamp: new Date().toISOString()
+              });
             }
             resolve();
           }

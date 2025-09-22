@@ -1,0 +1,162 @@
+{
+  "version": "2.0",
+  "functions": [
+    {
+      "name": "canary",
+      "scriptFile": "dist/src/functions.js",
+      "entryPoint": "canary",
+      "bindings": [
+        {
+          "authLevel": "anonymous",
+          "type": "httpTrigger",
+          "direction": "in",
+          "name": "req",
+          "methods": ["get"],
+          "route": "canary"
+        },
+        {
+          "type": "http",
+          "direction": "out",
+          "name": "$return"
+        }
+      ]
+    },
+    {
+      "name": "negotiate",
+      "scriptFile": "dist/src/functions/negotiate.js",
+      "entryPoint": "negotiate",
+      "bindings": [
+        {
+          "authLevel": "anonymous",
+          "type": "httpTrigger",
+          "direction": "in",
+          "name": "req",
+          "methods": ["post", "get"],
+          "route": "negotiate"
+        },
+        {
+          "type": "http",
+          "direction": "out",
+          "name": "$return"
+        },
+        {
+          "type": "signalRConnectionInfo",
+          "direction": "in",
+          "name": "connectionInfo",
+          "hubName": "notifications",
+          "connectionStringSetting": "AZURE_SIGNALR_CONNECTION_STRING"
+        }
+      ]
+    },
+    {
+      "name": "sendMessage",
+      "scriptFile": "dist/src/functions/sendMessage.js",
+      "entryPoint": "sendMessage",
+      "bindings": [
+        {
+          "authLevel": "anonymous",
+          "type": "httpTrigger",
+          "direction": "in",
+          "name": "req",
+          "methods": ["post"]
+        },
+        {
+          "type": "http",
+          "direction": "out",
+          "name": "$return"
+        },
+        {
+          "type": "signalR",
+          "direction": "out",
+          "name": "signalRMessages",
+          "hubName": "notifications",
+          "connectionStringSetting": "AZURE_SIGNALR_CONNECTION_STRING"
+        }
+      ]
+    },
+    {
+      "name": "onConnected",
+      "scriptFile": "dist/src/functions/signalrEvents.js",
+      "entryPoint": "onConnected",
+      "bindings": [
+        {
+          "authLevel": "function",
+          "type": "httpTrigger",
+          "direction": "in",
+          "name": "req",
+          "methods": ["post"],
+          "route": "signalr/connected"
+        },
+        {
+          "type": "http",
+          "direction": "out",
+          "name": "$return"
+        }
+      ]
+    },
+    {
+      "name": "onDisconnected",
+      "scriptFile": "dist/src/functions/signalrEvents.js",
+      "entryPoint": "onDisconnected",
+      "bindings": [
+        {
+          "authLevel": "function",
+          "type": "httpTrigger",
+          "direction": "in",
+          "name": "req",
+          "methods": ["post"],
+          "route": "signalr/disconnected"
+        },
+        {
+          "type": "http",
+          "direction": "out",
+          "name": "$return"
+        }
+      ]
+    },
+    {
+      "name": "onMessage",
+      "scriptFile": "dist/src/functions/signalrEvents.js",
+      "entryPoint": "onMessage",
+      "bindings": [
+        {
+          "authLevel": "function",
+          "type": "httpTrigger",
+          "direction": "in",
+          "name": "req",
+          "methods": ["post"],
+          "route": "signalr/message"
+        },
+        {
+          "type": "http",
+          "direction": "out",
+          "name": "$return"
+        }
+      ]
+    },
+    {
+      "name": "httpTrigger",
+      "scriptFile": "dist/src/functions.js",
+      "entryPoint": "httpTrigger",
+      "bindings": [
+        {
+          "authLevel": "anonymous",
+          "type": "httpTrigger",
+          "direction": "in",
+          "name": "req",
+          "methods": ["get", "post", "put", "patch", "delete", "options"],
+          "route": "{*restOfPath}"
+        },
+        {
+          "type": "http",
+          "direction": "out",
+          "name": "$return"
+        }
+      ]
+    }
+  ],
+  "extensionBundle": {
+    "id": "Microsoft.Azure.Functions.ExtensionBundle",
+    "version": "[4.*, 5.0.0)"
+  }
+}

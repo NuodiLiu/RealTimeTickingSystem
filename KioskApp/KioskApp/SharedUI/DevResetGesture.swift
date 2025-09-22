@@ -76,18 +76,16 @@ struct DevResetGesture: ViewModifier {
     }
     
     private func performDeviceReset() {
-        Task { @MainActor in
-            let appEnv = AppEnvironment.shared
-            do {
-                try appEnv.authProvider.clearDevice()
-                appEnv.modeStore.clear()
-                appEnv.signalRService.disconnect()
-                print("Dev reset completed - device unpaired")
-                
-                NotificationCenter.default.post(name: .deviceResetRequested, object: nil)
-            } catch {
-                print("Dev reset failed: \(error)")
-            }
+        let appEnv = AppEnvironment.shared
+        do {
+            try appEnv.authProvider.clearDevice()
+            appEnv.modeStore.clear()
+            appEnv.signalRService.disconnect()
+            print("Dev reset completed - device unpaired")
+            
+            NotificationCenter.default.post(name: .deviceResetRequested, object: nil)
+        } catch {
+            print("Dev reset failed: \(error)")
         }
     }
 }

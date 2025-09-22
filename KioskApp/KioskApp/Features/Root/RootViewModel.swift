@@ -174,20 +174,18 @@ final class RootViewModel: ObservableObject {
     
     // 手动触发的 unpair（目前没有UI）
     func unpairDevice() {
-        Task { @MainActor in
-            do {
-                try env.authProvider.clearDevice()
-                env.modeStore.clear()
-                env.signalRService.disconnect()
-                
-                isPaired = false
-                currentMode = .REGISTRATION
-                route = .register
-                
-                print("📱 Device unpaired successfully")
-            } catch {
-                print("❌ Failed to unpair device: \(error)")
-            }
+        do {
+            try env.authProvider.clearDevice()
+            env.modeStore.clear()
+            env.signalRService.disconnect()
+            
+            isPaired = false
+            currentMode = .REGISTRATION
+            route = .register
+            
+            print("📱 Device unpaired successfully")
+        } catch {
+            print("❌ Failed to unpair device: \(error)")
         }
     }
     

@@ -1,7 +1,20 @@
 // src/auth/azure.ts
 import { ConfidentialClientApplication, LogLevel } from "@azure/msal-node";
-import dotenv from "dotenv";
-dotenv.config();
+
+// --- load local .env only when running outside Azure ---
+(function loadEnv() {
+  // In Azure these envs are injected via App Settings, no .env needed
+  const isAzure = !!(process.env.WEBSITE_SITE_NAME || process.env.FUNCTIONS_WORKER_RUNTIME);
+
+  if (!isAzure) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require('dotenv').config();
+    } catch (e) {
+      console.warn('dotenv not loaded (likely prod/Azure):', (e as Error).message);
+    }
+  }
+})();
 
 // Environment detection and URL configuration
 const isProduction = process.env.NODE_ENV === 'production';

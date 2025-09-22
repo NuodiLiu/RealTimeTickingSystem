@@ -1,13 +1,22 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.urls = exports.authParams = exports.msalClient = void 0;
 // src/auth/azure.ts
 const msal_node_1 = require("@azure/msal-node");
-const dotenv_1 = __importDefault(require("dotenv"));
-dotenv_1.default.config();
+// --- load local .env only when running outside Azure ---
+(function loadEnv() {
+    // In Azure these envs are injected via App Settings, no .env needed
+    const isAzure = !!(process.env.WEBSITE_SITE_NAME || process.env.FUNCTIONS_WORKER_RUNTIME);
+    if (!isAzure) {
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            require('dotenv').config();
+        }
+        catch (e) {
+            console.warn('dotenv not loaded (likely prod/Azure):', e.message);
+        }
+    }
+})();
 // Environment detection and URL configuration
 const isProduction = process.env.NODE_ENV === 'production';
 const allowAnyTenant = process.env.AZURE_AD_ALLOW_ANY_TENANT === 'true';

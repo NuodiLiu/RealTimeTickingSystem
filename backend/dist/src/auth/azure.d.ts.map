@@ -1,1 +1,1 @@
-{"version":3,"file":"azure.d.ts","sourceRoot":"","sources":["../../../src/auth/azure.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,6BAA6B,EAAY,MAAM,kBAAkB,CAAC;AA2B3E,eAAO,MAAM,UAAU,+BAiBrB,CAAC;AAGH,eAAO,MAAM,UAAU;;;CAQtB,CAAC;AAGF,eAAO,MAAM,IAAI;;;;CAIhB,CAAC"}
+{"version":3,"file":"azure.d.ts","sourceRoot":"","sources":["../../../src/auth/azure.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,6BAA6B,EAAY,MAAM,kBAAkB,CAAC;AAwC3E,eAAO,MAAM,UAAU,+BAiBrB,CAAC;AAGH,eAAO,MAAM,UAAU;;;CAQtB,CAAC;AAGF,eAAO,MAAM,IAAI;;;;CAIhB,CAAC"}

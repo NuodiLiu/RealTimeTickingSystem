@@ -42,7 +42,6 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
-const dotenv_1 = __importDefault(require("dotenv"));
 const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
 const YAML = __importStar(require("yamljs"));
 const auth_router_1 = __importDefault(require("./routers/auth.router"));
@@ -54,9 +53,21 @@ const excel_router_1 = __importDefault(require("./routers/excel.router"));
 const error_middleware_1 = require("./middlewares/error.middleware");
 // Import SignalR for serverless
 const routes_1 = __importDefault(require("./signalr/routes"));
-const webhook_1 = require("./signalr/webhook");
 const signalr_1 = require("./signalr");
-dotenv_1.default.config();
+// --- load local .env only when running outside Azure ---
+(function loadEnv() {
+    // In Azure these envs are injected via App Settings, no .env needed
+    const isAzure = !!(process.env.WEBSITE_SITE_NAME || process.env.FUNCTIONS_WORKER_RUNTIME);
+    if (!isAzure) {
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            require('dotenv').config();
+        }
+        catch (e) {
+            console.warn('dotenv not loaded (likely prod/Azure):', e.message);
+        }
+    }
+})();
 function createExpressApp() {
     const app = (0, express_1.default)();
     // Trust proxies - Azure Functions behind load balancer
@@ -200,9 +211,16 @@ function createExpressApp() {
     app.use("/device", device_router_1.default);
     app.use("/feedback", feedback_router_1.default);
     app.use("/excel", excel_router_1.default);
-    // SignalR routes and webhooks
+    // SignalR routes
     app.use("/api/signalr", routes_1.default);
-    (0, webhook_1.setupWebPubSubWebhooks)(app);
+    // Catch-all 404 middleware - must be placed before error handler
+    app.use((req, res, _next) => {
+        res.status(404).json({
+            error: 'Not Found',
+            path: req.originalUrl,
+            timestamp: new Date().toISOString()
+        });
+    });
     // Error handler 
     app.use(error_middleware_1.errorHandler);
     // /health endpoint - serverless compatible

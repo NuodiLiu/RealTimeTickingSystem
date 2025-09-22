@@ -1,6 +1,6 @@
 # SignalR Infrastructure
 
-This module provides a SignalR-based real-time communication infrastructure as a replacement for the websocket system, using Azure Web PubSub service.
+This module provides a SignalR-based real-time communication infrastructure as a replacement for the websocket system, using Azure SignalR Service.
 
 ## Features
 
@@ -23,7 +23,7 @@ This module provides a SignalR-based real-time communication infrastructure as a
           └──────────┬───────────┴──────────────────────┘
                      │
           ┌─────────────────────────────────────┐
-          │     Azure Web PubSub Service        │
+          │     Azure SignalR Service           │
           │                                     │
           │  • Connection Management            │
           │  • Message Routing                  │
@@ -39,9 +39,9 @@ This module provides a SignalR-based real-time communication infrastructure as a
 Add these variables to your `.env` file:
 
 ```bash
-# Azure Web PubSub Configuration
-AZURE_WEB_PUBSUB_CONNECTION_STRING="Endpoint=https://your-service.webpubsub.azure.com;AccessKey=your-access-key;Version=1.0;"
-AZURE_WEB_PUBSUB_HUB_NAME="ticketing-hub"
+# Azure SignalR Service Configuration
+AZURE_SIGNALR_CONNECTION_STRING="Endpoint=https://your-service.service.signalr.net;AccessKey=your-access-key;Version=1.0;"
+AZURE_SIGNALR_HUB_NAME="realtimeticket"
 
 # JWT Secret (already exists)
 JWT_SECRET="your-jwt-secret-key"
@@ -50,16 +50,15 @@ JWT_SECRET="your-jwt-secret-key"
 ### 2. Install Dependencies
 
 The required dependencies are already installed:
-- `@azure/web-pubsub`
 - `@microsoft/signalr`
 - `jsonwebtoken`
 
-### 3. Azure Web PubSub Service Setup
+### 3. Azure SignalR Service Setup
 
-1. Create an Azure Web PubSub service in Azure portal
+1. Create an Azure SignalR Service in Azure portal
 2. Get the connection string from the service
-3. Configure the webhook endpoint: `https://your-domain.com/api/signalr/webhook`
-4. Set the hub name to `ticketing-hub`
+3. Configure upstream event handlers in the service settings
+4. Set the hub name to `realtimeticket`
 
 ## Usage
 
@@ -105,13 +104,13 @@ await SignalRGateway.showFeedback(deviceId, payload);
 
 ### Authentication Endpoints
 
-- `GET /api/signalr/device/connect` - Get device connection URL and token
-- `GET /api/signalr/dashboard/connect` - Get dashboard connection URL and token
+- `GET /api/negotiate` - Get SignalR connection URL and token (for clients)
 
-### Webhook Endpoints
+### Function Endpoints
 
-- `POST /api/signalr/webhook` - Azure Web PubSub webhook handler
-- `GET /api/signalr/webhook/health` - Webhook health check
+- `POST /api/signalr/connected` - Azure SignalR Service event handler
+- `POST /api/signalr/disconnected` - Azure SignalR Service event handler  
+- `POST /api/signalr/message` - Azure SignalR Service event handler
 
 ## Message Types
 
@@ -145,15 +144,15 @@ type DeviceToServer =
 
 1. Device authenticates with backend using existing device credentials
 2. Backend generates SignalR JWT token with device info
-3. Device uses token to connect to Azure Web PubSub
-4. Backend handles connection events via webhooks
+3. Device uses token to connect to Azure SignalR Service
+4. Backend handles connection events via Azure Functions
 
 ### Dashboard Authentication
 
 1. User authenticates with backend (Azure AD)
 2. Backend generates SignalR JWT token with user info  
-3. Dashboard connects to Azure Web PubSub with token
-4. Backend handles connection events via webhooks
+3. Dashboard connects to Azure SignalR Service with token
+4. Backend handles connection events via Azure Functions
 
 ## Group Management
 
@@ -198,19 +197,19 @@ To migrate from the existing websocket system:
 
 1. **Update imports**: Change from `../websocket` to `../signalr`
 2. **Replace class name**: `DeviceGateway` → `SignalRGateway`
-3. **Update configuration**: Add Azure Web PubSub environment variables
+3. **Update configuration**: Add Azure SignalR Service environment variables
 4. **Test functionality**: All existing methods have the same signature
 
-The SignalR infrastructure maintains full backward compatibility with the websocket interface while providing the benefits of Azure Web PubSub's managed service.
+The SignalR infrastructure maintains full backward compatibility with the websocket interface while providing the benefits of Azure SignalR Service's managed service.
 
 ## Development
 
 ### Local Testing
 
 For local development, you can:
-1. Use Azure Web PubSub's development tier (free)
-2. Set up ngrok to expose your webhook endpoint
-3. Configure the webhook URL in Azure portal
+1. Use Azure SignalR Service's development tier (free)
+2. Configure upstream event handlers to point to your local Azure Functions
+3. Use ngrok if testing from external clients
 
 ### Testing Without Azure
 

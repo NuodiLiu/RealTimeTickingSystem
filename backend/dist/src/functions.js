@@ -1,37 +1,35 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.httpTrigger = httpTrigger;
 exports.createExpressResponse = createExpressResponse;
-// Load environment variables first - support multiple paths for Azure Functions
-const dotenv_1 = __importDefault(require("dotenv"));
-const path_1 = __importDefault(require("path"));
-// Try loading .env from multiple possible locations
-const envPaths = [
-    path_1.default.resolve(process.cwd(), '.env'),
-    path_1.default.resolve(__dirname, '../.env'),
-    path_1.default.resolve(__dirname, '../../.env'),
-    '.env'
-];
-let envLoaded = false;
-for (const envPath of envPaths) {
-    try {
-        const result = dotenv_1.default.config({ path: envPath });
-        if (!result.error) {
-            console.log(`Environment loaded from: ${envPath}`);
-            envLoaded = true;
-            break;
+// --- load local .env only when running outside Azure ---
+(function loadEnv() {
+    // In Azure these envs are injected via App Settings, no .env needed
+    const isAzure = !!(process.env.WEBSITE_SITE_NAME || process.env.FUNCTIONS_WORKER_RUNTIME);
+    if (!isAzure) {
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const dotenv = require('dotenv');
+            const path = require('path');
+            const envPaths = [
+                path.resolve(process.cwd(), '.env'),
+                path.resolve(__dirname, '../.env'),
+                path.resolve(__dirname, '../../.env'),
+                '.env'
+            ];
+            for (const p of envPaths) {
+                const r = dotenv.config({ path: p });
+                if (!r.error) {
+                    console.log(`Environment loaded from: ${p}`);
+                    break;
+                }
+            }
+        }
+        catch (e) {
+            console.warn('dotenv not loaded (likely prod/Azure):', e.message);
         }
     }
-    catch (error) {
-        // Continue to next path
-    }
-}
-if (!envLoaded) {
-    console.warn('No .env file found, using process environment variables only');
-}
+})();
 // Validate critical environment variables
 const requiredEnvVars = ['DATABASE_URL'];
 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -40,18 +38,30 @@ if (missingVars.length > 0) {
     console.error('Current DATABASE_URL:', process.env.DATABASE_URL ? '[REDACTED]' : 'undefined');
 }
 const functions_1 = require("@azure/functions");
+// Add canary function for basic health check
+functions_1.app.http('canary', {
+    methods: ['GET'],
+    authLevel: 'anonymous',
+    route: 'canary',
+    handler: async () => ({ status: 200, body: 'ok' })
+});
+console.log('🚀 Functions.ts loading...');
 // Import all function modules to register them
+console.log('📥 Importing negotiate...');
 require("./functions/negotiate");
+console.log('📥 Importing sendMessage...');
 require("./functions/sendMessage");
+console.log('📥 Importing signalrEvents...');
 require("./functions/signalrEvents");
+console.log('✅ All function modules imported');
 const stream_1 = require("stream");
 // Import the complete Express app
 const expressApp_1 = require("./expressApp");
 // 配置化的路由前缀处理
 const CONFIG = {
     expressBase: process.env.EXPRESS_BASE_PATH || '/api/app',
-    // 修正 SignalR 路由：添加 /api/negotiate 和 /api/signalr
-    signalRPrefixes: (process.env.SIGNALR_PREFIXES || '/api/negotiate,/api/signalr').split(','),
+    // 只阻断通用 SignalR 路由，不包括具体的事件处理器端点
+    signalRPrefixes: (process.env.SIGNALR_PREFIXES || '/api/negotiate').split(','),
     timeout: parseInt(process.env.EXPRESS_TIMEOUT_MS || '30000', 10), // 30s for file downloads
 };
 // 创建Express应用实例（在模块级别创建一次，重用）
@@ -117,12 +127,9 @@ async function httpTrigger(request, context) {
                 body: ''
             };
         }
-        // 白名单短路：SignalR 专属路由不要走 Express
-        // 注意：只有直接的 SignalR 路由才跳过，不包括 /api/negotiate
+        // 白名单短路：只阻断通用 SignalR 路由，允许事件处理器通过
         const isDirectSignalRRoute = CONFIG.signalRPrefixes.some(p => {
-            // 排除 negotiate 路由，因为它需要被单独的 Azure Function 处理
-            if (p === '/api/negotiate')
-                return false;
+            // negotiate 路由有单独的 Azure Function 处理，不走 Express
             return requestPath === p || requestPath.startsWith(p + '/');
         });
         if (isDirectSignalRRoute) {
@@ -157,7 +164,13 @@ async function httpTrigger(request, context) {
                     else {
                         // 如果没有响应被发送但也没有错误，可能是路由没有匹配
                         if (!expressResponse.finished) {
-                            console.warn('Express middleware completed but no response was sent for:', internalPath);
+                            context.log(`⚠️ No Express route matched: ${internalPath}`);
+                            // 手动设置 404 响应
+                            expressResponse.status(404).json({
+                                error: 'Not Found',
+                                path: internalPath,
+                                timestamp: new Date().toISOString()
+                            });
                         }
                         resolve();
                     }

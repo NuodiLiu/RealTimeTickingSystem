@@ -10,6 +10,7 @@ async function onConnected(request, context) {
     try {
         const body = await request.json();
         const { userId, connectionId } = body;
+        context.log('Event body received:', body); // 添加调试日志
         if (userId && connectionId) {
             context.log(`Processing connection for userId: ${userId}, connectionId: ${connectionId}`);
             // Get user type from request body or query params
@@ -27,6 +28,9 @@ async function onConnected(request, context) {
                     timestamp: new Date().toISOString()
                 }
             });
+        }
+        else {
+            context.log('Missing userId or connectionId in event body');
         }
         return {
             status: 200,

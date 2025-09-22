@@ -3,7 +3,6 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
-import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
 import * as YAML from "yamljs";
 
@@ -17,10 +16,22 @@ import { errorHandler } from "./middlewares/error.middleware";
 
 // Import SignalR for serverless
 import signalRRoutes from "./signalr/routes";
-import { setupWebPubSubWebhooks } from "./signalr/webhook";
 import { SignalRGateway } from "./signalr";
 
-dotenv.config();
+// --- load local .env only when running outside Azure ---
+(function loadEnv() {
+  // In Azure these envs are injected via App Settings, no .env needed
+  const isAzure = !!(process.env.WEBSITE_SITE_NAME || process.env.FUNCTIONS_WORKER_RUNTIME);
+
+  if (!isAzure) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require('dotenv').config();
+    } catch (e) {
+      console.warn('dotenv not loaded (likely prod/Azure):', (e as Error).message);
+    }
+  }
+})();
 
 export function createExpressApp(): express.Application {
   const app = express();
@@ -184,9 +195,17 @@ export function createExpressApp(): express.Application {
   app.use("/feedback", feedbackRouter);
   app.use("/excel", excelRouter);
 
-  // SignalR routes and webhooks
+  // SignalR routes
   app.use("/api/signalr", signalRRoutes);
-  setupWebPubSubWebhooks(app);
+
+  // Catch-all 404 middleware - must be placed before error handler
+  app.use((req, res, _next) => {
+    res.status(404).json({ 
+      error: 'Not Found', 
+      path: req.originalUrl,
+      timestamp: new Date().toISOString()
+    });
+  });
 
   // Error handler 
   app.use(errorHandler);
