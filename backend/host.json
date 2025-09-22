@@ -1,6 +1,5 @@
 {
   "version": "2.0",
-  "functionAppVersion": "~4",
   "languageWorkers": {
     "node": {
       "arguments": ["--max-old-space-size=2048"]
@@ -8,7 +7,7 @@
   },
   "extensionBundle": {
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
-    "version": "[4.*, 5.0.0)"
+    "version": "[3.*, 4.0.0)"
   },
   "extensions": {
     "signalRService": {
