@@ -16,6 +16,7 @@ RUN npm ci --only=production && npm cache clean --force
 FROM base AS builder
 WORKDIR /app
 COPY package*.json ./
+COPY tsconfig.json ./
 COPY prisma ./prisma/
 
 # Install all dependencies (including devDependencies)
@@ -23,7 +24,6 @@ RUN npm ci
 
 # Copy source code
 COPY . .
-COPY tsconfig.json ./
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -35,9 +35,12 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
+# Install curl for health checks
+RUN apk add --no-cache curl
+
 # Create a non-root user
 RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN adduser --system --uid 1001 nodeapp
 
 # Copy built application
 COPY --from=builder /app/dist ./dist
@@ -45,19 +48,20 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 
-# Copy start script
-COPY --from=builder /app/scripts ./scripts
+# Copy start script (optional)
+# COPY --from=builder /app/scripts ./scripts
 
 # Set ownership
-RUN chown -R nextjs:nodejs /app
-USER nextjs
+RUN chown -R nodeapp:nodejs /app
+USER nodeapp
 
-# Expose port
-EXPOSE 3000
+# Expose port (Azure App Service uses PORT env variable, default 8080)
+EXPOSE 8080
+ENV PORT=8080
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
 
 # Start the application
 CMD ["npm", "start"]

@@ -58,15 +58,28 @@ export const msalClient = new ConfidentialClientApplication({
   },
 });
 
+// Get scopes from environment or use defaults
+const getScopes = () => {
+  const defaultScopes = ["openid", "profile", "email"];
+  
+  // Check if custom scopes are provided in environment
+  if (process.env.MSAL_SCOPES) {
+    const customScopes = process.env.MSAL_SCOPES.split(',').map(s => s.trim());
+    return [...defaultScopes, ...customScopes];
+  }
+  
+  // Fallback: check for API Client ID
+  if (process.env.AZURE_AD_API_CLIENT_ID) {
+    return [...defaultScopes, `api://${process.env.AZURE_AD_API_CLIENT_ID}/Api.Read`];
+  }
+  
+  return defaultScopes;
+};
+
 const baseUrl = getBaseUrl();
 export const authParams = {
   redirectUri: `${baseUrl}/auth/redirect`,
-  scopes: [
-    "openid", 
-    "profile", 
-    "email",
-    "api://57938c34-d786-42be-81e9-2a758b7e14b2/Api.Read"
-  ], 
+  scopes: getScopes(),
 };
 
 // Export URLs for use in other modules

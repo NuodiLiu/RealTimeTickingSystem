@@ -12,7 +12,7 @@ console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:
 const serverConfig = startServer();
 
 // Graceful shutdown
-function gracefulShutdown(signal: string) {
+async function gracefulShutdown(signal: string) {
   console.log(`${signal} received. Shutting down gracefully...`);
   
   const shutdownPromises = [];
@@ -35,10 +35,15 @@ function gracefulShutdown(signal: string) {
     }));
   }
   
-  Promise.all(shutdownPromises).then(() => {
-    console.log('All servers closed. Exiting...');
-    process.exit(0);
-  });
+  await Promise.all(shutdownPromises);
+  
+  // Disconnect Prisma
+  console.log('Disconnecting Prisma...');
+  const { prisma } = await import('./lib/prisma');
+  await prisma.$disconnect();
+  
+  console.log('All connections closed. Exiting...');
+  process.exit(0);
 }
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

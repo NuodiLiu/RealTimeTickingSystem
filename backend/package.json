@@ -5,13 +5,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "dotenv -e .env -- ts-node-dev --respawn src/server.ts",
-    "dev:functions": "dotenv -e .env -- func start",
     "build": "rimraf dist && tsc -p tsconfig.json",
-    "prepublish": "npm run build",
-    "build:functions": "npm run build",
     "start": "node dist/src/server.js",
-    "start:functions": "func start",
-    "deploy": "npm run build:functions && func azure functionapp publish $AZURE_FUNCTIONAPP",
     "postinstall": "prisma generate",
     "test": "jest"
   },
@@ -19,7 +14,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@azure/functions": "^4.5.1",
     "@azure/msal-node": "^3.7.3",
     "@microsoft/signalr": "^9.0.6",
     "@prisma/client": "^6.16.1",
