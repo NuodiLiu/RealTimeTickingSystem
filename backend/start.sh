@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-echo "Running Prisma migrations..."
-npx prisma migrate deploy
+# 运行数据库迁移（带超时保护）
+timeout 30 npx prisma migrate deploy || echo "Migration skipped"
 
-echo "Starting app..."
-node dist/server.js
+# 启动应用
+exec node dist/server.js

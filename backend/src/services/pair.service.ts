@@ -35,7 +35,7 @@ export class PairService {
       });
     }
 
-    const apiBase = process.env.API_BASE_URL || 'http://localhost:3000';
+    const apiBase = process.env.BASE_URL || 'http://localhost:3000';
     const qrData = { pairingToken, apiEndpoint: apiBase };
     const qrUrl = `${apiBase}/pair?data=${encodeURIComponent(JSON.stringify(qrData))}`;
 

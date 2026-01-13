@@ -17,8 +17,7 @@ final class AppEnvironment {
     private init() {
         // 优先使用 xcconfig 配置，fallback 到 localhost
         let apiString = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
-            ?? Bundle.main.object(forInfoDictionaryKey: "INFOPLIST_KEY_API_BASE_URL") as? String
-            ?? "https://api.localhost"
+            ?? "https://ticketing-backend-h7f6d8ccfhefcvdp.australiaeast-01.azurewebsites.net"
 
         // 打印环境配置信息
         print("========================================")

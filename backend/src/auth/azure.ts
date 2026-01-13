@@ -27,7 +27,6 @@ const getBaseUrl = () => {
   if (isProduction) {
     return process.env.BASE_URL || "https://api.ticketing-system.com";
   }
-  // Development: Use the API_BASE_URL which includes /api/app path
   return process.env.API_BASE_URL || process.env.BASE_URL || "https://api.localhost/api/app";
 };
 

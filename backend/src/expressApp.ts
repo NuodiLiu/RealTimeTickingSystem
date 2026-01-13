@@ -86,6 +86,11 @@ export function createExpressApp(): express.Application {
       // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) return callback(null, true);
       
+      // Allow Azure SCM/Kudu for health checks (*.scm.azurewebsites.net)
+      if (origin && origin.includes('.scm.azurewebsites.net')) {
+        return callback(null, true);
+      }
+      
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -187,28 +192,9 @@ export function createExpressApp(): express.Application {
     }
   }
 
-  // /health endpoint - MUST be early, before auth middleware and error handlers
-  app.get("/health", async (_req, res) => {
-    try {
-      const stats = await SignalRGateway.getConnectionStats();
-      res.json({ 
-        status: "ok", 
-        timestamp: new Date().toISOString(), 
-        signalR: {
-          connections: stats.total,
-          serverless: stats.serverless || false
-        }
-      });
-    } catch (error) {
-      res.json({ 
-        status: "ok", 
-        timestamp: new Date().toISOString(), 
-        signalR: {
-          error: "SignalR service unavailable",
-          serverless: true
-        }
-      });
-    }
+  // Health check
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok" });
   });
 
   // Routers

@@ -20,6 +20,8 @@ interface JWTUserPayload {
   identityKey?: string; // Our custom identity key
   iat?: number; // Issued at
   exp?: number; // Expires at
+  typ?: string; // Token type ('staff' or 'device')
+  deviceId?: string; // Device ID for device tokens
 }
 
 export interface AuthenticatedUser {
@@ -133,27 +135,19 @@ async function getOrCreateStaff(payload: JWTUserPayload): Promise<AuthenticatedU
 export async function requireJWTAuth(req: Request, res: Response, next: NextFunction) {
   try {
     const authHeader = req.header('Authorization');
-    console.log('Auth header:', authHeader);
-    console.log('All headers:', JSON.stringify(req.headers, null, 2));
-    console.log('Header keys:', Object.keys(req.headers));
-    
     const token = extractBearerToken(authHeader);
-    console.log('Extracted token:', token ? `${token.substring(0, 20)}...` : 'null');
     
     if (!token) {
       throw new AuthError('Missing or invalid Authorization header', 401);
     }
 
     const jwtPayload = validateJWT(token);
-    console.log('JWT payload:', jwtPayload);
-    
     const user = await getOrCreateStaff(jwtPayload);
-    console.log('Created/found user:', user);
     
     req.user = user;
     next();
   } catch (error) {
-    console.log('JWT Auth error:', error);
+    console.error('JWT Auth error:', error instanceof Error ? error.message : error);
     return handleAuthError(error, res);
   }
 }
@@ -185,4 +179,64 @@ export async function optionalJWTAuth(req: Request, res: Response, next: NextFun
  */
 export function clearStaffCache() {
   staffCache.clear();
+}
+
+/**
+ * Unified JWT authentication middleware
+ * Supports both device tokens (typ='device') and staff tokens (typ='staff')
+ * Used for endpoints that need to support both iPad and Portal clients
+ * 
+ * Sets either req.device or req.user based on token type
+ */
+export async function requireJWTAuthUnified(req: Request, res: Response, next: NextFunction) {
+  try {
+    const authHeader = req.header('Authorization');
+    const token = extractBearerToken(authHeader);
+    
+    if (!token) {
+      throw new AuthError('Missing or invalid Authorization header', 401);
+    }
+
+    const jwtPayload = validateJWT(token);
+    
+    // Handle device token (typ='device')
+    if (jwtPayload.typ === 'device') {
+      if (!jwtPayload.sub) {
+        throw new AuthError('Device token missing sub (deviceId)', 401);
+      }
+      
+      // Load device from database (sub contains deviceId for device tokens)
+      const device = await prisma.kioskDevice.findUnique({
+        where: { id: jwtPayload.sub }
+      });
+      
+      if (!device) {
+        throw new AuthError('Device not found', 404);
+      }
+      
+      req.device = {
+        deviceId: device.id,
+        device: device
+      };
+      
+      console.log('Unified JWT Auth: Device authenticated:', device.id);
+      return next();
+    }
+    
+    // Handle staff token (typ='staff')
+    if (jwtPayload.typ === 'staff') {
+      const user = await getOrCreateStaff(jwtPayload);
+      req.user = user;
+      
+      console.log('Unified JWT Auth: Staff authenticated:', user.id);
+      return next();
+    }
+    
+    // Invalid token type
+    throw new AuthError(`Invalid token type: ${jwtPayload.typ}`, 401);
+    
+  } catch (error) {
+    console.error('Unified JWT Auth error:', error instanceof Error ? error.message : error);
+    return handleAuthError(error, res);
+  }
 }

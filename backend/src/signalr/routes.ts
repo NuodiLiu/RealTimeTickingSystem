@@ -1,36 +1,54 @@
 import { Router, Request, Response } from 'express';
 import { verifyAzureJWT, requireScopes } from '../middlewares/azure-auth.middleware';
-import { requireDevice } from '../middlewares/auth.middleware';
+import { requireJWTAuthUnified } from '../middlewares/jwt-auth.middleware';
 import { signalRConfig } from './config';
 import { getDeviceConnectionUrl, signalRAuthMiddleware } from './auth';
 
 const router = Router();
 
-// Standard SignalR negotiate endpoint for devices
+// Unified SignalR negotiate endpoint
+// Supports App JWT authentication for both devices (iPad) and staff (Portal)
 router.post('/negotiate', 
-  requireDevice,
+  requireJWTAuthUnified,
   async (req: Request, res: Response) => {
     try {
-      if (!req.device) {
-        return res.status(401).json({ error: 'Device authentication required' });
+      let userId: string;
+      let additionalInfo: any = {};
+
+      if (req.device) {
+        // Device (iPad app) with App JWT
+        userId = req.device.deviceId;
+        additionalInfo = {
+          deviceId: req.device.deviceId,
+          mode: req.device.device?.mode || 'REGISTRATION',
+          user: {
+            id: req.device.deviceId,
+            type: req.device.device?.mode || 'REGISTRATION'
+          }
+        };
+        console.log('Generated SignalR negotiate response for device:', userId);
+      } else if (req.user) {
+        // Staff (Portal dashboard) with App JWT
+        userId = req.user.id;
+        additionalInfo = {
+          userId: req.user.id,
+          userInfo: {
+            employeeNo: req.user.employeeNo,
+            role: req.user.role
+          }
+        };
+        console.log('Generated SignalR negotiate response for staff:', userId);
+      } else {
+        return res.status(401).json({ error: 'Authentication required' });
       }
 
-      // Generate Azure SignalR connection info using device ID as user ID
-      const connectionInfo = signalRConfig.getConnectionInfo(req.device.deviceId);
-
-      console.log('Generated SignalR negotiate response for device:', req.device.deviceId);
+      // Generate Azure SignalR connection info
+      const connectionInfo = signalRConfig.getConnectionInfo(userId);
 
       res.json({
         url: connectionInfo.url,
         accessToken: connectionInfo.accessToken,
-        // Legacy format for backward compatibility with frontend
-        deviceId: req.device.deviceId,
-        mode: req.device.device?.mode || 'REGISTRATION',
-        // New nested format for iPad app compatibility
-        user: {
-          id: req.device.deviceId,
-          type: req.device.device?.mode || 'REGISTRATION'
-        }
+        ...additionalInfo
       });
     } catch (error) {
       console.error('Error in SignalR negotiate:', error);

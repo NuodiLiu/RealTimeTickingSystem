@@ -116,6 +116,10 @@ struct PairingView: View {
                 QRScannerView { value in
                     Task { await vm.handleScanned(token: value) }
                 }
+                .onDisappear {
+                    // Give the camera time to stop before the view is fully removed
+                    print("Scanner view disappearing")
+                }
                 #endif
                 
                 // 顶部关闭按钮

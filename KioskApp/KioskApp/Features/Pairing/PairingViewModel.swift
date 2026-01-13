@@ -95,11 +95,51 @@ final class PairingViewModel: ObservableObject {
     func handleScanned(token: String) async {
         isScanning = false
         try? await Task.sleep(nanoseconds: 150_000_000)
-        await pair(with: token)
+        
+        // Extract pairingToken and apiEndpoint from QR code URL
+        let (extractedToken, apiEndpoint) = extractPairingData(from: token)
+        print("📱 Extracted token: \(extractedToken)")
+        if let endpoint = apiEndpoint {
+            print("📱 Extracted API endpoint: \(endpoint)")
+        }
+        
+        await pair(with: extractedToken, apiEndpoint: apiEndpoint)
+    }
+    
+    /// Parse QR code URL and extract pairingToken and apiEndpoint
+    private func extractPairingData(from scannedString: String) -> (token: String, apiEndpoint: String?) {
+        print("📱 Parsing scanned string: \(scannedString)")
+        
+        // Check if scanned string is a URL with /pair?data= format
+        guard scannedString.contains("/pair?data="),
+              let url = URL(string: scannedString),
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let dataParam = components.queryItems?.first(where: { $0.name == "data" })?.value,
+              let decodedData = dataParam.removingPercentEncoding,
+              let jsonData = decodedData.data(using: .utf8) else {
+            print("📱 Not a pairing URL format, treating as raw token")
+            return (scannedString, nil)
+        }
+        
+        // Parse JSON data
+        do {
+            if let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: String],
+               let token = json["pairingToken"] {
+                let apiEndpoint = json["apiEndpoint"]
+                print("📱 Successfully parsed pairing data from URL")
+                return (token, apiEndpoint)
+            }
+        } catch {
+            print("📱 Failed to parse JSON from QR data: \(error)")
+        }
+        
+        // Fallback: treat as raw token
+        print("📱 Fallback: treating entire string as token")
+        return (scannedString, nil)
     }
     
     @MainActor
-    private func pair(with token: String) async {
+    private func pair(with token: String, apiEndpoint: String? = nil) async {
         guard !isPairing else { return }
         isPairing = true
         errorMessage = nil
