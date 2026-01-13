@@ -236,11 +236,12 @@ export async function verifyAzureJWT(req: Request, res: Response, next: NextFunc
       tokenTenant: tid
     });
     
-    const { payload } = await jwtVerify(token, jwks, {
+    const result = await jwtVerify(token, jwks, {
       audience: API_AUDIENCE,
       issuer: iss,
       clockTolerance: 300, // 5 minutes
-    }) as { payload: AzureJWTClaims };
+    });
+    const payload = result.payload as AzureJWTClaims;
 
     // Extract user information
     const identityKey = createIdentityKey(payload.tid, payload.oid);

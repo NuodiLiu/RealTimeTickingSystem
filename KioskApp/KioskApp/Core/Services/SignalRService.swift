@@ -134,7 +134,7 @@ final class SignalRService: @unchecked Sendable {
                 // 3) 构建 HubConnection（将 accessToken 提供给每次请求）
                 var options = HttpConnectionOptions()
                 options.accessTokenFactory = { [weak self] in
-                    await self?.auth.signalRToken ?? ""
+                    self?.auth.signalRToken ?? ""
                 }
 
                 let conn = HubConnectionBuilder()

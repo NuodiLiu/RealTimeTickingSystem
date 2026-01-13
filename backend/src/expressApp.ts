@@ -187,30 +187,7 @@ export function createExpressApp(): express.Application {
     }
   }
 
-  // Routers
-  app.use("/auth", authRouter);
-  app.use("/cases", casesRouter);
-  app.use("/pair", pairRouter);
-  app.use("/device", deviceRouter);
-  app.use("/feedback", feedbackRouter);
-  app.use("/excel", excelRouter);
-
-  // SignalR routes
-  app.use("/api/signalr", signalRRoutes);
-
-  // Catch-all 404 middleware - must be placed before error handler
-  app.use((req, res, _next) => {
-    res.status(404).json({ 
-      error: 'Not Found', 
-      path: req.originalUrl,
-      timestamp: new Date().toISOString()
-    });
-  });
-
-  // Error handler 
-  app.use(errorHandler);
-
-  // /health endpoint - serverless compatible
+  // /health endpoint - MUST be early, before auth middleware and error handlers
   app.get("/health", async (_req, res) => {
     try {
       const stats = await SignalRGateway.getConnectionStats();
@@ -233,6 +210,29 @@ export function createExpressApp(): express.Application {
       });
     }
   });
+
+  // Routers
+  app.use("/auth", authRouter);
+  app.use("/cases", casesRouter);
+  app.use("/pair", pairRouter);
+  app.use("/device", deviceRouter);
+  app.use("/feedback", feedbackRouter);
+  app.use("/excel", excelRouter);
+
+  // SignalR routes
+  app.use("/api/signalr", signalRRoutes);
+
+  // Catch-all 404 middleware - must be placed before error handler
+  app.use((req, res, _next) => {
+    res.status(404).json({ 
+      error: 'Not Found', 
+      path: req.originalUrl,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Error handler 
+  app.use(errorHandler);
 
   return app;
 }

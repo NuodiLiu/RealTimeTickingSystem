@@ -18,12 +18,19 @@ final class AppEnvironment {
         // 优先使用 xcconfig 配置，fallback 到 localhost
         let apiString = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
             ?? Bundle.main.object(forInfoDictionaryKey: "INFOPLIST_KEY_API_BASE_URL") as? String
-            ?? "https://api.localhost/api/app"
+            ?? "https://api.localhost"
 
-        print("AppEnvironment: All Info.plist keys:", Bundle.main.infoDictionary?.keys.sorted() ?? [])
-        print("AppEnvironment: API_BASE_URL from Bundle: \(Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") ?? "nil")")
-        print("AppEnvironment: INFOPLIST_KEY_API_BASE_URL from Bundle: \(Bundle.main.object(forInfoDictionaryKey: "INFOPLIST_KEY_API_BASE_URL") ?? "nil")")
-        print("AppEnvironment: Final API URL: \(apiString)")
+        // 打印环境配置信息
+        print("========================================")
+        print("🚀 KioskApp Environment Configuration")
+        print("========================================")
+        #if DEBUG
+        print("📱 Build Configuration: DEBUG")
+        #else
+        print("📱 Build Configuration: RELEASE")
+        #endif
+        print("🌐 API Base URL: \(apiString)")
+        print("========================================")
 
         guard let apiURL = URL(string: apiString) else { fatalError("Bad base URL: \(apiString)") }
         self.apiBaseURL = apiURL

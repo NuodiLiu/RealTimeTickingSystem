@@ -198,11 +198,11 @@ final class ApiClient {
     func getSignalRConnectionInfo() async throws -> SignalRConnectionResponse {
         print("ApiClient: [Negotiate] Calling negotiate endpoint with App JWT...")
         print("ApiClient: [Negotiate] BaseURL: \(baseURL)")
-        print("ApiClient: [Negotiate] Endpoint path: /api/negotiate (not under /api/app)")
+        print("ApiClient: [Negotiate] Endpoint path: /api/signalr/negotiate")
         print("ApiClient: [Negotiate] Auth method: App JWT (Bearer token)")
         
         let endpoint = Endpoint<SignalRConnectionResponse>(
-            path: "../negotiate",   // 回到上级目录: /api/app/../negotiate = /api/negotiate
+            path: "/api/signalr/negotiate",
             method: .POST,
             needsDeviceAuth: false,  // 不使用 Device 认证
             needsAppJwt: true        // 使用 App JWT 认证
