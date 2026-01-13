@@ -20,12 +20,13 @@ COPY tsconfig.json ./
 COPY prisma ./prisma/
 
 # Install all dependencies (including devDependencies)
-RUN npm ci
+# Skip postinstall to avoid Prisma generation during npm ci
+RUN npm ci --ignore-scripts
 
 # Copy source code
 COPY . .
 
-# Generate Prisma client
+# Generate Prisma client for both native and target platforms
 RUN npx prisma generate
 
 # Build the application
@@ -48,12 +49,12 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 
-# Copy start script (optional)
-# COPY --from=builder /app/scripts ./scripts
+# Copy startup script
+COPY --from=builder /app/start.sh ./start.sh
+RUN chmod +x ./start.sh
 
 # Set ownership
 RUN chown -R nodeapp:nodejs /app
-USER nodeapp
 
 # Expose port (Azure App Service uses PORT env variable, default 8080)
 EXPOSE 8080
@@ -64,4 +65,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["./start.sh"]
