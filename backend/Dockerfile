@@ -39,10 +39,6 @@ WORKDIR /app
 # Install curl for health checks
 RUN apk add --no-cache curl
 
-# Create a non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nodeapp
-
 # Copy built application
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
@@ -52,9 +48,6 @@ COPY --from=builder /app/package*.json ./
 # Copy startup script
 COPY --from=builder /app/start.sh ./start.sh
 RUN chmod +x ./start.sh
-
-# Set ownership
-RUN chown -R nodeapp:nodejs /app
 
 # Expose port (Azure App Service uses PORT env variable, default 8080)
 EXPOSE 8080
