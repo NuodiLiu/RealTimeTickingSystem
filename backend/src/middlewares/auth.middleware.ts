@@ -51,6 +51,20 @@ export async function requireDevice(req: Request, _res: Response, next: NextFunc
     const { deviceId, device } = await validateDeviceApiKey(auth);
     req.device = { deviceId, device };
 
+    // Update lastSeenAt and isConnected for any device request
+    // This ensures online status is accurate based on any device activity
+    const { prisma } = await import("../lib/prisma");
+    await prisma.kioskDevice.update({
+      where: { id: deviceId },
+      data: { 
+        lastSeenAt: new Date(),
+        isConnected: true
+      }
+    }).catch(err => {
+      // Log but don't fail the request if update fails
+      console.warn(`Failed to update lastSeenAt for device ${deviceId}:`, err);
+    });
+
     next();
   } catch (err: any) {
     if (err instanceof AuthError) return next(err);

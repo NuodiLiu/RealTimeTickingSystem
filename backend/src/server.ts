@@ -12,8 +12,23 @@ console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:
 const app = createExpressApp();
 const port = parseInt(process.env.PORT || '3000', 10);
 
-app.listen(port, '0.0.0.0', () => {
+// Listen on 0.0.0.0 for container environments (required by Azure App Service)
+const server = app.listen(port, '0.0.0.0', () => {
   console.log(`✅ Server running on 0.0.0.0:${port}`);
+  console.log(`💓 Heartbeat mode: iPad active reporting via HTTP API`);
+  console.log(`📡 Real-time push: SignalR for task assignments`);
 });
+
+// Graceful shutdown
+function gracefulShutdown() {
+  console.log('Shutting down...');
+  HeartbeatService.stop();
+  server.close(() => {
+    process.exit(0);
+  });
+}
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
 
 export default app;

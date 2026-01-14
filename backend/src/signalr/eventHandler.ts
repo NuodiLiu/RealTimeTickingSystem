@@ -13,9 +13,10 @@ export class SignalREventHandler {
       console.log(`Device ${deviceId} identified by userId - no group management needed`);
       
       // Update device status in database
-      await prisma.kioskDevice.upsert({
+      const device = await prisma.kioskDevice.upsert({
         where: { id: deviceId },
         update: { 
+          isConnected: true,
           lastSeenAt: new Date(),
           mode: mode
         },
@@ -23,6 +24,7 @@ export class SignalREventHandler {
           id: deviceId,
           name: `Device ${deviceId}`,
           secretHash: 'signalr-device', // This should be properly generated
+          isConnected: true,
           lastSeenAt: new Date(),
           mode: mode
         }
@@ -45,16 +47,85 @@ export class SignalREventHandler {
     try {
       console.log(`Device ${deviceId} disconnecting from SignalR`);
       
-      // In userId mode, no group management needed
-      console.log(`Device ${deviceId} disconnected - no group management needed in userId mode`);
-      
-      // Update device status in database
-      await prisma.kioskDevice.update({
+      // Check if device has active lock that needs cleanup
+      const device = await prisma.kioskDevice.findUnique({
         where: { id: deviceId },
-        data: { 
-          lastSeenAt: new Date()
+        include: {
+          currentLock: true
         }
       });
+
+      // Clean up active resources if device was in use
+      if (device?.currentLock && device.currentLock.status === 'ACTIVE') {
+        const lock = device.currentLock;
+        const caseId = lock.caseId;
+
+        console.log(`Device ${deviceId} had an active lock ${lock.id} for case ${caseId}. Cleaning up due to disconnect.`);
+        
+        await prisma.$transaction(async (tx) => {
+          // 1. Resolve the associated case if it's not already resolved
+          const currentCase = await tx.studentCase.findUnique({ where: { id: caseId } });
+          if (currentCase?.status !== 'RESOLVED') {
+            await tx.studentCase.update({
+              where: { id: caseId },
+              data: {
+                status: 'RESOLVED',
+                resolvedAt: new Date(),
+              },
+            });
+          }
+
+          // 2. Mark the lock as EXPIRED
+          await tx.kioskLock.update({
+            where: { id: lock.id },
+            data: { status: 'EXPIRED' },
+          });
+
+          // 3. Release the device
+          await tx.kioskDevice.update({
+            where: { id: deviceId },
+            data: { 
+              currentLockId: null,
+              isConnected: false,
+              lastSeenAt: new Date()
+            },
+          });
+
+          // 4. Cancel any pending feedback sessions for this case/device
+          await tx.feedbackSession.updateMany({
+            where: {
+              caseId: caseId,
+              deviceId: deviceId,
+              status: { in: ['CREATED', 'DELIVERED'] }
+            },
+            data: {
+              status: 'CANCELLED'
+            }
+          });
+        });
+
+        console.log(`Cleaned up resources for case ${caseId} and device ${deviceId}.`);
+        
+        // Notify dashboard about case resolution and device release
+        await signalRClient.notifyDashboard({
+          type: "case:updated",
+          payload: { id: caseId, status: "RESOLVED" }
+        });
+        
+        await signalRClient.notifyDashboard({
+          type: "device:updated",
+          payload: { id: deviceId, isBusy: false, isOnline: false }
+        });
+      } else {
+        // No active lock, just update device status
+        await prisma.kioskDevice.update({
+          where: { id: deviceId },
+          data: { 
+            isConnected: false,
+            lastSeenAt: new Date()
+          }
+        });
+      }
 
       // Notify dashboard about device disconnection
       await signalRClient.notifyDashboard({
@@ -135,9 +206,6 @@ export class SignalREventHandler {
       });
       
       switch (message.type) {
-        case 'PONG':
-          await this.handlePong(deviceId, message.payload);
-          break;
         case 'DELIVERED':
           await this.handleDelivered(deviceId, message.payload);
           break;
@@ -162,15 +230,6 @@ export class SignalREventHandler {
   }
 
   // Message handlers
-  private async handlePong(deviceId: string, payload?: { now: string }): Promise<void> {
-    console.log(`Received pong from device ${deviceId}`, payload);
-    // Update device last seen timestamp
-    await prisma.kioskDevice.update({
-      where: { id: deviceId },
-      data: { lastSeenAt: new Date() }
-    });
-  }
-
   private async handleDelivered(deviceId: string, payload: { sessionId: string }): Promise<void> {
     console.log(`Feedback delivered on device ${deviceId}, session ${payload.sessionId}`);
     
@@ -293,6 +352,14 @@ export class SignalREventHandler {
         
         console.log(`Successfully cancelled feedback session ${payload.sessionId} and released resources`);
         
+        // Get device's actual online status
+        const device = await prisma.kioskDevice.findUnique({
+          where: { id: deviceId },
+          select: { isConnected: true, lastSeenAt: true }
+        });
+        
+        const isOnline = device?.isConnected || false;
+        
         // Notify dashboard clients
         await signalRClient.notifyDashboard({
           type: "case:updated",
@@ -301,7 +368,7 @@ export class SignalREventHandler {
         
         await signalRClient.notifyDashboard({
           type: "device:updated", 
-          payload: { id: deviceId, isBusy: false, isOnline: true }
+          payload: { id: deviceId, isBusy: false, isOnline }
         });
       } else {
         console.log(`Session ${payload.sessionId} is not in an active state (${session.status}), no action needed`);

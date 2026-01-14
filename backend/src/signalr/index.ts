@@ -55,10 +55,6 @@ export class SignalRGateway {
     return await signalRClient.dismissDevice(deviceId);
   }
   
-  static async pingDevice(deviceId: string, payload?: { now: string }): Promise<boolean> {
-    return await signalRClient.pingDevice(deviceId, payload);
-  }
-  
   static async assignLockToDevice(deviceId: string, payload: any): Promise<boolean> {
     return await signalRClient.assignLockToDevice(deviceId, payload);
   }
@@ -78,11 +74,6 @@ export class SignalRGateway {
   // Dashboard notification methods
   static async notifyDashboard(message: { type: string; payload: any }): Promise<void> {
     return await signalRClient.notifyDashboard(message);
-  }
-  
-  // Health and maintenance - Serverless compatible
-  static async pingAllDevices(): Promise<void> {
-    return await signalRClient.pingAllDevices();
   }
   
   // Event handlers (these would be called by Azure Web PubSub webhooks)

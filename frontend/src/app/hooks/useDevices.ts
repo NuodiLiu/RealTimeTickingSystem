@@ -81,10 +81,18 @@ export default function useDevices() {
             if (id) {
               console.log(`useDevices: Real-time device update: ${id} -> busy: ${isBusy}, online: ${isOnline}`);
               
-              // Only include fields that are actually provided
-              const updates: Partial<Device> = {
-                status: isBusy ? 'BUSY' : 'IDLE'
-              };
+              // Calculate status based on both online and busy state
+              // Priority: OFFLINE > BUSY > IDLE
+              let status: 'OFFLINE' | 'IDLE' | 'BUSY';
+              if (isOnline === false) {
+                status = 'OFFLINE';
+              } else if (isBusy) {
+                status = 'BUSY';
+              } else {
+                status = 'IDLE';
+              }
+              
+              const updates: Partial<Device> = { status };
               
               if (isOnline !== undefined) {
                 updates.isOnline = isOnline;

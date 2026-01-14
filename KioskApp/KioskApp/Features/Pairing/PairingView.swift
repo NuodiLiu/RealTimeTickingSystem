@@ -81,7 +81,6 @@ struct PairingView: View {
             vm.checkCameraPermissionStatus()
         }
         .showToast(message: $vm.errorMessage, style: .error, duration: 4.0)
-
         .fullScreenCover(isPresented: $vm.isScanning) {
             ZStack {
                 Color.black.ignoresSafeArea()

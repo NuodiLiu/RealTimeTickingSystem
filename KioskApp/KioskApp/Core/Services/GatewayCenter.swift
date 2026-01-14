@@ -31,60 +31,64 @@ final class GatewayCenter: ObservableObject, SignalRServiceDelegate {
     // MARK: - SignalRServiceDelegate
 
     func signalRConnected() {
-        DispatchQueue.main.async {
-            self.socketConnected = true
-            print("🔌 [GatewayCenter] SignalR CONNECTED")
-        }
+        // SignalRService 已经在主线程调用
+        self.socketConnected = true
+        print("🔌 [GatewayCenter] SignalR CONNECTED")
     }
+    
     func signalRDisconnected() {
-        DispatchQueue.main.async {
-            self.socketConnected = false
-            print("🔌 [GatewayCenter] SignalR DISCONNECTED")
-        }
+        self.socketConnected = false
+        print("🔌 [GatewayCenter] SignalR DISCONNECTED")
     }
+    
     func signalRReconnected() {
-        DispatchQueue.main.async {
-            self.socketConnected = true
-            print("🔌 [GatewayCenter] SignalR RECONNECTED")
-        }
+        self.socketConnected = true
+        print("🔌 [GatewayCenter] SignalR RECONNECTED")
     }
+    
     func signalRError(_ error: Error) {
         print("❌ [GatewayCenter] SignalR ERROR:", error)
     }
 
     /// 收到服务端 Envelope（{type, payload}）
     func signalRReceived(_ envelope: ServerEnvelope) {
-        DispatchQueue.main.async {
-            switch envelope.type {
-            case "SHOW_FEEDBACK":
-                if let p = try? envelope.payload?.decodePayload(as: FeedbackShowPayload.self) {
-                    self.showFeedback = p
-                }
-
-            case "DISMISS":
-                // 清除当前展示
-                self.showFeedback = nil
-
-            case "PING":
-                let p = try? envelope.payload?.decodePayload(as: PingPayload.self)
-                self.lastPing = p
-
-            case "MODE_CHANGED":
-                if let m = try? envelope.payload?.decodePayload(as: ModeChangedPayload.self) {
-                    self.modeChanged = m.mode
-                }
-
-            case "UNPAIRED":
-                self.deviceUnpaired = true
-
-            case "LOCK_ASSIGNED":
-                // 如有需要，这里也可以发布一个 @Published 事件
-                break
-
-            default:
-                // 未知类型，忽略或记录
-                break
+        // SignalRService 已经在主线程调用此方法，无需再次 dispatch
+        switch envelope.type {
+        case "SHOW_FEEDBACK":
+            if let p = try? envelope.payload?.decodePayload(as: FeedbackShowPayload.self) {
+                self.showFeedback = p
             }
+
+        case "DISMISS":
+            // 清除当前展示
+            self.showFeedback = nil
+
+        case "PING":
+            let p = try? envelope.payload?.decodePayload(as: PingPayload.self)
+            self.lastPing = p
+            
+            // ✅ 自动回复 PONG
+            Task {
+                let now = ISO8601DateFormatter().string(from: Date())
+                try? await signalR.sendPong(payload: PingPayload(now: now))
+                print("💓 [GatewayCenter] Auto-replied PONG to server")
+            }
+
+        case "MODE_CHANGED":
+            if let m = try? envelope.payload?.decodePayload(as: ModeChangedPayload.self) {
+                self.modeChanged = m.mode
+            }
+
+        case "UNPAIRED":
+            self.deviceUnpaired = true
+
+        case "LOCK_ASSIGNED":
+            // 如有需要，这里也可以发布一个 @Published 事件
+            break
+
+        default:
+            // 未知类型，忽略或记录
+            break
         }
     }
 }

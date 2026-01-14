@@ -3,8 +3,20 @@ import { verifyAzureJWT, requireScopes } from '../middlewares/azure-auth.middlew
 import { requireJWTAuthUnified } from '../middlewares/jwt-auth.middleware';
 import { signalRConfig } from './config';
 import { getDeviceConnectionUrl, signalRAuthMiddleware } from './auth';
+import { SignalRGateway } from './index';
+import jwt from 'jsonwebtoken';
 
 const router = Router();
+
+// Helper functions for Azure SignalR Service webhook headers
+function getHeader(req: Request, name: string): string {
+  return (req.headers[name] || req.headers[name.toLowerCase()] || '') as string;
+}
+
+function getQueryParams(req: Request): URLSearchParams {
+  const raw = getHeader(req, 'x-asrs-client-query');
+  return new URLSearchParams(raw);
+}
 
 // Unified SignalR negotiate endpoint
 // Supports App JWT authentication for both devices (iPad) and staff (Portal)

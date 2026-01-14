@@ -290,8 +290,11 @@ extension CameraPreviewView: AVCaptureMetadataOutputObjectsDelegate {
         // Clear delegate immediately after first scan
         videoOutput.setMetadataObjectsDelegate(nil, queue: nil)
         
+        // Save callback before stopping session (which clears it)
+        let callback = onCodeScanned
+        
         stopSession()
         
-        onCodeScanned?(stringValue)
+        callback?(stringValue)
     }
 }
