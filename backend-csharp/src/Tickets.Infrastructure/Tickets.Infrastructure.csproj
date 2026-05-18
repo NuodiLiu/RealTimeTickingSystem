@@ -18,4 +18,8 @@
     <PackageReference Include="ClosedXML" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Tickets.Infrastructure.Tests" />
+  </ItemGroup>
+
 </Project>

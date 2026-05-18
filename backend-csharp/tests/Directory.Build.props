@@ -10,8 +10,9 @@
                 'Method_Scenario_Expectation' (AGENTS.md §5.2).
         CA1861: Constant arrays passed to xUnit [Theory]/[InlineData] are by design.
         CA1062: We trust test inputs; null guards add noise without value.
+        CA1711: xUnit [CollectionDefinition] classes are required to end in 'Collection'.
     -->
-    <NoWarn>$(NoWarn);CA1707;CA1861;CA1062</NoWarn>
+    <NoWarn>$(NoWarn);CA1707;CA1861;CA1062;CA1711</NoWarn>
   </PropertyGroup>
 
 </Project>
