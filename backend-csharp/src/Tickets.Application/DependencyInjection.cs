@@ -30,6 +30,12 @@ public static class DependencyInjection
 
         // Handlers are registered explicitly — keeps wire-up boring and grep-able.
         services.AddScoped<PostCaseHandler>();
+        services.AddScoped<GetPublicQueueHandler>();
+        services.AddScoped<GetQueuedCasesHandler>();
+        services.AddScoped<TakeCaseHandler>();
+        services.AddScoped<TakeNextCaseHandler>();
+        services.AddScoped<EscalateCaseHandler>();
+        services.AddScoped<ResolveCaseHandler>();
 
         return services;
     }

@@ -25,8 +25,10 @@
                 pattern; rule is overly cautious for value-object-like generics.
         CA1848: LoggerMessage source generators are a perf optimisation we defer until
                 hot paths are identified. Plain LogX calls are fine for now.
+        CA1873: Same family as CA1848 — defers eager argument evaluation in logging.
+                Suppressed together; revisit when introducing LoggerMessage delegates.
     -->
-    <NoWarn>$(NoWarn);CA1716;CA1710;CA1032;CA2237;CA1000;CA1848</NoWarn>
+    <NoWarn>$(NoWarn);CA1716;CA1710;CA1032;CA2237;CA1000;CA1848;CA1873</NoWarn>
     <DebugType>embedded</DebugType>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
