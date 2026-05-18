@@ -21,8 +21,12 @@
         CA1032: We intentionally do not expose serialization ctors on DomainError-derived
                 types — they carry typed properties and are not marshalled across AppDomains.
         CA2237: Same reasoning as CA1032 — no need for ISerializable.
+        CA1000: Result<T>.Success / Result<T>.Failure are the canonical static factory
+                pattern; rule is overly cautious for value-object-like generics.
+        CA1848: LoggerMessage source generators are a perf optimisation we defer until
+                hot paths are identified. Plain LogX calls are fine for now.
     -->
-    <NoWarn>$(NoWarn);CA1716;CA1710;CA1032;CA2237</NoWarn>
+    <NoWarn>$(NoWarn);CA1716;CA1710;CA1032;CA2237;CA1000;CA1848</NoWarn>
     <DebugType>embedded</DebugType>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
