@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Tickets.Domain.Cases;
+using Tickets.Domain.Devices;
+using Tickets.Domain.FeedbackSessions;
 using Tickets.Domain.Shared.Abstractions;
 using Tickets.Domain.Shared.Time;
 using Tickets.Domain.Staff;
@@ -34,6 +37,9 @@ public static class DependencyInjection
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IStaffRepository, StaffRepository>();
+        services.AddScoped<ICaseRepository, CaseRepository>();
+        services.AddScoped<IKioskDeviceRepository, KioskDeviceRepository>();
+        services.AddScoped<IFeedbackSessionRepository, FeedbackSessionRepository>();
 
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IClock, SystemClock>();

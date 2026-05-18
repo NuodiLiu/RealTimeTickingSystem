@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Tickets.Domain.Cases;
+using Tickets.Domain.Devices;
+using Tickets.Domain.FeedbackSessions;
 using Tickets.Domain.Staff;
 
 namespace Tickets.Infrastructure.Persistence;
@@ -10,14 +13,15 @@ namespace Tickets.Infrastructure.Persistence;
 public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options) : DbContext(options)
 {
     public DbSet<Staff> Staff => Set<Staff>();
+    public DbSet<Case> Cases => Set<Case>();
+    public DbSet<KioskDevice> Devices => Set<KioskDevice>();
+    public DbSet<FeedbackSession> FeedbackSessions => Set<FeedbackSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
 
-        // Snake-case all default-named columns for Postgres convention.
         modelBuilder.HasDefaultSchema("public");
-
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TicketsDbContext).Assembly);
 
         base.OnModelCreating(modelBuilder);

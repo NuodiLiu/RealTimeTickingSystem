@@ -43,11 +43,15 @@ public sealed class Case : AggregateRoot
     public bool? ResolvedOnSite { get; private set; }
     public DateTimeOffset? EscalatedAt { get; private set; }
 
+    // Ctor parameter name 'zId' (camelCase mirror of the property name 'ZId')
+    // matters for EF Core: it binds ctor parameters to properties by name and
+    // expects the parameter to be Camel(PropertyName). 'zid' would map to
+    // a 'Zid' property and fail to bind to 'ZId'.
     private Case(
         CaseId id,
         StudentName studentName,
         Category category,
-        ZId? zid,
+        ZId? zId,
         DeviceId? createdByDeviceId,
         DateTimeOffset createdAt,
         CaseStatus status)
@@ -55,7 +59,7 @@ public sealed class Case : AggregateRoot
         Id = id;
         StudentName = studentName;
         Category = category;
-        ZId = zid;
+        ZId = zId;
         CreatedByDeviceId = createdByDeviceId;
         CreatedAt = createdAt;
         Status = status;
@@ -77,7 +81,7 @@ public sealed class Case : AggregateRoot
             id: CaseId.New(),
             studentName: studentName,
             category: category,
-            zid: zId,
+            zId: zId,
             createdByDeviceId: createdByDeviceId,
             createdAt: clock.UtcNow,
             status: CaseStatus.Queued);

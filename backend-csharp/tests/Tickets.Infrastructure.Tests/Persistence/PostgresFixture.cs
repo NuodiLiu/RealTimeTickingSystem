@@ -49,6 +49,19 @@ public sealed class PostgresFixture : IAsyncLifetime
             .Options;
         return new TicketsDbContext(options);
     }
+
+    /// <summary>
+    /// Truncates every aggregate table so a test starts from a clean slate.
+    /// Cheap (no schema rebuild) and avoids cross-test pollution that shows
+    /// up in queries with OrderBy/Skip/Take or count assertions.
+    /// </summary>
+    public async Task ResetAsync()
+    {
+        await using var ctx = CreateContext();
+        await ctx.Database.ExecuteSqlRawAsync(
+            "TRUNCATE TABLE feedback_sessions, cases, kiosk_devices, staff RESTART IDENTITY CASCADE;")
+            .ConfigureAwait(false);
+    }
 }
 
 /// <summary>

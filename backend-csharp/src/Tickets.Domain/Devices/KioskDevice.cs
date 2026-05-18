@@ -42,6 +42,10 @@ public sealed class KioskDevice : AggregateRoot
     public bool IsBusy => CurrentLock is not null;
 
     // EF-friendly private ctor; not callable from product code.
+    // CurrentLock is intentionally omitted — EF Core forbids binding navigations
+    // to owned types through the constructor. It defaults to null here and is
+    // populated via the private setter (either by domain methods or by EF's
+    // owned-entity materialiser after the ctor runs).
     private KioskDevice(
         DeviceId id,
         DeviceName name,
@@ -49,8 +53,7 @@ public sealed class KioskDevice : AggregateRoot
         DeviceMode mode,
         PairingStatus pairingStatus,
         DateTimeOffset lastSeenAt,
-        bool isConnected,
-        KioskLock? currentLock)
+        bool isConnected)
     {
         Id = id;
         Name = name;
@@ -59,7 +62,6 @@ public sealed class KioskDevice : AggregateRoot
         PairingStatus = pairingStatus;
         LastSeenAt = lastSeenAt;
         IsConnected = isConnected;
-        CurrentLock = currentLock;
     }
 
     // ───── Pairing lifecycle ─────────────────────────────────────────────
@@ -76,8 +78,7 @@ public sealed class KioskDevice : AggregateRoot
             mode: mode,
             pairingStatus: PairingStatus.Paired,
             lastSeenAt: clock.UtcNow,
-            isConnected: false,
-            currentLock: null);
+            isConnected: false);
 
         device.BumpVersion();
         device.RaiseEvent(new DevicePaired(device.Id, name, mode, clock.UtcNow));
