@@ -1,6 +1,9 @@
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Tickets.Application.Auth.Handlers;
 using Tickets.Application.Cases.Handlers;
+using Tickets.Application.Devices.Handlers;
+using Tickets.Application.Feedback.Handlers;
 
 namespace Tickets.Application;
 
@@ -29,6 +32,10 @@ public static class DependencyInjection
             ServiceLifetime.Singleton);
 
         // Handlers are registered explicitly — keeps wire-up boring and grep-able.
+        // Auth
+        services.AddScoped<GetOrProvisionStaffHandler>();
+        services.AddScoped<GetCurrentStaffHandler>();
+        // Cases
         services.AddScoped<PostCaseHandler>();
         services.AddScoped<GetPublicQueueHandler>();
         services.AddScoped<GetQueuedCasesHandler>();
@@ -36,6 +43,11 @@ public static class DependencyInjection
         services.AddScoped<TakeNextCaseHandler>();
         services.AddScoped<EscalateCaseHandler>();
         services.AddScoped<ResolveCaseHandler>();
+        // Devices
+        services.AddScoped<RecordHeartbeatHandler>();
+        services.AddScoped<ChangeDeviceModeHandler>();
+        // Feedback
+        services.AddScoped<SubmitFeedbackHandler>();
 
         return services;
     }
