@@ -1,0 +1,136 @@
+name: backend-csharp CI
+
+# Only runs when the C# project actually changes — avoids burning CI minutes
+# on Swift / Node / docs-only commits.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend-csharp/**"
+      - ".github/workflows/backend-csharp-ci.yml"
+      - "AGENTS.md"
+  pull_request:
+    paths:
+      - "backend-csharp/**"
+      - ".github/workflows/backend-csharp-ci.yml"
+      - "AGENTS.md"
+  workflow_dispatch:
+
+env:
+  CI: "true"
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+permissions:
+  contents: read
+  pull-requests: write   # for coverage comments later
+
+jobs:
+  build-and-test:
+    name: build + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend-csharp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          # global.json pins the SDK version; setup-dotnet honours it.
+          global-json-file: backend-csharp/global.json
+
+      - name: Show .NET info
+        run: dotnet --info
+
+      - name: Restore
+        run: dotnet restore RealTimeTickingSystem.sln
+
+      - name: Build
+        run: dotnet build RealTimeTickingSystem.sln --configuration Release --no-restore
+
+      - name: Test (with coverage)
+        run: |
+          dotnet test RealTimeTickingSystem.sln \
+            --configuration Release \
+            --no-build \
+            --logger "trx;LogFileName=test-results.trx" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: backend-csharp/TestResults/**/*.trx
+          retention-days: 7
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: backend-csharp/TestResults/**/coverage.cobertura.xml
+          retention-days: 7
+
+  guardrails:
+    name: AGENTS.md guardrails
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: backend-csharp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # AGENTS.md §7 Non-negotiable #1: Tickets.Domain has zero external deps
+      # (no <PackageReference> / <ProjectReference>).
+      - name: Domain has no dependencies
+        run: |
+          if grep -qE "<(Package|Project)Reference" src/Tickets.Domain/Tickets.Domain.csproj; then
+            echo "::error file=src/Tickets.Domain/Tickets.Domain.csproj::Tickets.Domain must not reference any packages or projects (AGENTS.md §7 #1)."
+            grep -nE "<(Package|Project)Reference" src/Tickets.Domain/Tickets.Domain.csproj
+            exit 1
+          fi
+          echo "OK: Tickets.Domain has no dependencies."
+
+      # AGENTS.md §7 Non-negotiable #4: product code must not use DateTime.UtcNow
+      # or DateTimeOffset.UtcNow — always go through IClock. XML doc comments
+      # (lines starting with ///) are exempt because they reference the API
+      # by name, not by call.
+      - name: No raw clock access in product code
+        run: |
+          set +e
+          matches=$(grep -RInE "Date(Time|TimeOffset)\.UtcNow" src/ \
+            --include="*.cs" \
+            --exclude-dir=bin --exclude-dir=obj \
+            | grep -vE "^[^:]+:[0-9]+:\s*///")
+          if [ -n "$matches" ]; then
+            echo "::error::Product code must use IClock.UtcNow, not DateTime/DateTimeOffset.UtcNow (AGENTS.md §7 #4)."
+            echo "$matches"
+            exit 1
+          fi
+          echo "OK: no raw clock access found in src/."
+
+      # AGENTS.md §7 Non-negotiable #7: no Azure / Identity SDKs in
+      # Domain or Application during Phase 1-4.
+      - name: No cloud SDKs in Domain / Application (Phase 1-4)
+        run: |
+          set +e
+          matches=$(grep -RInE "PackageReference Include=\"(Microsoft\.Azure|Microsoft\.Identity|Azure\.)" \
+            src/Tickets.Domain/Tickets.Domain.csproj \
+            src/Tickets.Application/Tickets.Application.csproj)
+          if [ -n "$matches" ]; then
+            echo "::error::Domain and Application must not reference cloud SDKs until Phase 5 (AGENTS.md §7 #7)."
+            echo "$matches"
+            exit 1
+          fi
+          echo "OK: no cloud SDK references in Domain / Application."
