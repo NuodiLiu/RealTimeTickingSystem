@@ -36,6 +36,8 @@ public static class DependencyInjection
         // Auth
         services.AddScoped<GetOrProvisionStaffHandler>();
         services.AddScoped<GetCurrentStaffHandler>();
+        services.AddScoped<RefreshTokenHandler>();
+        services.AddScoped<LogoutHandler>();
         // Cases
         services.AddScoped<PostCaseHandler>();
         services.AddScoped<GetPublicQueueHandler>();

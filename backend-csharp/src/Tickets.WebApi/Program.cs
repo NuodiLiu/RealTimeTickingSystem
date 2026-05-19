@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using Tickets.Application;
 using Tickets.Application.Abstractions;
+using Tickets.Application.Auth.Abstractions;
 using Tickets.Infrastructure;
 using Tickets.WebApi.Endpoints;
 using Tickets.WebApi.Identity;
@@ -27,11 +28,8 @@ builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddScoped<ICurrentDevice, HttpContextCurrentDevice>();
 
 // ───── JWT Bearer (App JWT — Phase 5 swaps in Microsoft.Identity.Web) ─
-builder.Services
-    .AddOptions<AppJwtOptions>()
-    .Bind(builder.Configuration.GetSection(AppJwtOptions.SectionName))
-    .ValidateOnStart();
-
+// AppJwtOptions is bound in AddInfrastructure(); read the same section here
+// to wire up bearer validation.
 var jwtOptions = builder.Configuration
     .GetSection(AppJwtOptions.SectionName)
     .Get<AppJwtOptions>() ?? new AppJwtOptions();

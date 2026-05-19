@@ -8,7 +8,9 @@ using Tickets.Domain.FeedbackSessions;
 using Tickets.Domain.Shared.Abstractions;
 using Tickets.Domain.Shared.Time;
 using Tickets.Domain.Staff;
+using Tickets.Application.Auth.Abstractions;
 using Tickets.Application.Pairing.Abstractions;
+using Tickets.Infrastructure.Identity;
 using Tickets.Infrastructure.Notifications;
 using Tickets.Infrastructure.Pairing;
 using Tickets.Infrastructure.Persistence;
@@ -60,6 +62,14 @@ public static class DependencyInjection
         services.AddSingleton<IPairingTokenStore, InMemoryPairingTokenStore>();
         services.AddSingleton<IDeviceSecretGenerator, CryptoDeviceSecretGenerator>();
         services.AddSingleton<IDeviceTokenIssuer, PlaceholderDeviceTokenIssuer>();
+
+        // Auth — App-JWT issuance + refresh-handle ledger.
+        // Phase 5 should replace InMemoryRefreshHandleStore with a
+        // Postgres-backed store keyed on (handle, staffId, expireAt).
+        services.AddOptions<AppJwtOptions>()
+            .Bind(configuration.GetSection(AppJwtOptions.SectionName));
+        services.AddSingleton<IAppJwtIssuer, AppJwtIssuer>();
+        services.AddSingleton<IRefreshHandleStore, InMemoryRefreshHandleStore>();
 
         return services;
     }
