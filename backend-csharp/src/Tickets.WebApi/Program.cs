@@ -94,6 +94,7 @@ app.MapDeviceEndpoints();
 app.MapFeedbackEndpoints();
 app.MapPairEndpoints();
 app.MapSignalRWebhookEndpoints();
+app.MapExcelEndpoints();
 
 app.Run();
 

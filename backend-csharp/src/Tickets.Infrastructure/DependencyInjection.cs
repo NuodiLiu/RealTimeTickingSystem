@@ -10,11 +10,13 @@ using Tickets.Domain.Shared.Time;
 using Tickets.Domain.Staff;
 using Tickets.Application.Auth.Abstractions;
 using Tickets.Application.Pairing.Abstractions;
+using Tickets.Application.Reporting.Abstractions;
 using Tickets.Infrastructure.Identity;
 using Tickets.Infrastructure.Notifications;
 using Tickets.Infrastructure.Pairing;
 using Tickets.Infrastructure.Persistence;
 using Tickets.Infrastructure.Persistence.Repositories;
+using Tickets.Infrastructure.Reporting;
 using Tickets.Infrastructure.Time;
 
 namespace Tickets.Infrastructure;
@@ -70,6 +72,9 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(AppJwtOptions.SectionName));
         services.AddSingleton<IAppJwtIssuer, AppJwtIssuer>();
         services.AddSingleton<IRefreshHandleStore, InMemoryRefreshHandleStore>();
+
+        // Reporting — ClosedXML xlsx generator.
+        services.AddSingleton<IExcelWorkbookGenerator, ClosedXmlWorkbookGenerator>();
 
         return services;
     }

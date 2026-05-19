@@ -36,4 +36,44 @@ internal sealed class CaseRepository(TicketsDbContext context) : ICaseRepository
         ArgumentNullException.ThrowIfNull(theCase);
         await context.Cases.AddAsync(theCase, cancellationToken).ConfigureAwait(false);
     }
+
+    public async Task<IReadOnlyList<Case>> QueryForExportAsync(
+        CaseExportFilters filters,
+        int maxRows,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filters);
+
+        var query = context.Cases.AsQueryable();
+
+        if (filters.Statuses is { Count: > 0 } statuses)
+        {
+            var arr = statuses.ToArray();
+            query = query.Where(c => arr.Contains(c.Status));
+        }
+        if (filters.StartDate is { } start)
+        {
+            query = query.Where(c => c.CreatedAt >= start);
+        }
+        if (filters.EndDate is { } end)
+        {
+            query = query.Where(c => c.CreatedAt <= end);
+        }
+        if (filters.StaffId is { } staffId)
+        {
+            query = query.Where(c => c.AssignedStaffId == staffId);
+        }
+        if (!string.IsNullOrWhiteSpace(filters.Category))
+        {
+            var category = Category.Parse(filters.Category);
+            query = query.Where(c => c.Category == category);
+        }
+
+        var rows = await query
+            .OrderByDescending(c => c.CreatedAt)
+            .Take(maxRows)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return rows;
+    }
 }

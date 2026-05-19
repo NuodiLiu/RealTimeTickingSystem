@@ -21,4 +21,14 @@ public interface ICaseRepository
         CancellationToken cancellationToken = default);
 
     Task AddAsync(Case theCase, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Bounded query used by export endpoints. <paramref name="maxRows"/> is
+    /// the hard cap — handlers should reject any export request above it
+    /// (api-excel.md pitfall #1 fix).
+    /// </summary>
+    Task<IReadOnlyList<Case>> QueryForExportAsync(
+        CaseExportFilters filters,
+        int maxRows,
+        CancellationToken cancellationToken = default);
 }

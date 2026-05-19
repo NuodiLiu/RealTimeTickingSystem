@@ -5,6 +5,7 @@ using Tickets.Application.Cases.Handlers;
 using Tickets.Application.Devices.Handlers;
 using Tickets.Application.Feedback.Handlers;
 using Tickets.Application.Pairing.Handlers;
+using Tickets.Application.Reporting.Handlers;
 using Tickets.Application.SignalR.Handlers;
 
 namespace Tickets.Application;
@@ -65,6 +66,10 @@ public static class DependencyInjection
         // SignalR webhooks
         services.AddScoped<MarkDeviceConnectedHandler>();
         services.AddScoped<MarkDeviceDisconnectedHandler>();
+        // Reporting / Excel
+        services.AddScoped<GetExportPreviewHandler>();
+        services.AddScoped<ExportCasesAsJsonHandler>();
+        services.AddScoped<ExportCasesAsExcelHandler>();
 
         return services;
     }
