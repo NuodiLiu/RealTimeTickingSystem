@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Tickets.Infrastructure.Tests" />
+    <InternalsVisibleTo Include="Tickets.WebApi.Tests" />
   </ItemGroup>
 
 </Project>

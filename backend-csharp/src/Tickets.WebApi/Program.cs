@@ -55,7 +55,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             NameClaimType = "sub",
             RoleClaimType = "role",
         };
-    });
+    })
+    .AddScheme<DeviceAuthSchemeOptions, DeviceAuthSchemeHandler>(
+        DeviceAuthSchemeDefaults.Scheme, _ => { });
 builder.Services.AddAuthorization();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -78,6 +80,9 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
 
 app.MapAuthEndpoints();
 app.MapCasesEndpoints();
+app.MapDeviceEndpoints();
+app.MapFeedbackEndpoints();
+app.MapPairEndpoints();
 
 app.Run();
 
