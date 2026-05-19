@@ -29,7 +29,9 @@ public sealed class PostgresFixture : IAsyncLifetime
             .UseNpgsql(ConnectionString)
             .Options;
         await using var ctx = new TicketsDbContext(options);
-        await ctx.Database.EnsureCreatedAsync().ConfigureAwait(false);
+        // MigrateAsync runs the same migration set that production would, so the
+        // schema verified in tests is byte-for-byte the one the deployment uses.
+        await ctx.Database.MigrateAsync().ConfigureAwait(false);
     }
 
     public async Task DisposeAsync()
