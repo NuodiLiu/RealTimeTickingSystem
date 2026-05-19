@@ -27,8 +27,11 @@
                 hot paths are identified. Plain LogX calls are fine for now.
         CA1873: Same family as CA1848 — defers eager argument evaluation in logging.
                 Suppressed together; revisit when introducing LoggerMessage delegates.
+        CA1711: DDD ubiquitous-language naming: types like 'DeviceConnectionEventHandler'
+                and 'IDomainEventHandler<T>' are the established pattern across the
+                literature (Evans, Vernon, MediatR). Renaming would erase meaning.
     -->
-    <NoWarn>$(NoWarn);CA1716;CA1710;CA1032;CA2237;CA1000;CA1848;CA1873</NoWarn>
+    <NoWarn>$(NoWarn);CA1716;CA1710;CA1032;CA2237;CA1000;CA1848;CA1873;CA1711</NoWarn>
     <DebugType>embedded</DebugType>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>

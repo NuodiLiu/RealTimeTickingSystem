@@ -35,6 +35,20 @@ internal sealed class KioskDeviceRepository(TicketsDbContext context) : IKioskDe
         return rows;
     }
 
+    public async Task<IReadOnlyList<KioskDevice>> ListStaleConnectedAsync(
+        DateTimeOffset cutoff,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await context.Devices
+            .Where(d => d.PairingStatus == PairingStatus.Paired
+                && d.IsConnected
+                && d.LastSeenAt < cutoff)
+            .OrderBy(d => d.LastSeenAt)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return rows;
+    }
+
     public async Task AddAsync(KioskDevice device, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(device);

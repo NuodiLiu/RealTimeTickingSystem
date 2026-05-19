@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Tickets.Application.Abstractions;
+using Tickets.Application.Devices.Configuration;
 using Tickets.Domain.Cases;
 using Tickets.Domain.Devices;
 using Tickets.Domain.FeedbackSessions;
@@ -11,6 +12,8 @@ using Tickets.Domain.Staff;
 using Tickets.Application.Auth.Abstractions;
 using Tickets.Application.Pairing.Abstractions;
 using Tickets.Application.Reporting.Abstractions;
+using Tickets.Infrastructure.Devices;
+using Tickets.Infrastructure.Events;
 using Tickets.Infrastructure.Identity;
 using Tickets.Infrastructure.Notifications;
 using Tickets.Infrastructure.Pairing;
@@ -75,6 +78,12 @@ public static class DependencyInjection
 
         // Reporting — ClosedXML xlsx generator.
         services.AddSingleton<IExcelWorkbookGenerator, ClosedXmlWorkbookGenerator>();
+
+        // Device online-monitoring.
+        services.AddOptions<DeviceConnectivityOptions>()
+            .Bind(configuration.GetSection(DeviceConnectivityOptions.SectionName));
+        services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+        services.AddHostedService<DeviceConnectivitySweeperService>();
 
         return services;
     }

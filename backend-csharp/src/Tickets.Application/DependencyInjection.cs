@@ -1,12 +1,15 @@
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Tickets.Application.Abstractions;
 using Tickets.Application.Auth.Handlers;
 using Tickets.Application.Cases.Handlers;
+using Tickets.Application.Devices.EventHandlers;
 using Tickets.Application.Devices.Handlers;
 using Tickets.Application.Feedback.Handlers;
 using Tickets.Application.Pairing.Handlers;
 using Tickets.Application.Reporting.Handlers;
 using Tickets.Application.SignalR.Handlers;
+using Tickets.Domain.Devices.Events;
 
 namespace Tickets.Application;
 
@@ -70,6 +73,9 @@ public static class DependencyInjection
         services.AddScoped<GetExportPreviewHandler>();
         services.AddScoped<ExportCasesAsJsonHandler>();
         services.AddScoped<ExportCasesAsExcelHandler>();
+
+        // Domain event consumers.
+        services.AddScoped<IDomainEventHandler<DeviceConnectionStateChanged>, DeviceConnectionEventHandler>();
 
         return services;
     }

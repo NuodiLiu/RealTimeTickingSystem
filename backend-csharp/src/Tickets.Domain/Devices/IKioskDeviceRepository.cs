@@ -26,5 +26,15 @@ public interface IKioskDeviceRepository
         int take,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Paired devices whose connectivity flag is <c>true</c> but whose last
+    /// heartbeat predates <paramref name="cutoff"/>. Used by the background
+    /// sweeper to surface candidates for <c>MarkDisconnected</c>. Returns
+    /// tracked entities so the caller can mutate + commit in one scope.
+    /// </summary>
+    Task<IReadOnlyList<KioskDevice>> ListStaleConnectedAsync(
+        DateTimeOffset cutoff,
+        CancellationToken cancellationToken = default);
+
     Task AddAsync(KioskDevice device, CancellationToken cancellationToken = default);
 }
