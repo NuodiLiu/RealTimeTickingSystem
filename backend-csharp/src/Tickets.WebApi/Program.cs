@@ -66,10 +66,24 @@ builder.Services
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
+// CORS — bound from "Cors:AllowedOrigins" config array. Frontend dev server
+// uses cookies for refresh, so we need AllowCredentials + explicit origins
+// (wildcard '*' is forbidden together with credentials).
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? Array.Empty<string>();
+builder.Services.AddCors(options =>
+    options.AddDefaultPolicy(p => p
+        .WithOrigins(allowedOrigins)
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials()));
+
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 app.UseMiddleware<ErrorHandlingMiddleware>();
+app.UseCors();
 
 // Webhook signature verification only on the SignalR webhook prefix.
 app.UseWhen(
@@ -95,6 +109,13 @@ app.MapFeedbackEndpoints();
 app.MapPairEndpoints();
 app.MapSignalRWebhookEndpoints();
 app.MapExcelEndpoints();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapDevAuthEndpoints();
+    app.MapDevNotificationsEndpoints();
+    app.MapDevSeedEndpoints();
+}
 
 app.Run();
 

@@ -1,6 +1,7 @@
 using Tickets.Application.Cases.Commands;
 using Tickets.Application.Cases.Handlers;
 using Tickets.Application.Cases.Queries;
+using Tickets.Domain.Cases;
 using Tickets.WebApi.Common;
 
 namespace Tickets.WebApi.Endpoints;
@@ -32,16 +33,19 @@ public static class CasesEndpoints
                 (await handler.HandleAsync(command, ct)).ToHttpResult(StatusCodes.Status201Created))
             .AllowAnonymous();
 
-        // Staff-only.
+        // Staff-only. Accept either Pascal enum names (Queued, InProgress, …)
+        // or legacy lowercase snake_case ("queued", "in_progress",
+        // "resolved_pending_feedback", "resolved") for compatibility with the
+        // existing frontend.
         group.MapGet("/", async (
             GetQueuedCasesHandler handler,
-            Tickets.Domain.Cases.CaseStatus? status,
+            string? status,
             int? page,
             int? pageSize,
             CancellationToken ct) =>
                 (await handler.HandleAsync(
                     new GetQueuedCasesQuery(
-                        Status: status ?? Tickets.Domain.Cases.CaseStatus.Queued,
+                        Status: ParseStatus(status),
                         Page: page ?? 1,
                         PageSize: pageSize ?? 50),
                     ct)).ToHttpResult())
@@ -77,5 +81,22 @@ public static class CasesEndpoints
             .RequireAuthorization();
 
         return app;
+    }
+
+    private static CaseStatus ParseStatus(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return CaseStatus.Queued;
+        }
+
+        // Legacy lowercase / snake_case → enum.
+        var normalized = raw.Trim().Replace("_", string.Empty, StringComparison.Ordinal);
+        if (Enum.TryParse<CaseStatus>(normalized, ignoreCase: true, out var parsed))
+        {
+            return parsed;
+        }
+
+        return CaseStatus.Queued;
     }
 }

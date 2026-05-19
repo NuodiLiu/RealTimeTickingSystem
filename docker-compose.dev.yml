@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tickets-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tickets_dev
+      POSTGRES_USER: tickets
+      POSTGRES_PASSWORD: tickets
+    ports:
+      # 5433 on the host avoids clashing with a system Postgres on 5432.
+      - "5433:5432"
+    volumes:
+      - tickets-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tickets -d tickets_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  tickets-pg-data:

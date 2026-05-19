@@ -18,11 +18,19 @@ public static class AuthEndpoints
 
         var group = app.MapGroup("/auth").WithTags("Auth");
 
+        // /auth/me responds with { ok, user } to match the legacy contract
+        // (frontend reads response.user.id etc.).
         group.MapGet("/me", async (
             GetCurrentStaffHandler handler,
             CancellationToken ct) =>
-                (await handler.HandleAsync(new GetCurrentStaffQuery(), ct)).ToHttpResult())
-            .RequireAuthorization();
+        {
+            var result = await handler.HandleAsync(new GetCurrentStaffQuery(), ct);
+            if (!result.IsSuccess)
+            {
+                return result.ToHttpResult();
+            }
+            return Results.Json(new { ok = true, user = result.Value });
+        }).RequireAuthorization();
 
         // POST /auth/refresh — reads the refresh handle from the HttpOnly
         // cookie, rotates it, and sets a new cookie. Body is empty.
