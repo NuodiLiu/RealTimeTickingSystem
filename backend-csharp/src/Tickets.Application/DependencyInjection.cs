@@ -4,6 +4,7 @@ using Tickets.Application.Auth.Handlers;
 using Tickets.Application.Cases.Handlers;
 using Tickets.Application.Devices.Handlers;
 using Tickets.Application.Feedback.Handlers;
+using Tickets.Application.Pairing.Handlers;
 
 namespace Tickets.Application;
 
@@ -48,6 +49,11 @@ public static class DependencyInjection
         services.AddScoped<ChangeDeviceModeHandler>();
         // Feedback
         services.AddScoped<SubmitFeedbackHandler>();
+        services.AddScoped<SendFeedbackHandler>();
+        services.AddScoped<OverrideFeedbackHandler>();
+        // Pairing
+        services.AddScoped<GenerateQrHandler>();
+        services.AddScoped<CompletePairingHandler>();
 
         return services;
     }
