@@ -1,0 +1,133 @@
+# Adapted from solutions-automated-tests/.github/workflows/e2e.yml.
+# Runs the Serenity BDD + Cucumber suite in /frontend-tests against a deployed
+# environment. Like the reference workflow, it supports manual dispatch with
+# build_type / test_tags / environment inputs and uploads Serenity reports.
+#
+# Differences from the reference:
+#   * Runs on ubuntu-latest instead of windows-latest — Chrome + ChromeDriver
+#     are pre-installed on GitHub-hosted Ubuntu runners, so no chocolatey step
+#     is needed.
+#   * Path-filtered to /frontend-tests so it doesn't burn CI minutes on
+#     Swift / Node / docs-only commits.
+#   * Uses MS_* secrets for the Microsoft SSO credentials instead of the
+#     UNSW SLK / JRP / ZID service accounts.
+
+name: Execute Frontend E2E Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend-tests/**"
+      - ".github/workflows/frontend-tests-e2e.yml"
+  pull_request:
+    paths:
+      - "frontend-tests/**"
+      - ".github/workflows/frontend-tests-e2e.yml"
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: "Type of build to perform"
+        required: false
+        default: "verify"
+        type: choice
+        options:
+          - verify
+          - clean verify
+      test_tags:
+        description: "Cucumber tag expression (e.g. @Smoke, '@Login and not @SSO')"
+        required: false
+        default: ""
+      environment:
+        description: "Test execution environment (local | test | staging)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build + e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend-tests
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show runner info
+        run: |
+          echo "Runner name: ${{ runner.name }}"
+          echo "Runner OS: ${{ runner.os }}"
+          echo "Runner arch: ${{ runner.arch }}"
+          echo "Workflow:   ${{ github.workflow }}"
+          echo "Job:        ${{ github.job }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Workspace:  $GITHUB_WORKSPACE"
+          hostname
+        shell: bash
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Show Chrome / driver versions
+        run: |
+          google-chrome --version || true
+          chromedriver --version || true
+
+      - name: Compile tests
+        run: mvn -B test-compile
+
+      - name: Execute Frontend E2E Tests
+        shell: bash
+        env:
+          MS_USERNAME: ${{ secrets.MS_USERNAME }}
+          MS_PASSWORD: ${{ secrets.MS_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          # Resolve dispatch inputs with sensible defaults that mirror the
+          # reference e2e.yml.
+          BUILD_TYPE="${{ github.event.inputs.build_type }}"
+          TEST_TAGS="${{ github.event.inputs.test_tags }}"
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+
+          BUILD_TYPE="${BUILD_TYPE:-verify}"
+
+          MAVEN_CMD=(mvn -B $BUILD_TYPE)
+
+          if [ -n "$TEST_TAGS" ]; then
+            MAVEN_CMD+=("-Dcucumber.filter.tags=$TEST_TAGS")
+          fi
+
+          if [ -n "$ENVIRONMENT" ]; then
+            MAVEN_CMD+=("-Denvironment=$ENVIRONMENT")
+          fi
+
+          if [ -n "${MS_USERNAME:-}" ] && [ -n "${MS_PASSWORD:-}" ]; then
+            MAVEN_CMD+=("-DusernameMS=$MS_USERNAME" "-DpasswordMS=$MS_PASSWORD")
+          else
+            echo "::warning::MS_USERNAME / MS_PASSWORD secrets are not set — @SSO and @Dashboard scenarios will fail."
+          fi
+
+          echo "Running: ${MAVEN_CMD[*]}"
+          "${MAVEN_CMD[@]}"
+
+      - name: Save Serenity Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: serenity-reports
+          path: frontend-tests/target/site/serenity
+          if-no-files-found: warn
+          compression-level: 6
+          overwrite: false
+          include-hidden-files: false
