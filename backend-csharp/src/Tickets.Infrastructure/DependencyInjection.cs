@@ -1,12 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Tickets.Application.Abstractions;
 using Tickets.Domain.Cases;
 using Tickets.Domain.Devices;
 using Tickets.Domain.FeedbackSessions;
 using Tickets.Domain.Shared.Abstractions;
 using Tickets.Domain.Shared.Time;
 using Tickets.Domain.Staff;
+using Tickets.Application.Pairing.Abstractions;
+using Tickets.Infrastructure.Notifications;
+using Tickets.Infrastructure.Pairing;
 using Tickets.Infrastructure.Persistence;
 using Tickets.Infrastructure.Persistence.Repositories;
 using Tickets.Infrastructure.Time;
@@ -43,6 +47,19 @@ public static class DependencyInjection
 
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IClock, SystemClock>();
+
+        // Notification gateway — fake until Phase 5 wires Azure SignalR.
+        services.AddSingleton<FakeNotificationGateway>();
+        services.AddSingleton<INotificationGateway>(sp => sp.GetRequiredService<FakeNotificationGateway>());
+
+        // Pairing — minimal cryptographic / in-memory implementations.
+        // Phase 5 should replace InMemoryPairingTokenStore with a
+        // Postgres-backed store and PlaceholderDeviceTokenIssuer with a
+        // proper signed-JWT issuer.
+        services.AddSingleton<IPairingTokenGenerator, CryptoPairingTokenGenerator>();
+        services.AddSingleton<IPairingTokenStore, InMemoryPairingTokenStore>();
+        services.AddSingleton<IDeviceSecretGenerator, CryptoDeviceSecretGenerator>();
+        services.AddSingleton<IDeviceTokenIssuer, PlaceholderDeviceTokenIssuer>();
 
         return services;
     }
