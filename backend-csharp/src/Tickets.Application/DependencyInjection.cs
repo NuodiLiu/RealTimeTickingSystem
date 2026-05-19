@@ -47,6 +47,11 @@ public static class DependencyInjection
         // Devices
         services.AddScoped<RecordHeartbeatHandler>();
         services.AddScoped<ChangeDeviceModeHandler>();
+        services.AddScoped<GetDeviceStatusHandler>();
+        services.AddScoped<ListDevicesHandler>();
+        services.AddScoped<CheckPairingStatusHandler>();
+        services.AddScoped<UpdateDeviceNameHandler>();
+        services.AddScoped<UnpairDeviceHandler>();
         // Feedback
         services.AddScoped<SubmitFeedbackHandler>();
         services.AddScoped<SendFeedbackHandler>();

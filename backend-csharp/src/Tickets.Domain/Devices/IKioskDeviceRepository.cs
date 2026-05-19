@@ -16,5 +16,15 @@ public interface IKioskDeviceRepository
     /// </summary>
     Task<KioskDevice?> FindActiveByNameAsync(DeviceName name, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// List paired devices, optionally filtered by <paramref name="mode"/>.
+    /// Unpaired (soft-deleted) devices are never returned.
+    /// </summary>
+    Task<IReadOnlyList<KioskDevice>> ListPairedAsync(
+        DeviceMode? mode,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default);
+
     Task AddAsync(KioskDevice device, CancellationToken cancellationToken = default);
 }
