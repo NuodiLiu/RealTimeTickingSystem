@@ -58,6 +58,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         DeviceAuthSchemeDefaults.Scheme, _ => { });
 builder.Services.AddAuthorization();
 
+// Webhook signature options (Azure SignalR upstream verification).
+builder.Services
+    .AddOptions<WebhookSignatureOptions>()
+    .Bind(builder.Configuration.GetSection(WebhookSignatureOptions.SectionName));
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
@@ -65,6 +70,13 @@ var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 app.UseMiddleware<ErrorHandlingMiddleware>();
+
+// Webhook signature verification only on the SignalR webhook prefix.
+app.UseWhen(
+    ctx => ctx.Request.Path.StartsWithSegments("/api/signalr/webhook")
+        && !ctx.Request.Path.StartsWithSegments("/api/signalr/webhook/health"),
+    branch => branch.UseMiddleware<WebhookSignatureMiddleware>());
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -81,6 +93,7 @@ app.MapCasesEndpoints();
 app.MapDeviceEndpoints();
 app.MapFeedbackEndpoints();
 app.MapPairEndpoints();
+app.MapSignalRWebhookEndpoints();
 
 app.Run();
 

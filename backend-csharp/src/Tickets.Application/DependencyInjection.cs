@@ -5,6 +5,7 @@ using Tickets.Application.Cases.Handlers;
 using Tickets.Application.Devices.Handlers;
 using Tickets.Application.Feedback.Handlers;
 using Tickets.Application.Pairing.Handlers;
+using Tickets.Application.SignalR.Handlers;
 
 namespace Tickets.Application;
 
@@ -61,6 +62,9 @@ public static class DependencyInjection
         // Pairing
         services.AddScoped<GenerateQrHandler>();
         services.AddScoped<CompletePairingHandler>();
+        // SignalR webhooks
+        services.AddScoped<MarkDeviceConnectedHandler>();
+        services.AddScoped<MarkDeviceDisconnectedHandler>();
 
         return services;
     }

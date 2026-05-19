@@ -28,6 +28,7 @@ public sealed class WebApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
     public const string Issuer = "https://localhost/test-tickets";
     public const string Audience = "tickets-api";
     public const string SigningKey = "test-signing-key-must-be-at-least-32-bytes-long-xx";
+    public const string WebhookSecret = "test-webhook-secret-xx";
 
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
         .WithImage("postgres:16-alpine")
@@ -49,6 +50,7 @@ public sealed class WebApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
         Environment.SetEnvironmentVariable("AppJwt__Issuer", Issuer);
         Environment.SetEnvironmentVariable("AppJwt__Audience", Audience);
         Environment.SetEnvironmentVariable("AppJwt__SigningKey", SigningKey);
+        Environment.SetEnvironmentVariable("SignalRWebhook__SigningSecret", WebhookSecret);
 
         // Run migrations against the ephemeral container before any HTTP test
         // hits the API.
