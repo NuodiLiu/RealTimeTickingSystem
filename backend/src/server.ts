@@ -1,6 +1,7 @@
 // src/server.ts - Simplified server for App Service Container
 import dotenv from "dotenv";
 import { createExpressApp } from "./expressApp";
+import { HeartbeatService } from "./services/heartbeat.service";
 
 dotenv.config();
 

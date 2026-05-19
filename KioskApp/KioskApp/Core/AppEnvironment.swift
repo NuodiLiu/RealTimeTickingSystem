@@ -12,6 +12,7 @@ final class AppEnvironment {
     let feedbackAPI: FeedbackAPI
     let signalRService: SignalRService
     let gatewayCenter: GatewayCenter
+    let heartbeatManager: HeartbeatManager
     let modeStore = DeviceModeStore()
 
     private init() {
@@ -48,5 +49,8 @@ final class AppEnvironment {
 
         // ✅ 这里才能安全地用 signalRService 去构造 GatewayCenter
         self.gatewayCenter = GatewayCenter(signalR: self.signalRService)
+        
+        // ✅ Initialize heartbeat manager
+        self.heartbeatManager = HeartbeatManager(apiClient: apiClient)
     }
 }

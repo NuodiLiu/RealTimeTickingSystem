@@ -325,7 +325,7 @@ struct RegistrationView: View {
                     .padding(.top, 12)
             }
         }
-         .devResetGesture() // DISABLED
+//         .devResetGesture()  DISABLED
         .onTapGesture {
             zidFocused = false
             nameFocused = false

@@ -3,20 +3,9 @@ import { verifyAzureJWT, requireScopes } from '../middlewares/azure-auth.middlew
 import { requireJWTAuthUnified } from '../middlewares/jwt-auth.middleware';
 import { signalRConfig } from './config';
 import { getDeviceConnectionUrl, signalRAuthMiddleware } from './auth';
-import { SignalRGateway } from './index';
-import jwt from 'jsonwebtoken';
+import { SignalRWebhookController } from './webhook.controller';
 
 const router = Router();
-
-// Helper functions for Azure SignalR Service webhook headers
-function getHeader(req: Request, name: string): string {
-  return (req.headers[name] || req.headers[name.toLowerCase()] || '') as string;
-}
-
-function getQueryParams(req: Request): URLSearchParams {
-  const raw = getHeader(req, 'x-asrs-client-query');
-  return new URLSearchParams(raw);
-}
 
 // Unified SignalR negotiate endpoint
 // Supports App JWT authentication for both devices (iPad) and staff (Portal)
@@ -119,5 +108,28 @@ router.get('/health', (req: Request, res: Response) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// ===== Azure SignalR Webhook Endpoints =====
+// These endpoints receive events from Azure SignalR Service
+// Configure these URLs in Azure SignalR Service upstream settings
+// 
+// Webhook middleware:
+// 1. logWebhookRequest - logs all webhook events
+// 2. verifySignalRWebhookSignature - verifies HMAC signature (production)
+
+// Webhook: Client connected
+router.post('/webhook/connected', SignalRWebhookController.handleConnected);
+
+// Webhook: Client disconnected
+router.post('/webhook/disconnected', SignalRWebhookController.handleDisconnected);
+
+// Webhook: Upstream message from client
+router.post('/webhook/message', SignalRWebhookController.handleMessage);
+
+// Webhook: Abuse detection (optional)
+router.post('/webhook/abuse', SignalRWebhookController.handleAbuse);
+
+// Webhook health check
+router.get('/webhook/health', SignalRWebhookController.healthCheck);
 
 export default router;

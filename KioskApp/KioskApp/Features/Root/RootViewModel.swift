@@ -109,6 +109,10 @@ final class RootViewModel: ObservableObject {
             await MainActor.run {
                 env.signalRService.delegate = env.gatewayCenter
                 env.signalRService.connect()
+                
+                // 🆕 Start heartbeat when socket attaches
+                print("💓 RootViewModel: Starting heartbeat manager")
+                env.heartbeatManager.start()
             }
         }
         
@@ -149,6 +153,12 @@ final class RootViewModel: ObservableObject {
                 }
             }
         }
+        
+        // 🆕 Restart heartbeat if it's not running
+        if isPaired && !env.heartbeatManager.isRunning {
+            print("💓 RootViewModel: App became active, restarting heartbeat")
+            env.heartbeatManager.start()
+        }
     }
 
     func onPairedSuccessfully(mode: DeviceMode?) {
@@ -178,6 +188,10 @@ final class RootViewModel: ObservableObject {
             try env.authProvider.clearDevice()
             env.modeStore.clear()
             env.signalRService.disconnect()
+            
+            // 🆕 Stop heartbeat when unpairing
+            print("💓 RootViewModel: Stopping heartbeat manager")
+            env.heartbeatManager.stop()
             
             isPaired = false
             currentMode = .REGISTRATION
@@ -225,6 +239,10 @@ final class RootViewModel: ObservableObject {
                 
                 self.env.signalRService.disconnect()
                 print("🚨 [CRITICAL] SignalR service disconnected")
+                
+                // 🆕 Stop heartbeat when server unpairs device
+                print("💓 RootViewModel: Stopping heartbeat manager (server unpair)")
+                self.env.heartbeatManager.stop()
                 
                 // 重置状态，返回配对界面
                 print("🚨 [CRITICAL] BEFORE state change - isPaired: \(self.isPaired), mode: \(self.currentMode), route: \(self.route)")
