@@ -153,11 +153,12 @@ jobs:
           BUILD_TYPE="${BUILD_TYPE:-verify}"
 
           # On CI we don't run a backend, so scenarios that need an
-          # authenticated dashboard or admin role can't succeed. Default
-          # to the subset that works against a frontend-only stack; the
-          # dispatch input overrides this if you point at a deployed env.
+          # authenticated dashboard, admin role, or working OAuth callback
+          # can't succeed. Default to the subset that works against a
+          # frontend-only stack; the dispatch input overrides this if you
+          # point at a deployed env with a backend.
           if [ -z "$TEST_TAGS" ]; then
-            TEST_TAGS="@Login or @Navigation or @PublicDisplay"
+            TEST_TAGS="(@Login or @Navigation or @PublicDisplay) and not @SSO"
           fi
 
           MAVEN_CMD=(mvn -B $BUILD_TYPE "-Dcucumber.filter.tags=$TEST_TAGS")
