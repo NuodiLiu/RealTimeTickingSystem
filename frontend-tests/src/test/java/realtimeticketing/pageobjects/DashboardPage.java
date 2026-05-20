@@ -24,10 +24,10 @@ public class DashboardPage {
             .located(By.xpath("//button[normalize-space()='Pair Device' or normalize-space()='Pair iPad']"));
 
     public static final Target FEEDBACK_DEVICES_HEADING = Target.the("Feedback Devices heading")
-            .located(By.xpath("//*[normalize-space()='Feedback Devices']"));
+            .located(By.xpath("//h3[contains(., 'Feedback Devices')]"));
 
     public static final Target REGISTRATION_DEVICES_HEADING = Target.the("Registration Devices heading")
-            .located(By.xpath("//*[normalize-space()='Registration Devices']"));
+            .located(By.xpath("//h3[contains(., 'Registration Devices')]"));
 
     public static final Target QUEUE_EMPTY_LABEL = Target.the("Queue empty state label")
             .located(By.xpath("//section[.//h2[normalize-space()='Queue']]//*[contains(., 'No cases in queue')]"));

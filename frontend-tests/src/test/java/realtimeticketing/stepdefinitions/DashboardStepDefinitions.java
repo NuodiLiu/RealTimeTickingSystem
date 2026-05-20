@@ -8,11 +8,16 @@ import net.serenitybdd.screenplay.ensure.Ensure;
 import net.serenitybdd.screenplay.matchers.WebElementStateMatchers;
 import net.serenitybdd.screenplay.questions.Text;
 import net.serenitybdd.screenplay.waits.WaitUntil;
+import net.serenitybdd.screenplay.abilities.BrowseTheWeb;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import realtimeticketing.pageobjects.DashboardPage;
 import realtimeticketing.pageobjects.HeaderComponent;
 import realtimeticketing.questions.CurrentUrl;
+
+import java.time.Duration;
 
 import static net.serenitybdd.screenplay.matchers.WebElementStateMatchers.isVisible;
 
@@ -98,6 +103,10 @@ public class DashboardStepDefinitions {
 
     @Then("{actor} should be returned to the login page")
     public void should_be_returned_to_the_login_page(Actor actor) {
+        // Logout clears auth state then redirects asynchronously — wait for
+        // the URL to settle on /login before asserting.
+        new WebDriverWait(BrowseTheWeb.as(actor).getDriver(), Duration.ofSeconds(15))
+                .until(ExpectedConditions.urlContains("/login"));
         actor.attemptsTo(
                 Ensure.that(actor.asksFor(CurrentUrl.is())).contains("/login")
         );

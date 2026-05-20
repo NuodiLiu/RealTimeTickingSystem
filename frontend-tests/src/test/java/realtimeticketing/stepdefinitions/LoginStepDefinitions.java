@@ -92,6 +92,15 @@ public class LoginStepDefinitions {
         actor.attemptsTo(Login.withMicrosoftSSO(microsoftUsername, microsoftPassword));
     }
 
+    @Given("{actor} is logged in as {string}")
+    public void is_logged_in_as(Actor actor, String role) {
+        LOGGER.info("{} logs in via the test-login bypass as {}", actor.getName(), role);
+        actor.attemptsTo(NavigateTo.theTestLoginAs(role));
+        actor.attemptsTo(
+                WaitUntil.the(HeaderComponent.HEADER, isVisible()).forNoMoreThan(60).seconds()
+        );
+    }
+
     @Then("{actor} should land on the dashboard")
     public void should_land_on_the_dashboard(Actor actor) {
         actor.attemptsTo(

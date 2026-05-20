@@ -2,7 +2,7 @@
 Feature: Staff dashboard layout and controls
 
   Background:
-    Given Staff signs in with Microsoft using the configured credentials
+    Given Staff is logged in as "STAFF"
     Then Staff should land on the dashboard
 
   @Smoke

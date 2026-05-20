@@ -370,6 +370,68 @@ router.post('/logout', async (req, res) => {
   }
 });
 
+/**
+ * Test-only login bypass — issues a staff session WITHOUT Microsoft SSO.
+ *
+ * Guarded by the TEST_AUTH_ENABLED env var: when it is not exactly 'true'
+ * the route returns 404, so it presents zero attack surface in a normal
+ * deployment. Enabled only on non-production test environments so the E2E
+ * suite can exercise authenticated @Dashboard / @Admin scenarios without
+ * driving the (un-automatable) real Microsoft login page.
+ *
+ * GET /auth/test-login?role=STAFF|ADMIN
+ * Mirrors /auth/redirect: upserts a deterministic test staff record, signs
+ * an App JWT, and redirects to the frontend /auth/callback page — which
+ * stores the token and lands on the dashboard exactly like a real login.
+ */
+router.get('/test-login', async (req, res) => {
+  if (process.env.TEST_AUTH_ENABLED !== 'true') {
+    return res.status(404).json({ error: 'not_found' });
+  }
+
+  try {
+    const role = String(req.query.role || 'STAFF').toUpperCase() === 'ADMIN'
+      ? 'ADMIN'
+      : 'STAFF';
+    const identityKey = `test:${role.toLowerCase()}`;
+
+    const staff = await prisma.staff.upsert({
+      where: { identityKey },
+      update: { role },
+      create: {
+        identityKey,
+        email: `test-${role.toLowerCase()}@e2e.local`,
+        name: role === 'ADMIN' ? 'E2E Admin' : 'E2E Staff',
+        employeeNo: `e2e-${role.toLowerCase()}`,
+        role,
+        password: '',
+      },
+      select: {
+        id: true,
+        role: true,
+        employeeNo: true,
+        name: true,
+        email: true,
+        identityKey: true,
+      },
+    });
+
+    const appJwt = signStaffToken({
+      id: staff.id,
+      role: staff.role,
+      employeeNo: staff.employeeNo,
+      identityKey: staff.identityKey,
+      ...(staff.name && { name: staff.name }),
+      ...(staff.email && { email: staff.email }),
+    });
+
+    return res.redirect(`${urls.frontendUrl}/auth/callback?token=${encodeURIComponent(appJwt)}`);
+  } catch (error: any) {
+    console.error('test-login error:', error);
+    return res.redirect(`${urls.frontendUrl}/login?error=auth_failed`);
+  }
+});
+
 // Retire dev-login endpoints (keep path, return 410)
 router.post('/dev-login', (_req, res) => {
   return res.status(410).json({

@@ -125,10 +125,12 @@ jobs:
           BUILD_TYPE="${BUILD_TYPE:-verify}"
 
           # CI runs against the deployed Azure Container Apps env (`test` in
-          # serenity.conf) — a real backend + DB + SignalR + OAuth. So the
-          # full @Regression suite, including @Dashboard / @Admin / @SSO,
-          # can run. Override test_tags / environment via workflow_dispatch.
-          TEST_TAGS="${TEST_TAGS:-@Regression}"
+          # serenity.conf). @Dashboard / @Admin authenticate via the backend
+          # /auth/test-login bypass, so they run here. @SSO is excluded by
+          # default: it drives the real Microsoft login page, which cannot
+          # be automated from a CI runner — run it locally if needed.
+          # Override test_tags / environment via workflow_dispatch.
+          TEST_TAGS="${TEST_TAGS:-@Regression and not @SSO}"
           ENVIRONMENT="${ENVIRONMENT:-test}"
 
           MAVEN_CMD=(mvn -B $BUILD_TYPE \
