@@ -1,12 +1,14 @@
 # Adapted from solutions-automated-tests/.github/workflows/e2e.yml.
-# Runs the Serenity BDD + Cucumber suite in /frontend-tests against a deployed
-# environment. Like the reference workflow, it supports manual dispatch with
-# build_type / test_tags / environment inputs and uploads Serenity reports.
+# Runs the Serenity BDD + Cucumber suite in /frontend-tests against the
+# deployed Azure Container Apps environment (the `test` env in
+# serenity.conf). Supports manual dispatch with build_type / test_tags /
+# environment inputs and uploads Serenity reports.
 #
 # Differences from the reference:
 #   * Runs on ubuntu-latest instead of windows-latest — Chrome + ChromeDriver
 #     are pre-installed on GitHub-hosted Ubuntu runners, so no chocolatey step
-#     is needed.
+#     is needed. Xvfb gives Chrome a virtual display (serenity.conf runs
+#     headless.mode = false for local-dev ergonomics).
 #   * Path-filtered to /frontend-tests so it doesn't burn CI minutes on
 #     Swift / Node / docs-only commits.
 #   * Uses MS_* secrets for the Microsoft SSO credentials instead of the
@@ -19,12 +21,10 @@ on:
     branches: [main]
     paths:
       - "frontend-tests/**"
-      - "frontend/**"
       - ".github/workflows/frontend-tests-e2e.yml"
   pull_request:
     paths:
       - "frontend-tests/**"
-      - "frontend/**"
       - ".github/workflows/frontend-tests-e2e.yml"
   workflow_dispatch:
     inputs:
@@ -80,13 +80,6 @@ jobs:
           distribution: "temurin"
           cache: maven
 
-      - name: Set up Node 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-
       - name: Show Chrome / driver versions
         working-directory: .
         run: |
@@ -113,26 +106,6 @@ jobs:
           cat /tmp/xvfb.log
           exit 1
 
-      - name: Install frontend deps
-        working-directory: frontend
-        run: npm ci
-
-      - name: Start frontend dev server
-        working-directory: frontend
-        run: |
-          nohup npm run dev > /tmp/frontend.log 2>&1 &
-          echo $! > /tmp/frontend.pid
-          for i in {1..60}; do
-            if curl -fs http://localhost:3001/login > /dev/null; then
-              echo "Frontend ready after ${i}s"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "::error::Frontend never came up on :3001"
-          tail -80 /tmp/frontend.log
-          exit 1
-
       - name: Compile tests
         run: mvn -B test-compile
 
@@ -144,52 +117,32 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Resolve dispatch inputs with sensible defaults that mirror the
-          # reference e2e.yml.
+          # Resolve dispatch inputs with sensible defaults.
           BUILD_TYPE="${{ github.event.inputs.build_type }}"
           TEST_TAGS="${{ github.event.inputs.test_tags }}"
           ENVIRONMENT="${{ github.event.inputs.environment }}"
 
           BUILD_TYPE="${BUILD_TYPE:-verify}"
 
-          # On CI we don't run a backend, so scenarios that need an
-          # authenticated dashboard, admin role, or working OAuth callback
-          # can't succeed. Default to the subset that works against a
-          # frontend-only stack; the dispatch input overrides this if you
-          # point at a deployed env with a backend.
-          if [ -z "$TEST_TAGS" ]; then
-            TEST_TAGS="(@Login or @Navigation or @PublicDisplay) and not @SSO"
-          fi
+          # CI runs against the deployed Azure Container Apps env (`test` in
+          # serenity.conf) — a real backend + DB + SignalR + OAuth. So the
+          # full @Regression suite, including @Dashboard / @Admin / @SSO,
+          # can run. Override test_tags / environment via workflow_dispatch.
+          TEST_TAGS="${TEST_TAGS:-@Regression}"
+          ENVIRONMENT="${ENVIRONMENT:-test}"
 
-          MAVEN_CMD=(mvn -B $BUILD_TYPE "-Dcucumber.filter.tags=$TEST_TAGS")
-
-          if [ -n "$ENVIRONMENT" ]; then
-            MAVEN_CMD+=("-Denvironment=$ENVIRONMENT")
-          fi
+          MAVEN_CMD=(mvn -B $BUILD_TYPE \
+            "-Denvironment=$ENVIRONMENT" \
+            "-Dcucumber.filter.tags=$TEST_TAGS")
 
           if [ -n "${MS_USERNAME:-}" ] && [ -n "${MS_PASSWORD:-}" ]; then
             MAVEN_CMD+=("-DusernameMS=$MS_USERNAME" "-DpasswordMS=$MS_PASSWORD")
           else
-            echo "::warning::MS_USERNAME / MS_PASSWORD secrets are not set — @SSO and @Dashboard scenarios will fail."
+            echo "::warning::MS_USERNAME / MS_PASSWORD secrets are not set — @SSO / @Dashboard / @Admin scenarios will fail."
           fi
 
           echo "Running: ${MAVEN_CMD[*]}"
           "${MAVEN_CMD[@]}"
-
-      - name: Stop frontend dev server
-        if: always()
-        run: |
-          if [ -f /tmp/frontend.pid ]; then
-            kill "$(cat /tmp/frontend.pid)" 2>/dev/null || true
-          fi
-
-      - name: Upload frontend log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dev-log
-          path: /tmp/frontend.log
-          if-no-files-found: ignore
 
       - name: Save Serenity Test Reports
         if: always()
