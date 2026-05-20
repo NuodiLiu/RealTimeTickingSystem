@@ -373,11 +373,13 @@ router.post('/logout', async (req, res) => {
 /**
  * Test-only login bypass — issues a staff session WITHOUT Microsoft SSO.
  *
- * Guarded by the TEST_AUTH_ENABLED env var: when it is not exactly 'true'
- * the route returns 404, so it presents zero attack surface in a normal
- * deployment. Enabled only on non-production test environments so the E2E
- * suite can exercise authenticated @Dashboard / @Admin scenarios without
- * driving the (un-automatable) real Microsoft login page.
+ * Two independent guards, so a single misconfiguration cannot expose it:
+ *   1. NODE_ENV === 'production'  -> always 404, no matter what.
+ *   2. TEST_AUTH_ENABLED !== 'true' -> 404 (off by default everywhere else).
+ *
+ * Enabled only on non-production test environments so the E2E suite can
+ * exercise authenticated @Dashboard / @Admin scenarios without driving the
+ * (un-automatable) real Microsoft login page.
  *
  * GET /auth/test-login?role=STAFF|ADMIN
  * Mirrors /auth/redirect: upserts a deterministic test staff record, signs
@@ -385,7 +387,7 @@ router.post('/logout', async (req, res) => {
  * stores the token and lands on the dashboard exactly like a real login.
  */
 router.get('/test-login', async (req, res) => {
-  if (process.env.TEST_AUTH_ENABLED !== 'true') {
+  if (process.env.NODE_ENV === 'production' || process.env.TEST_AUTH_ENABLED !== 'true') {
     return res.status(404).json({ error: 'not_found' });
   }
 
