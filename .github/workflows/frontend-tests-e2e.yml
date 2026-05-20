@@ -19,10 +19,12 @@ on:
     branches: [main]
     paths:
       - "frontend-tests/**"
+      - "frontend/**"
       - ".github/workflows/frontend-tests-e2e.yml"
   pull_request:
     paths:
       - "frontend-tests/**"
+      - "frontend/**"
       - ".github/workflows/frontend-tests-e2e.yml"
   workflow_dispatch:
     inputs:
@@ -78,10 +80,38 @@ jobs:
           distribution: "temurin"
           cache: maven
 
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Show Chrome / driver versions
+        working-directory: .
         run: |
           google-chrome --version || true
           chromedriver --version || true
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Start frontend dev server
+        working-directory: frontend
+        run: |
+          nohup npm run dev > /tmp/frontend.log 2>&1 &
+          echo $! > /tmp/frontend.pid
+          for i in {1..60}; do
+            if curl -fs http://localhost:3001/login > /dev/null; then
+              echo "Frontend ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Frontend never came up on :3001"
+          tail -80 /tmp/frontend.log
+          exit 1
 
       - name: Compile tests
         run: mvn -B test-compile
@@ -102,11 +132,15 @@ jobs:
 
           BUILD_TYPE="${BUILD_TYPE:-verify}"
 
-          MAVEN_CMD=(mvn -B $BUILD_TYPE)
-
-          if [ -n "$TEST_TAGS" ]; then
-            MAVEN_CMD+=("-Dcucumber.filter.tags=$TEST_TAGS")
+          # On CI we don't run a backend, so scenarios that need an
+          # authenticated dashboard or admin role can't succeed. Default
+          # to the subset that works against a frontend-only stack; the
+          # dispatch input overrides this if you point at a deployed env.
+          if [ -z "$TEST_TAGS" ]; then
+            TEST_TAGS="@Login or @Navigation or @PublicDisplay"
           fi
+
+          MAVEN_CMD=(mvn -B $BUILD_TYPE "-Dcucumber.filter.tags=$TEST_TAGS")
 
           if [ -n "$ENVIRONMENT" ]; then
             MAVEN_CMD+=("-Denvironment=$ENVIRONMENT")
@@ -120,6 +154,21 @@ jobs:
 
           echo "Running: ${MAVEN_CMD[*]}"
           "${MAVEN_CMD[@]}"
+
+      - name: Stop frontend dev server
+        if: always()
+        run: |
+          if [ -f /tmp/frontend.pid ]; then
+            kill "$(cat /tmp/frontend.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload frontend log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dev-log
+          path: /tmp/frontend.log
+          if-no-files-found: ignore
 
       - name: Save Serenity Test Reports
         if: always()

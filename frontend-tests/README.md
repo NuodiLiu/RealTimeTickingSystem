@@ -70,6 +70,17 @@ frontend-tests
                 └── Navigation.feature
 ```
 
+## Cloud setup (one-time)
+
+The CI workflow [`.github/workflows/frontend-tests-e2e.yml`](../.github/workflows/frontend-tests-e2e.yml) reads the Microsoft test-account credentials from two GitHub repo secrets — `MS_USERNAME` and `MS_PASSWORD`. Set them once via the `gh` CLI:
+
+```bash
+gh secret set MS_USERNAME --repo NuodiLiu/RealTimeTickingSystem --body "you@outlook.com"
+gh secret set MS_PASSWORD --repo NuodiLiu/RealTimeTickingSystem  # prompts securely
+```
+
+The backend currently has `AZURE_AD_ALLOW_ANY_TENANT=true`, so any Microsoft account (personal `@outlook.com` / `@hotmail.com` or any AAD tenant member) can be used as the test account.
+
 ## Pages under test
 
 | Page             | Route             | Purpose                                                            |
