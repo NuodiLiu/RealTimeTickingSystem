@@ -98,17 +98,19 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends xvfb
-          Xvfb :99 -screen 0 1920x1080x24 -ac +extension RANDR &
+          Xvfb :99 -screen 0 1920x1080x24 -ac +extension RANDR > /tmp/xvfb.log 2>&1 &
+          echo $! > /tmp/xvfb.pid
           echo "DISPLAY=:99" >> $GITHUB_ENV
-          # give Xvfb a moment to come up
+          # Wait for Xvfb process to be running and accepting connections
           for i in {1..10}; do
-            if DISPLAY=:99 xdpyinfo >/dev/null 2>&1; then
-              echo "Xvfb up after ${i} attempt(s)"
+            if kill -0 "$(cat /tmp/xvfb.pid)" 2>/dev/null && [ -S /tmp/.X11-unix/X99 ]; then
+              echo "Xvfb up after ${i} attempt(s) (pid $(cat /tmp/xvfb.pid))"
               exit 0
             fi
             sleep 1
           done
           echo "::error::Xvfb failed to start"
+          cat /tmp/xvfb.log
           exit 1
 
       - name: Install frontend deps
