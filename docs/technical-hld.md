@@ -22,11 +22,6 @@
 
 The system is a three-tier, cloud-hosted application that manages student walk-in enquiries. It is composed of three distinct client applications: a native iPad kiosk app, a web-based staff dashboard, and a public display screen, backed by a single REST API with real-time event delivery via Azure SignalR.
 
-The system is designed around three architectural concerns:
-
-1. **Real-time state synchronisation** — all connected clients (staff dashboards, iPad kiosks, public displays) must reflect the same queue state within seconds of any change
-2. **Device-aware workflow** — physical iPad devices are first-class participants in the system; they receive commands, hold locks, and transition through their own lifecycle
-3. **Layered separation of concerns** — the backend enforces a strict boundary between routing, business logic, and data access to support maintainability and testability
 
 ---
 
