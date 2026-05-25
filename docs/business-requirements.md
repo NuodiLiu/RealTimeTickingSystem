@@ -254,12 +254,11 @@ The following items are explicitly outside the scope of this system:
 
 | ID | Assumption |
 |----|------------|
-| A-01 | All students have a valid university zID |
-| A-02 | The help desk area has stable Wi-Fi connectivity for iPad operation |
-| A-03 | All staff have an active university Microsoft account eligible for Azure AD SSO |
-| A-04 | iPads used as kiosks are managed devices (e.g., enrolled in MDM) and run in a locked-down kiosk mode |
-| A-05 | At least one ADMIN account is provisioned manually for initial system setup |
-| A-06 | The public display screen runs a standard web browser connected to the help desk network |
+| A-01 | The help desk area has stable Wi-Fi connectivity for iPad operation |
+| A-02 | All staff have an active university Microsoft account eligible for Azure AD SSO |
+| A-03 | iPads used as kiosks are managed devices (e.g., enrolled in MDM) and run in a locked-down kiosk mode |
+| A-04 | At least one ADMIN account is provisioned manually for initial system setup |
+| A-05 | The public display screen runs a standard web browser connected to the help desk network |
 
 ### 9.2 External Dependencies
 
