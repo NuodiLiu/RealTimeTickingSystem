@@ -225,11 +225,9 @@ The system was introduced to:
 | BR-04 | Feedback can only be submitted once per case |
 | BR-05 | A case cannot return to QUEUED status once it has been taken by a staff member |
 | BR-06 | Resolving a case moves it to RESOLVED_PENDING_FEEDBACK, not directly to RESOLVED; RESOLVED requires feedback submission or an override |
-| BR-07 | Only ADMIN users may pair, rename, change the mode of, or unpair devices |
-| BR-08 | Only ADMIN users may export case data |
-| BR-09 | Device pairing tokens expire and are single-use; a QR code cannot be reused |
-| BR-10 | Feedback session leases have a time limit; if not completed within the lease window, the device is automatically released |
-| BR-11 | Staff accounts are provisioned from Azure AD identity claims; the system does not create standalone staff accounts outside of SSO |
+| BR-07 | Device pairing tokens expire and are single-use; a QR code cannot be reused |
+| BR-08 | Feedback session leases have a time limit; if not completed within the lease window, the device is automatically released |
+| BR-09 | Staff accounts are provisioned from Azure AD identity claims; the system does not create standalone staff accounts outside of SSO |
 
 ---
 
