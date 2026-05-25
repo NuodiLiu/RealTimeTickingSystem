@@ -18,7 +18,7 @@
 
 ### 1.1 Purpose
 
-This document defines the business requirements for the **Real-Time Ticketing System** — a help desk platform to digitalise and streamline student walk-in enquiries. The system implements a queue management with a real-time, device-connected workflow covering student registration, case management, feedback collection, and management reporting.
+This system is a help desk platform to digitalise and streamline student walk-in enquiries. The system implements a queue management with a real-time, device-connected workflow covering student registration, case management, feedback collection, and management reporting.
 
 ### 1.2 Scope
 
