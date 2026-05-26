@@ -13,8 +13,7 @@
 6. [Key Architectural Patterns](#6-key-architectural-patterns)
 7. [Authentication Architecture](#7-authentication-architecture)
 8. [Real-Time Communication Architecture](#8-real-time-communication-architecture)
-9. [Data Architecture Overview](#9-data-architecture-overview)
-10. [Cloud Architecture Overview](#10-cloud-architecture-overview)
+9. [Cloud Architecture Overview](#9-cloud-architecture-overview)
 
 ---
 
