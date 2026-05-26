@@ -491,44 +491,7 @@ Both the iPad app and the staff dashboard implement automatic reconnect logic. I
 
 ---
 
-## 9. Data Architecture Overview
-
-### 9.1 Core Entity Relationships
-
-```
-Staff ────────────────────────── StudentCase
-  │   1:many (assigned cases)        │
-  │                               1:1 (optional)
-  │                               Feedback
-  │
-  │   1:many
-KioskLock ─────────────--------- KioskDevice
-  │   (one active lock               │
-  │    per device at a time)         │ 1:many
-  │                             FeedbackSession
-  │                                  │
-  └──────────────────────── StudentCase (1:many)
-```
-
-### 9.2 Key Design Decisions
-
-**Optimistic locking on KioskLock** — a `version` field on KioskLock prevents two concurrent operations from both believing they have exclusive device access. Any write to KioskLock must include the current version; a mismatch causes the write to fail and be retried.
-
-**Soft delete on KioskDevice** — devices are never hard-deleted; `deletedAt` is set instead. This preserves historical case and feedback associations that reference the device.
-
-**Identity key for Azure AD users** — Staff records store an `identityKey` of the form `aad:{tenantId}:{objectId}` rather than the raw Azure AD object ID. This provides a stable, human-readable key that survives Microsoft account migrations.
-
-**Composite indexes for performance** — the two most frequently queried patterns are indexed:
-- `(status, createdAt)` on StudentCase — supports FIFO queue queries filtered by status
-- `(deviceId, status, createdAt)` on FeedbackSession — supports finding the active session for a device
-
-### 9.3 Data Retention
-
-All operational records (cases, feedback, sessions) are retained indefinitely unless explicitly purged. The Excel export functionality is the primary mechanism for extracting historical data for analysis.
-
----
-
-## 10. Cloud Architecture Overview
+## 9. Cloud Architecture Overview
 
 The following diagram shows how the system components map to Azure services.
 
