@@ -22,4 +22,13 @@ public class PublicDisplayPage {
 
     public static final Target QUEUE_CARDS = Target.the("queue cards")
             .locatedBy("//main//div[contains(@class,'rounded-lg') and contains(@class,'shadow-md')]");
+
+    /** Card headings carry the student name (or "Student N" fallback). */
+    public static final Target QUEUE_CARD_NAME_HEADINGS = Target.the("Queue card name headings")
+            .locatedBy("//main//div[contains(@class,'rounded-lg') and contains(@class,'shadow-md')]//h3");
+
+    public static Target queueCardForName(String studentName) {
+        return Target.the("queue card containing " + studentName)
+                .located(By.xpath("//main//div[contains(@class,'rounded-lg') and contains(@class,'shadow-md')][.//h3[contains(normalize-space(.), '" + studentName + "')]]"));
+    }
 }

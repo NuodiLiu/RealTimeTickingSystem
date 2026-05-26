@@ -19,4 +19,13 @@ public class LoginPage {
 
     public static final Target SECURE_FOOTER = Target.the("secure footer hint")
             .located(By.xpath("//p[contains(., 'Secure authentication powered by Microsoft Azure AD')]"));
+
+    /**
+     * The red error banner container — visible only when ?error=… is in the
+     * URL. The negative-test step asserts the *container* is absent rather
+     * than just the text, to avoid matching dashboard error toasts in other
+     * scenarios.
+     */
+    public static final Target ERROR_BANNER_CONTAINER = Target.the("login error banner container")
+            .located(By.cssSelector("div.bg-red-50"));
 }

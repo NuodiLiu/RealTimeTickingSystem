@@ -49,6 +49,22 @@ public class NavigateTo {
                 Open.url(stripTrailingSlash(baseUrl()) + "/"));
     }
 
+    public static Performable theAuthCallback() {
+        return Task.where("{0} opens the auth callback page with no parameters",
+                Open.url(stripTrailingSlash(baseUrl()) + "/auth/callback"));
+    }
+
+    public static Performable theAuthCallbackWithError(String errorCode) {
+        return Task.where("{0} opens the auth callback page with error=" + errorCode,
+                Open.url(stripTrailingSlash(baseUrl()) + "/auth/callback?error=" + errorCode));
+    }
+
+    public static Performable thePath(String path) {
+        String normalised = path.startsWith("/") ? path : "/" + path;
+        return Task.where("{0} opens " + normalised,
+                Open.url(stripTrailingSlash(baseUrl()) + normalised));
+    }
+
     private static String stripTrailingSlash(String url) {
         if (url == null) return "";
         return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;

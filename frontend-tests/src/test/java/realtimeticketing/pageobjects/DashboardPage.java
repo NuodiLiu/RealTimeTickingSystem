@@ -34,4 +34,63 @@ public class DashboardPage {
 
     public static final Target CASE_CARDS = Target.the("case cards in queue")
             .locatedBy("//section[.//h2[normalize-space()='Queue']]//*[@data-testid='case-card' or contains(@class,'case-card')]");
+
+    // Empty-state messages (rendered by the shared EmptyState component as
+    // dashed-border boxes containing the literal label text).
+    public static final Target QUEUE_EMPTY_MESSAGE = Target.the("Queue empty state message")
+            .located(By.xpath("//section[.//h2[normalize-space()='Queue']]//*[contains(normalize-space(.), 'No cases in queue')]"));
+
+    public static final Target ACTIVE_CASES_EMPTY_MESSAGE = Target.the("Active cases empty state message")
+            .located(By.xpath("//section[.//h2[normalize-space()='My Active Cases']]//*[contains(normalize-space(.), 'You have no active cases')]"));
+
+    // Concrete row lookups by student name. Queue rows render the name in a
+    // div, active rows in a similar layout - we scope by ancestor section to
+    // be unambiguous.
+    public static Target queueRowFor(String studentName) {
+        return Target.the("queue row for " + studentName)
+                .located(By.xpath("//section[.//h2[normalize-space()='Queue']]//div[contains(@class,'rounded-md') and contains(@class,'border')][.//div[contains(normalize-space(.), '" + studentName + "')]]"));
+    }
+
+    public static Target activeRowFor(String studentName) {
+        return Target.the("active case row for " + studentName)
+                .located(By.xpath("//section[.//h2[normalize-space()='My Active Cases']]//div[contains(@class,'rounded-md') and contains(@class,'border')][.//div[contains(normalize-space(.), '" + studentName + "')]]"));
+    }
+
+    public static Target queueTakeButtonFor(String studentName) {
+        return Target.the("Queue row TAKE button for " + studentName)
+                .located(By.xpath("//section[.//h2[normalize-space()='Queue']]//div[contains(@class,'rounded-md')][.//div[contains(normalize-space(.), '" + studentName + "')]]//button[normalize-space()='TAKE']"));
+    }
+
+    public static Target activeResolveButtonFor(String studentName) {
+        return Target.the("Active row RESOLVE button for " + studentName)
+                .located(By.xpath("//section[.//h2[normalize-space()='My Active Cases']]//div[contains(@class,'rounded-md')][.//div[contains(normalize-space(.), '" + studentName + "')]]//button[normalize-space()='RESOLVE' or normalize-space()='PROCESSING...']"));
+    }
+
+    public static Target activeEscalateButtonFor(String studentName) {
+        return Target.the("Active row ESCALATE button for " + studentName)
+                .located(By.xpath("//section[.//h2[normalize-space()='My Active Cases']]//div[contains(@class,'rounded-md')][.//div[contains(normalize-space(.), '" + studentName + "')]]//button[starts-with(normalize-space(.), 'ESCALATE')]"));
+    }
+
+    public static Target escalationOption(String studentName, String department) {
+        return Target.the("Escalation option " + department + " for " + studentName)
+                .located(By.xpath("//section[.//h2[normalize-space()='My Active Cases']]//div[contains(@class,'rounded-md')][.//div[contains(normalize-space(.), '" + studentName + "')]]//button[normalize-space()='" + department + "']"));
+    }
+
+    public static Target activeFeedbackButtonFor(String studentName) {
+        return Target.the("Active row FEEDBACK button for " + studentName)
+                .located(By.xpath("//section[.//h2[normalize-space()='My Active Cases']]//div[contains(@class,'rounded-md')][.//div[contains(normalize-space(.), '" + studentName + "')]]//button[normalize-space()='FEEDBACK' or normalize-space()='PENDING' or normalize-space()='PROCESSING...']"));
+    }
+
+    /**
+     * The Tooltip component renders into document.body via createPortal as a
+     * dark-grey rounded element with pointer-events:none. It only appears
+     * 500ms after mouseenter, so step definitions must wait.
+     */
+    public static final Target TOOLTIP_BUBBLE = Target.the("Tooltip bubble")
+            .located(By.xpath("//div[contains(@class,'bg-gray-800') and contains(@class,'rounded')]"));
+
+    public static Target escalatedBadgeFor(String studentName, String department) {
+        return Target.the("Escalated badge for " + studentName + " -> " + department)
+                .located(By.xpath("//section[.//h2[normalize-space()='My Active Cases']]//div[contains(@class,'rounded-md')][.//div[contains(normalize-space(.), '" + studentName + "')]]//span[contains(normalize-space(.), 'Escalated to " + department + "')]"));
+    }
 }

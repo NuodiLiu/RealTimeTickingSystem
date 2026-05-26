@@ -177,6 +177,64 @@ A single-page summary is also produced (configured in `pom.xml` via the `serenit
 3. For new pages or components, add a `Target`-based page object under `pageobjects/`.
 4. For new reusable flows, add a Screenplay Task under `tasks/` (or an authentication helper under `authentication/`).
 
+## Handoff checklist (for the team taking over)
+
+The suite was developed against a single dev's machine + a placeholder `test` / `staging` config. When the receiving team has a real deployed test environment and a dedicated test account, do these three steps:
+
+### 1. Replace the `test` / `staging` URLs in `serenity.conf`
+
+[`src/test/resources/serenity.conf`](src/test/resources/serenity.conf) currently has `example.com` placeholders:
+
+```hocon
+test {
+  frontend.url = "https://test-ticketing.example.com"      # ← replace
+  backend.url  = "https://api-test-ticketing.example.com"  # ← replace
+  environment = 'test'
+}
+staging {
+  frontend.url = "https://staging-ticketing.example.com"      # ← replace
+  backend.url  = "https://api-staging-ticketing.example.com"  # ← replace
+  environment = 'staging'
+}
+```
+
+The `local` block (lines 27-35) is for the original dev's machine — leave it alone or repurpose for your local-dev URLs.
+
+### 2. Rotate the GitHub secrets to a team-owned test account
+
+```bash
+gh secret set MS_USERNAME --repo <your-org>/<your-repo> --body "svc-ticketing-tests@<yourtenant>"
+gh secret set MS_PASSWORD --repo <your-org>/<your-repo>      # prompts securely
+```
+
+Requirements for the test account:
+- Lives in the same Azure AD tenant the backend authorises (or backend has `AZURE_AD_ALLOW_ANY_TENANT=true`)
+- Has whichever roles your `@Dashboard` / `@Admin` scenarios assume (typically a `STAFF` + an `ADMIN` user)
+- **MFA disabled / exempted** — interactive prompts will hang the automation
+- Use a dedicated *service account*, not a real person's account (avoids breakage on password rotation / departures)
+
+### 3. Switch CI from "self-start frontend" to "point at deployed env"
+
+Currently [`.github/workflows/frontend-tests-e2e.yml`](../.github/workflows/frontend-tests-e2e.yml) spins up `npm run dev` on the runner and skips backend-dependent tests via `not @SSO`. With a real deployed test env, simplify:
+
+- **Delete** the `Install frontend deps`, `Start frontend dev server`, and `Stop frontend dev server` steps
+- **Delete** the `Set up Node 20` step
+- **Delete** the `Upload frontend log` step
+- In the `Execute Frontend E2E Tests` step, replace the default tag filter and add the environment override:
+
+  ```bash
+  if [ -z "$TEST_TAGS" ]; then
+    TEST_TAGS="@Regression"            # was: "(@Login or @Navigation or @PublicDisplay) and not @SSO"
+  fi
+  MAVEN_CMD=(mvn -B $BUILD_TYPE -Denvironment=test "-Dcucumber.filter.tags=$TEST_TAGS")
+  ```
+
+You can also drop the Xvfb step if you flip `serenity.conf` to `headless.mode = true` — Xvfb is only needed because the local dev config runs headed.
+
+### 4. (Optional) Migrate Azure Key Vault references
+
+If you adopt the canonical-secrets-in-KV pattern, the original repo mirrored MS creds to `kv-tickets-nodi19` (`ms-test-username` / `ms-test-password`). Recreate the equivalent secrets in your team's vault and document the names; the workflow currently reads directly from GH secrets, not KV.
+
 ## Caution
 
 This framework is intended for **non-production** environments only — point it at `local`, `test`, or `staging`. Driving the Microsoft SSO flow against a production tenant with automation is **not** supported.
