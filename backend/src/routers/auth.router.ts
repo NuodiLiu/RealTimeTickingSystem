@@ -9,6 +9,7 @@ import { normalizeEmail } from '../lib/email-utils';
 import { refreshStore, REFRESH_COOKIE_OPTIONS, REFRESH_COOKIE_NAME } from '../lib/refresh-store';
 import { staffService, createStandardIdentityKey } from '../services/staff.service';
 import { handleAuthError, validateAzureAdClaims, AUTH_ERROR_CODES, sendAuthError } from '../lib/auth-errors';
+import { SignalRGateway } from '../signalr';
 
 // Secure Azure AD SSO auth router
 // Endpoints:
@@ -431,6 +432,79 @@ router.get('/test-login', async (req, res) => {
   } catch (error: any) {
     console.error('test-login error:', error);
     return res.redirect(`${urls.frontendUrl}/login?error=auth_failed`);
+  }
+});
+
+/**
+ * Test-only data-seeding helpers for the E2E suite.
+ *
+ * Same dual guard as /auth/test-login:
+ *   1. NODE_ENV === 'production'  -> 404 always
+ *   2. TEST_AUTH_ENABLED !== 'true' -> 404
+ *
+ * Lets the frontend regression suite create queued StudentCases without going
+ * through device-paired kiosk authentication. Every seeded record carries a
+ * recognisable studentName prefix so the cleanup endpoint can wipe just the
+ * suite's own rows without touching real data.
+ */
+function testEndpointsDisabled(): boolean {
+  return process.env.NODE_ENV === 'production' || process.env.TEST_AUTH_ENABLED !== 'true';
+}
+
+router.post('/test-seed-case', async (req, res) => {
+  if (testEndpointsDisabled()) {
+    return res.status(404).json({ error: 'not_found' });
+  }
+  try {
+    const { studentName, category, zID } = req.body ?? {};
+    if (!studentName || !category) {
+      return res.status(400).json({ error: 'studentName and category are required' });
+    }
+    const created = await prisma.studentCase.create({
+      data: { studentName, category, zID: zID || null },
+    });
+    // Mirror the real CasesService.postCase emit so the frontend SignalR
+    // listeners on the dashboard and public-display update live — without
+    // this, /auth/test-seed-case only changes DB state and the UI sits stale
+    // until the next poll/refresh.
+    SignalRGateway.notifyDashboard({
+      type: 'case:created',
+      payload: {
+        id: created.id,
+        studentName: created.studentName,
+        category: created.category,
+        zID: created.zID,
+        status: created.status,
+        createdAt: created.createdAt,
+      },
+    });
+    return res.status(201).json({
+      id: created.id,
+      studentName: created.studentName,
+      category: created.category,
+      zID: created.zID,
+      status: created.status,
+      createdAt: created.createdAt,
+    });
+  } catch (error: any) {
+    console.error('test-seed-case error:', error);
+    return res.status(500).json({ error: 'seed_failed', detail: error.message });
+  }
+});
+
+router.delete('/test-seed-cases', async (req, res) => {
+  if (testEndpointsDisabled()) {
+    return res.status(404).json({ error: 'not_found' });
+  }
+  try {
+    const prefix = String(req.query.prefix || 'E2E_');
+    const deleted = await prisma.studentCase.deleteMany({
+      where: { studentName: { startsWith: prefix } },
+    });
+    return res.json({ deleted: deleted.count, prefix });
+  } catch (error: any) {
+    console.error('test-seed-cases delete error:', error);
+    return res.status(500).json({ error: 'cleanup_failed', detail: error.message });
   }
 });
 

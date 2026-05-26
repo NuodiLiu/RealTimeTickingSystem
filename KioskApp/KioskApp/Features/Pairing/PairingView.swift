@@ -109,6 +109,7 @@ struct PairingView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(unswYellow)
                         .foregroundColor(unswDarkBlue)
+                        .accessibilityIdentifier("pairing.simulateScanButton")
                     }
                 }
                 #else
@@ -286,6 +287,7 @@ private struct ModeCard: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("pairing.mode.\(mode.rawValue)")
     }
 }
 
@@ -319,7 +321,8 @@ private struct UNSWPairButton: View {
                     .tint(unswDarkBlue)
                     .foregroundColor(.white)
                     .controlSize(.large)
-                    
+                    .accessibilityIdentifier("pairing.settingsButton")
+
                     Text("Camera access is required to scan QR codes")
                         .font(.system(size: 16))
                         .foregroundColor(.secondary)
@@ -350,6 +353,7 @@ private struct UNSWPairButton: View {
                 .foregroundColor(unswDarkBlue)
                 .controlSize(.large)
                 .disabled(isPairing)
+                .accessibilityIdentifier("pairing.scanButton")
             }
         }
     }

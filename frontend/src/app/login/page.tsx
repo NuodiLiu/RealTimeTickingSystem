@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { AuthGuard } from '../components/AuthGuard';
 import { useAuthStore } from '../stores/authStore';
@@ -14,7 +15,6 @@ function LoginPageContent() {
   const { login } = useAuthStore();
 
   useEffect(() => {
-    // Check for error from callback
     const urlParams = new URLSearchParams(window.location.search);
     const errorParam = urlParams.get('error');
     if (errorParam) {
@@ -25,9 +25,8 @@ function LoginPageContent() {
   const handleMicrosoftLogin = async () => {
     setIsLoading(true);
     setError('');
-    
+
     try {
-      // Redirect to backend Azure AD login endpoint
       window.location.href = `${API_BASE}/auth/login`;
     } catch (e) {
       setError('Failed to initiate login. Please try again.');
@@ -57,51 +56,71 @@ function LoginPageContent() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md bg-white shadow rounded p-8 text-center">
-        <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100 mb-4">
-          <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+    <main className="min-h-screen flex flex-col bg-white">
+      <header className="flex items-center justify-between border-b px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Image
+            src="/img/unswcollege.png"
+            alt="UNSW College Logo"
+            width={128}
+            height={128}
+            className="rounded-lg object-cover"
+          />
         </div>
-        
-        <h1 className="text-2xl font-semibold mb-2">Real-Time Ticketing System</h1>
-        <p className="text-gray-600 mb-6">Sign in with your Microsoft account</p>
+      </header>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-700">{error}</p>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-md">
+          <div className="mb-6">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+              Sign In
+            </h2>
           </div>
-        )}
 
-        <button
-          onClick={handleMicrosoftLogin}
-          disabled={isLoading}
-          className="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-        >
-          {isLoading ? (
-            <>
-              <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-              Redirecting to Microsoft...
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M23.04 12c0-.62-.05-1.21-.16-1.78H12v3.36h6.19c-.27 1.45-1.08 2.68-2.3 3.5v2.92h3.72C21.26 17.94 23.04 15.2 23.04 12z"/>
-                <path d="M12 24c2.97 0 5.46-.98 7.28-2.66l-3.56-2.77c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 24 12 24z"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path d="M12 4.75c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 1.09 14.97 0 12 0 7.7 0 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              Continue with Microsoft
-            </>
-          )}
-        </button>
+          <div className="rounded-md border border-zinc-200 bg-white p-8">
+            <h1 className="text-2xl font-semibold text-zinc-900 mb-1">
+              Real-Time Ticketing System
+            </h1>
+            <p className="text-sm text-zinc-600 mb-6">
+              Sign in with your Microsoft account to continue.
+            </p>
 
-        <p className="mt-4 text-xs text-gray-500">
-          Secure authentication powered by Microsoft Azure AD
-        </p>
+            {error && (
+              <div className="mb-4 p-3 border border-red-200 bg-red-50 rounded-md">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleMicrosoftLogin}
+              disabled={isLoading}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-[#ffd600] text-black hover:bg-[#003366] hover:text-white disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-sm"
+            >
+              {isLoading ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                  <span>Redirecting to Microsoft...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" viewBox="0 0 23 23" aria-hidden="true">
+                    <rect x="1" y="1" width="10" height="10" fill="#F25022" />
+                    <rect x="12" y="1" width="10" height="10" fill="#7FBA00" />
+                    <rect x="1" y="12" width="10" height="10" fill="#00A4EF" />
+                    <rect x="12" y="12" width="10" height="10" fill="#FFB900" />
+                  </svg>
+                  <span>Continue with Microsoft</span>
+                </>
+              )}
+            </button>
+
+            <p className="mt-4 text-xs text-zinc-500 text-center">
+              Secure authentication powered by Microsoft Azure AD
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }
 

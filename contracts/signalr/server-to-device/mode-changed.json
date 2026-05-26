@@ -1,0 +1,6 @@
+{
+  "type": "MODE_CHANGED",
+  "payload": {
+    "mode": "FEEDBACK"
+  }
+}

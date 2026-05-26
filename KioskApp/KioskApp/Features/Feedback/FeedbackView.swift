@@ -198,6 +198,7 @@ private struct UNSWFeedbackHeader: View {
         VStack(spacing: 32) {
             VStack(spacing: 12) {
                 Text("How was your experience?")
+                    .accessibilityIdentifier("feedback.formTitle")
                     .font(.system(size: 36, weight: .heavy, design: .rounded))
                     .foregroundColor(Color(red: 0.0, green: 0.2, blue: 0.4))
             

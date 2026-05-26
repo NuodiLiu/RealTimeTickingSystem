@@ -1,7 +1,16 @@
 import Foundation
 
 final class AppEnvironment {
-    static let shared = AppEnvironment()
+    static let shared = AppEnvironment(keychainService: "com.yourorg.kiosk")
+
+    #if DEBUG
+    /// Builds an isolated environment for KioskAppTests. Each call gets its own
+    /// keychain namespace so integration tests never share state with each
+    /// other or with `.shared`.
+    static func makeForTesting() -> AppEnvironment {
+        AppEnvironment(keychainService: "com.kioskapp.tests.\(UUID().uuidString)")
+    }
+    #endif
 
     let apiBaseURL: URL
     let authProvider: AuthProviding
@@ -15,10 +24,19 @@ final class AppEnvironment {
     let heartbeatManager: HeartbeatManager
     let modeStore = DeviceModeStore()
 
-    private init() {
+    private init(keychainService: String) {
         // 优先使用 xcconfig 配置，fallback 到 localhost
-        let apiString = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
+        var apiString = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
             ?? "https://ticketing-backend-h7f6d8ccfhefcvdp.australiaeast-01.azurewebsites.net"
+
+        #if DEBUG
+        // Allow XCUITests to point the app at a local dev backend via
+        // `app.launchEnvironment["API_BASE_URL"]`. Never set in Release.
+        if let override = ProcessInfo.processInfo.environment["API_BASE_URL"],
+           !override.isEmpty {
+            apiString = override
+        }
+        #endif
 
         // 打印环境配置信息
         print("========================================")
@@ -35,7 +53,7 @@ final class AppEnvironment {
         guard let apiURL = URL(string: apiString) else { fatalError("Bad base URL: \(apiString)") }
         self.apiBaseURL = apiURL
 
-        let keychain = KeychainStore(service: "com.yourorg.kiosk")
+        let keychain = KeychainStore(service: keychainService)
         let auth = DeviceAuthProvider(keychain: keychain)
         self.authProvider = auth
 
