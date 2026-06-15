@@ -3,12 +3,12 @@
 # (azure/container-apps-deploy-action) and the corresponding Container App is
 # updated to the new image. Only the app(s) that changed are deployed.
 #
-# ⚠️ AUTO-DEPLOY IS CURRENTLY DISABLED (manual-only). The C# backend is not yet
-# production-ready (Phase 5: real Azure SignalR + durable token stores still
-# pending; EF schema differs from the live Prisma DB). Until that's done and the
-# prod DB/config is set up (see docs/DEPLOYMENT.md), this workflow only runs via
-# the "Run workflow" button. To enable deploy-on-merge, uncomment the `push:`
-# trigger below.
+# AUTO-DEPLOY ON MERGE TO main IS ENABLED (the `push:` trigger below). A push that
+# touches backend-csharp/** or frontend/** builds the image in ACR and deploys it
+# straight to the live Container App (single-revision → immediate, no smoke gate).
+# ⚠️ This workflow only updates the IMAGE — it does NOT run EF migrations or change
+# env/secrets; schema changes need a separate migration step before merging
+# (see docs/DEPLOYMENT.md).
 #
 # ─── One-time setup ───────────────────────────────────────────────────────
 # Auth uses OIDC (no stored password). Create an app registration with a
@@ -36,13 +36,12 @@
 name: Deploy to Azure Container Apps
 
 on:
-  # Re-enable deploy-on-merge by uncommenting this block (see header note).
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - "backend-csharp/**"
-  #     - "frontend/**"
-  #     - ".github/workflows/deploy-azure.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend-csharp/**"
+      - "frontend/**"
+      - ".github/workflows/deploy-azure.yml"
   workflow_dispatch:
     inputs:
       deploy_target:
