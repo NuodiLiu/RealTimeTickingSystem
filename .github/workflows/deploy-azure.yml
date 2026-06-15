@@ -1,0 +1,175 @@
+# Deploys the C# backend (backend-csharp/) and the Next.js frontend (frontend/)
+# to Azure Container Apps. Each app's image is built remotely in ACR
+# (azure/container-apps-deploy-action) and the corresponding Container App is
+# updated to the new image. Only the app(s) that changed are deployed.
+#
+# ⚠️ AUTO-DEPLOY IS CURRENTLY DISABLED (manual-only). The C# backend is not yet
+# production-ready (Phase 5: real Azure SignalR + durable token stores still
+# pending; EF schema differs from the live Prisma DB). Until that's done and the
+# prod DB/config is set up (see docs/DEPLOYMENT.md), this workflow only runs via
+# the "Run workflow" button. To enable deploy-on-merge, uncomment the `push:`
+# trigger below.
+#
+# ─── One-time setup ───────────────────────────────────────────────────────
+# Auth uses OIDC (no stored password). Create an app registration with a
+# federated credential for this repo and grant it access, then add the values
+# below. See docs/DEPLOYMENT.md for the exact `az` commands.
+#
+# Required repository SECRETS (Settings → Secrets and variables → Actions):
+#   AZURE_CLIENT_ID        — app registration (client) id
+#   AZURE_TENANT_ID        — Entra tenant id
+#   AZURE_SUBSCRIPTION_ID  — subscription id
+#
+# Required repository VARIABLES:
+#   AZURE_RESOURCE_GROUP     — resource group holding the Container Apps + ACR
+#   AZURE_CONTAINER_REGISTRY — ACR name (just the name, not *.azurecr.io)
+#   ACA_ENVIRONMENT          — Container Apps environment name (used on create)
+#
+# Optional VARIABLES (defaults derived from serenity.conf's `test` env):
+#   AZURE_REGION, BACKEND_APP_NAME, FRONTEND_APP_NAME, BACKEND_URL, FRONTEND_URL
+#
+# NOTE: runtime config (DB connection string, JWT secrets, SignalR, etc.) is
+# assumed to already be set on the Container Apps. This workflow only updates
+# the image; it does not manage those secrets.
+# ──────────────────────────────────────────────────────────────────────────
+
+name: Deploy to Azure Container Apps
+
+on:
+  # Re-enable deploy-on-merge by uncommenting this block (see header note).
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "backend-csharp/**"
+  #     - "frontend/**"
+  #     - ".github/workflows/deploy-azure.yml"
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: "Which app(s) to deploy"
+        type: choice
+        default: both
+        options: [both, backend, frontend]
+
+# Don't run two deploys of the same ref at once; let an in-progress deploy
+# finish rather than cancelling it mid-rollout.
+concurrency:
+  group: deploy-azure-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # required for azure/login OIDC
+  contents: read
+
+env:
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  ACR_NAME: ${{ vars.AZURE_CONTAINER_REGISTRY }}
+  ACA_ENVIRONMENT: ${{ vars.ACA_ENVIRONMENT }}
+  REGION: ${{ vars.AZURE_REGION || 'australiaeast' }}
+  BACKEND_APP: ${{ vars.BACKEND_APP_NAME || 'ca-tickets-backend' }}
+  FRONTEND_APP: ${{ vars.FRONTEND_APP_NAME || 'ca-tickets-frontend' }}
+  BACKEND_URL: ${{ vars.BACKEND_URL || 'https://ca-tickets-backend.proudrock-35e0b5da.australiaeast.azurecontainerapps.io' }}
+  FRONTEND_URL: ${{ vars.FRONTEND_URL || 'https://ca-tickets-frontend.proudrock-35e0b5da.australiaeast.azurecontainerapps.io' }}
+
+jobs:
+  # Decide which apps to deploy. On push, only changed paths; on manual run,
+  # whatever deploy_target was chosen.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.decide.outputs.backend }}
+      frontend: ${{ steps.decide.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend-csharp/**'
+            frontend:
+              - 'frontend/**'
+      - id: decide
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          TARGET: ${{ inputs.deploy_target }}
+          CHANGED_BACKEND: ${{ steps.filter.outputs.backend }}
+          CHANGED_FRONTEND: ${{ steps.filter.outputs.frontend }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            case "$TARGET" in
+              both)     backend=true;  frontend=true  ;;
+              backend)  backend=true;  frontend=false ;;
+              frontend) backend=false; frontend=true  ;;
+              *)        backend=false; frontend=false ;;
+            esac
+          else
+            backend="$CHANGED_BACKEND"
+            frontend="$CHANGED_FRONTEND"
+          fi
+          echo "backend=$backend"   >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+
+  deploy-backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build in ACR & deploy backend
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          acrName: ${{ env.ACR_NAME }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: ${{ env.BACKEND_APP }}
+          containerAppEnvironment: ${{ env.ACA_ENVIRONMENT }}
+          location: ${{ env.REGION }}
+          appSourcePath: ${{ github.workspace }}/backend-csharp
+          dockerfilePath: Dockerfile
+          imageToBuild: ${{ env.ACR_NAME }}.azurecr.io/tickets-backend:${{ github.sha }}
+          targetPort: 8080
+          ingress: external
+
+  deploy-frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build in ACR & deploy frontend
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          acrName: ${{ env.ACR_NAME }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: ${{ env.FRONTEND_APP }}
+          containerAppEnvironment: ${{ env.ACA_ENVIRONMENT }}
+          location: ${{ env.REGION }}
+          appSourcePath: ${{ github.workspace }}/frontend
+          dockerfilePath: Dockerfile
+          imageToBuild: ${{ env.ACR_NAME }}.azurecr.io/tickets-frontend:${{ github.sha }}
+          targetPort: 3000
+          ingress: external
+          # NEXT_PUBLIC_* values are baked in at build time, so they're passed
+          # as Docker build args (the frontend Dockerfile declares both ARGs).
+          buildArguments: |
+            NEXT_PUBLIC_API_BASE_URL=${{ env.BACKEND_URL }}
+            NEXT_PUBLIC_APP_URL=${{ env.FRONTEND_URL }}
