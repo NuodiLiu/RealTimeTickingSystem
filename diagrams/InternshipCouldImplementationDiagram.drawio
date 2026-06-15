@@ -1,0 +1,104 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36" version="29.2.7">
+  <diagram name="Page-1" id="DWJejCJq2fs-DO8pWVtP">
+    <mxGraphModel grid="0" page="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="8d_8HA3wRlmCaMgLqs66-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Azure Static Web Apps" vertex="1">
+          <mxGeometry height="60" width="120" x="-100" y="-10" as="geometry" />
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-15" edge="1" parent="1" source="8d_8HA3wRlmCaMgLqs66-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="8d_8HA3wRlmCaMgLqs66-3" value="Service connection">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-18" edge="1" parent="1" source="8d_8HA3wRlmCaMgLqs66-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" target="8d_8HA3wRlmCaMgLqs66-7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-20" connectable="0" parent="ay3rxAAa6MkBK8W16ajW-18" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="authorize (roles/scopes)" vertex="1">
+          <mxGeometry relative="1" x="0.0159" as="geometry">
+            <mxPoint y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-21" edge="1" parent="1" source="8d_8HA3wRlmCaMgLqs66-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="8d_8HA3wRlmCaMgLqs66-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-22" edge="1" parent="1" source="8d_8HA3wRlmCaMgLqs66-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="8d_8HA3wRlmCaMgLqs66-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-23" edge="1" parent="1" source="8d_8HA3wRlmCaMgLqs66-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="8d_8HA3wRlmCaMgLqs66-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="8d_8HA3wRlmCaMgLqs66-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Azure App Service" vertex="1">
+          <mxGeometry height="60" width="120" x="160" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="8d_8HA3wRlmCaMgLqs66-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Azure SignalR Service" vertex="1">
+          <mxGeometry height="60" width="120" x="400" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="8d_8HA3wRlmCaMgLqs66-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Azure Database for PostgreSQL" vertex="1">
+          <mxGeometry height="60" width="120" x="160" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="8d_8HA3wRlmCaMgLqs66-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="&lt;meta charset=&quot;utf-8&quot;&gt;Azure Key Vault" vertex="1">
+          <mxGeometry height="60" width="120" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="8d_8HA3wRlmCaMgLqs66-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Application Insights" vertex="1">
+          <mxGeometry height="60" width="120" x="320" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="8d_8HA3wRlmCaMgLqs66-7" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="&lt;meta charset=&quot;utf-8&quot;&gt;Microsoft Entra ID（Azure AD）" vertex="1">
+          <mxGeometry height="60" width="120" x="-100" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-1" edge="1" parent="1" source="8d_8HA3wRlmCaMgLqs66-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="8d_8HA3wRlmCaMgLqs66-1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-2" connectable="0" parent="ay3rxAAa6MkBK8W16ajW-1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="HTTPS (Static Content / SPA)" vertex="1">
+          <mxGeometry relative="1" x="-0.3" as="geometry">
+            <mxPoint x="-31" y="-30" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-3" edge="1" parent="1" source="8d_8HA3wRlmCaMgLqs66-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="8d_8HA3wRlmCaMgLqs66-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-7" edge="1" parent="1" source="8d_8HA3wRlmCaMgLqs66-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.75;exitY=1;exitDx=0;exitDy=0;" target="8d_8HA3wRlmCaMgLqs66-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-17" edge="1" parent="1" source="8d_8HA3wRlmCaMgLqs66-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="8d_8HA3wRlmCaMgLqs66-7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-19" connectable="0" parent="ay3rxAAa6MkBK8W16ajW-17" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="OIDC/OAuth2 sign-in" vertex="1">
+          <mxGeometry relative="1" x="0.7153" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="8d_8HA3wRlmCaMgLqs66-9" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Staff Web Portal" vertex="1">
+          <mxGeometry height="60" width="120" x="40" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-4" edge="1" parent="1" source="8d_8HA3wRlmCaMgLqs66-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="460" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-6" connectable="0" parent="ay3rxAAa6MkBK8W16ajW-4" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Websocket" vertex="1">
+          <mxGeometry relative="1" x="0.7706" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-8" edge="1" parent="1" source="8d_8HA3wRlmCaMgLqs66-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="8d_8HA3wRlmCaMgLqs66-2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="260" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-9" connectable="0" parent="ay3rxAAa6MkBK8W16ajW-8" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="HTTPS REST API (Bearer JWT)" vertex="1">
+          <mxGeometry relative="1" x="0.1778" y="1" as="geometry">
+            <mxPoint x="-128" y="-36" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ay3rxAAa6MkBK8W16ajW-10" connectable="0" parent="ay3rxAAa6MkBK8W16ajW-8" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="HTTPS REST API (device token / app auth)" vertex="1">
+          <mxGeometry relative="1" x="-0.3111" y="1" as="geometry">
+            <mxPoint y="-14" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="8d_8HA3wRlmCaMgLqs66-10" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="iPad Kiosk Devices" vertex="1">
+          <mxGeometry height="60" width="120" x="200" y="80" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

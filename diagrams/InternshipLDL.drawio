@@ -1,0 +1,217 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36" version="29.2.7">
+  <diagram name="Page-1" id="TUQYzTf4D83gdyvBAwug">
+    <mxGraphModel grid="0" page="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-27" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=50;horizontalStack=0;rounded=1;fontSize=14;fontStyle=0;strokeWidth=2;resizeParent=0;resizeLast=1;shadow=0;dashed=0;align=center;arcSize=4;whiteSpace=wrap;html=1;" value="Staff" vertex="1">
+          <mxGeometry height="140" width="160" x="-350" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-28" parent="FusgV0C5lUVmJYeV1Io9-27" style="align=left;strokeColor=none;fillColor=none;spacingLeft=4;spacingRight=4;fontSize=12;verticalAlign=top;resizable=0;rotatable=0;part=1;html=1;whiteSpace=wrap;" value="+PK id : CUID&lt;br&gt;+UQ &lt;code data-start=&quot;808&quot; data-end=&quot;816&quot;&gt;email?&lt;/code&gt;&lt;div&gt;&lt;font face=&quot;monospace&quot;&gt;+&lt;/font&gt;UQ &lt;code data-start=&quot;822&quot; data-end=&quot;835&quot;&gt;identityKey&lt;/code&gt;&lt;/div&gt;&lt;div&gt;role : StaffRole&lt;font face=&quot;monospace&quot;&gt;&lt;br&gt;&lt;/font&gt;+createdAt&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="160" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-73" edge="1" parent="1" source="FusgV0C5lUVmJYeV1Io9-29" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;endArrow=none;endFill=0;" target="FusgV0C5lUVmJYeV1Io9-40">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-74" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-73" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1" vertex="1">
+          <mxGeometry relative="1" x="0.9258" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-75" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-73" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="0..*" vertex="1">
+          <mxGeometry relative="1" x="-0.9461" y="2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-29" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=50;horizontalStack=0;rounded=1;fontSize=14;fontStyle=0;strokeWidth=2;resizeParent=0;resizeLast=1;shadow=0;dashed=0;align=center;arcSize=4;whiteSpace=wrap;html=1;" value="StudentCase" vertex="1">
+          <mxGeometry height="140" width="160" x="-90" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-30" parent="FusgV0C5lUVmJYeV1Io9-29" style="align=left;strokeColor=none;fillColor=none;spacingLeft=4;spacingRight=4;fontSize=12;verticalAlign=top;resizable=0;rotatable=0;part=1;html=1;whiteSpace=wrap;" value="+PK id : CUID&lt;br&gt;+FK staffId : CUID&lt;br&gt;+status : CaseStatus&lt;div&gt;+&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;createdAt, resolvedAt?&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+IDX(status, createdAt)&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+IDX(staffId)&lt;/span&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="160" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-31" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=50;horizontalStack=0;rounded=1;fontSize=14;fontStyle=0;strokeWidth=2;resizeParent=0;resizeLast=1;shadow=0;dashed=0;align=center;arcSize=4;whiteSpace=wrap;html=1;" value="Feedback" vertex="1">
+          <mxGeometry height="200" width="160" x="200" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-32" parent="FusgV0C5lUVmJYeV1Io9-31" style="align=left;strokeColor=none;fillColor=none;spacingLeft=4;spacingRight=4;fontSize=12;verticalAlign=top;resizable=0;rotatable=0;part=1;html=1;whiteSpace=wrap;" value="+PK id&lt;br&gt;+FK+UQ &lt;code data-start=&quot;1058&quot; data-end=&quot;1084&quot;&gt;caseId -&amp;gt; StudentCase.id&lt;/code&gt;&lt;br&gt;+FK &lt;code data-start=&quot;1110&quot; data-end=&quot;1131&quot;&gt;staffId -&amp;gt; Staff.id&lt;/code&gt;&lt;div&gt;&lt;code data-start=&quot;1110&quot; data-end=&quot;1131&quot;&gt;+rating&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1110&quot; data-end=&quot;1131&quot;&gt;+createdAt&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1110&quot; data-end=&quot;1131&quot;&gt;+IDX(staffId)&lt;/code&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="160" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-35" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=50;horizontalStack=0;rounded=1;fontSize=14;fontStyle=0;strokeWidth=2;resizeParent=0;resizeLast=1;shadow=0;dashed=0;align=center;arcSize=4;whiteSpace=wrap;html=1;" value="KioskDevice" vertex="1">
+          <mxGeometry height="200" width="160" x="-70" y="-280" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-36" parent="FusgV0C5lUVmJYeV1Io9-35" style="align=left;strokeColor=none;fillColor=none;spacingLeft=4;spacingRight=4;fontSize=12;verticalAlign=top;resizable=0;rotatable=0;part=1;html=1;whiteSpace=wrap;" value="+PK id&lt;br&gt;+UQ &lt;code data-start=&quot;1453&quot; data-end=&quot;1485&quot;&gt;currentLockId? -&amp;gt; KioskLock.id&lt;/code&gt;&lt;br&gt;+mode : DeviceMode&lt;div&gt;+lastSeenAt&lt;/div&gt;&lt;div&gt;+deletedAt?&lt;/div&gt;&lt;div&gt;+IDX(mode)&lt;/div&gt;&lt;div&gt;+IDX(lastSeenAt)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="160" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-70" edge="1" parent="1" source="FusgV0C5lUVmJYeV1Io9-39" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;endArrow=none;endFill=0;" target="FusgV0C5lUVmJYeV1Io9-28">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-71" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-70" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1" vertex="1">
+          <mxGeometry relative="1" x="-0.9837" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-72" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-70" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="0..*" vertex="1">
+          <mxGeometry relative="1" x="0.9554" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-39" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=50;horizontalStack=0;rounded=1;fontSize=14;fontStyle=0;strokeWidth=2;resizeParent=0;resizeLast=1;shadow=0;dashed=0;align=center;arcSize=4;whiteSpace=wrap;html=1;" value="KioskLock" vertex="1">
+          <mxGeometry height="260" width="160" x="160" y="-310" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-40" parent="FusgV0C5lUVmJYeV1Io9-39" style="align=left;strokeColor=none;fillColor=none;spacingLeft=4;spacingRight=4;fontSize=12;verticalAlign=top;resizable=0;rotatable=0;part=1;html=1;whiteSpace=wrap;" value="+PK id&lt;div&gt;+&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;FK &lt;/span&gt;&lt;code data-start=&quot;1619&quot; data-end=&quot;1647&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;deviceId -&amp;gt; KioskDevice.id&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1619&quot; data-end=&quot;1647&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+&lt;/code&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;FK &lt;/span&gt;&lt;code data-start=&quot;1653&quot; data-end=&quot;1674&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;staffId -&amp;gt; Staff.id&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1653&quot; data-end=&quot;1674&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+&lt;/code&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;FK &lt;/span&gt;&lt;code data-start=&quot;1680&quot; data-end=&quot;1706&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;caseId -&amp;gt; StudentCase.id&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1680&quot; data-end=&quot;1706&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+status : LockStatus&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1680&quot; data-end=&quot;1706&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+leaseExpireAt&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1680&quot; data-end=&quot;1706&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+createdAt&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1680&quot; data-end=&quot;1706&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+IDX(deviceId, status)&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1680&quot; data-end=&quot;1706&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+IDX(leaseExpireAt)&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1680&quot; data-end=&quot;1706&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+IDX(caseId)&lt;/code&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="210" width="160" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-41" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=50;horizontalStack=0;rounded=1;fontSize=14;fontStyle=0;strokeWidth=2;resizeParent=0;resizeLast=1;shadow=0;dashed=0;align=center;arcSize=4;whiteSpace=wrap;html=1;" value="Session" vertex="1">
+          <mxGeometry height="140" width="160" x="-350" y="630" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-42" parent="FusgV0C5lUVmJYeV1Io9-41" style="align=left;strokeColor=none;fillColor=none;spacingLeft=4;spacingRight=4;fontSize=12;verticalAlign=top;resizable=0;rotatable=0;part=1;html=1;whiteSpace=wrap;" value="+PK id&lt;div&gt;+FS staffId -&amp;gt; Staff.id&lt;/div&gt;&lt;div&gt;+expiresAt&lt;/div&gt;&lt;div&gt;+revokedAt?&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="160" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-44" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=50;horizontalStack=0;rounded=1;fontSize=14;fontStyle=0;strokeWidth=2;resizeParent=0;resizeLast=1;shadow=0;dashed=0;align=center;arcSize=4;whiteSpace=wrap;html=1;" value="IdpAccount" vertex="1">
+          <mxGeometry height="140" width="160" x="-120" y="630" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-45" parent="FusgV0C5lUVmJYeV1Io9-44" style="align=left;strokeColor=none;fillColor=none;spacingLeft=4;spacingRight=4;fontSize=12;verticalAlign=top;resizable=0;rotatable=0;part=1;html=1;whiteSpace=wrap;" value="+PK id&lt;div&gt;+&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;FK+UQ &lt;/span&gt;&lt;code data-start=&quot;2038&quot; data-end=&quot;2059&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;staffId -&amp;gt; Staff.id&lt;/code&gt;&lt;/div&gt;&lt;div&gt;+provider&lt;/div&gt;&lt;div&gt;+subject&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="160" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-46" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=50;horizontalStack=0;rounded=1;fontSize=14;fontStyle=0;strokeWidth=2;resizeParent=0;resizeLast=1;shadow=0;dashed=0;align=center;arcSize=4;whiteSpace=wrap;html=1;" value="PairingSession" vertex="1">
+          <mxGeometry height="200" width="160" x="-320" y="-280" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-47" parent="FusgV0C5lUVmJYeV1Io9-46" style="align=left;strokeColor=none;fillColor=none;spacingLeft=4;spacingRight=4;fontSize=12;verticalAlign=top;resizable=0;rotatable=0;part=1;html=1;whiteSpace=wrap;" value="+PK id&lt;div&gt;+UQ pairingToken&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+FK &lt;/span&gt;&lt;code data-start=&quot;2147&quot; data-end=&quot;2176&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;deviceId? -&amp;gt; KioskDevice.id&lt;/code&gt;&lt;/div&gt;&lt;div&gt;+expiresAt&lt;/div&gt;&lt;div&gt;+IDX(pairingToken)&lt;/div&gt;&lt;div&gt;+IDX(expiresAt)&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="160" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-49" edge="1" parent="1" style="edgeStyle=entityRelationEdgeStyle;fontSize=12;html=1;endArrow=ERzeroToMany;endFill=1;rounded=0;" value="">
+          <mxGeometry height="100" relative="1" width="100" as="geometry">
+            <mxPoint x="-190" y="500" as="sourcePoint" />
+            <mxPoint x="-90" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-50" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-49" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="0..*" vertex="1">
+          <mxGeometry relative="1" x="-0.8092" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-51" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-49" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="0..1" vertex="1">
+          <mxGeometry relative="1" x="0.6542" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-53" edge="1" parent="1" source="FusgV0C5lUVmJYeV1Io9-30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;endArrow=none;endFill=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="198" y="393" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-54" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-53" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="0..1" vertex="1">
+          <mxGeometry relative="1" x="-0.8132" y="2" as="geometry">
+            <mxPoint y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-55" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-53" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1" vertex="1">
+          <mxGeometry relative="1" x="0.6887" y="3" as="geometry">
+            <mxPoint x="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-56" edge="1" parent="1" source="FusgV0C5lUVmJYeV1Io9-28" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.627;entryDx=0;entryDy=0;entryPerimeter=0;endArrow=none;endFill=0;" target="FusgV0C5lUVmJYeV1Io9-32">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-57" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-56" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1" vertex="1">
+          <mxGeometry relative="1" x="0.8209" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-58" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-56" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="0..*" vertex="1">
+          <mxGeometry relative="1" x="-0.8005" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-59" parent="1" style="swimlane;childLayout=stackLayout;horizontal=1;startSize=50;horizontalStack=0;rounded=1;fontSize=14;fontStyle=0;strokeWidth=2;resizeParent=0;resizeLast=1;shadow=0;dashed=0;align=center;arcSize=4;whiteSpace=wrap;html=1;" value="FeedbackSession" vertex="1">
+          <mxGeometry height="260" width="200" x="-100" y="-20" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-60" parent="FusgV0C5lUVmJYeV1Io9-59" style="align=left;strokeColor=none;fillColor=none;spacingLeft=4;spacingRight=4;fontSize=12;verticalAlign=top;resizable=0;rotatable=0;part=1;html=1;whiteSpace=wrap;" value="+PK id&lt;div&gt;+&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;FK &lt;/span&gt;&lt;code data-start=&quot;1211&quot; data-end=&quot;1237&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;caseId -&amp;gt; StudentCase.id&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1211&quot; data-end=&quot;1237&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+FK staffId -&amp;gt; Staff.id&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1211&quot; data-end=&quot;1237&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+FK deviceId -&amp;gt; Staff.id&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1211&quot; data-end=&quot;1237&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+FK deviceId -&amp;gt; KioskDevice.id&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1211&quot; data-end=&quot;1237&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+status:&lt;/code&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;FeedbackSessionStatus&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+created&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+&lt;/span&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;IDX &lt;/span&gt;&lt;code data-start=&quot;1354&quot; data-end=&quot;1385&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;(deviceId, status, createdAt)&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1354&quot; data-end=&quot;1385&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+IDX(caseId)&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;code data-start=&quot;1354&quot; data-end=&quot;1385&quot; style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;+IDX(staffId)&lt;/code&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="210" width="200" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-61" edge="1" parent="1" source="FusgV0C5lUVmJYeV1Io9-27" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.75;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;endArrow=none;endFill=0;" target="FusgV0C5lUVmJYeV1Io9-60">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-270" y="188" />
+            </Array>
+            <mxPoint x="-10" y="320" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-62" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-61" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1" vertex="1">
+          <mxGeometry relative="1" x="0.6175" y="1" as="geometry">
+            <mxPoint x="57" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-63" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-61" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="0..*" vertex="1">
+          <mxGeometry relative="1" x="-0.5892" y="1" as="geometry">
+            <mxPoint y="73" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-64" edge="1" parent="1" source="FusgV0C5lUVmJYeV1Io9-36" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.43;exitY=1.009;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitPerimeter=0;endArrow=none;endFill=0;" target="FusgV0C5lUVmJYeV1Io9-59">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-65" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-64" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1" vertex="1">
+          <mxGeometry relative="1" x="0.6065" y="2" as="geometry">
+            <mxPoint x="-2" y="-9" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-66" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-64" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="0..*" vertex="1">
+          <mxGeometry relative="1" x="-0.7158" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-67" edge="1" parent="1" source="FusgV0C5lUVmJYeV1Io9-36" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=-0.019;entryY=0.324;entryDx=0;entryDy=0;entryPerimeter=0;endArrow=none;endFill=0;" target="FusgV0C5lUVmJYeV1Io9-40">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-68" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-67" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="0..*" vertex="1">
+          <mxGeometry relative="1" x="-0.7258" y="2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-69" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-67" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1" vertex="1">
+          <mxGeometry relative="1" x="0.612" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-76" edge="1" parent="1" source="FusgV0C5lUVmJYeV1Io9-28" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=none;endFill=0;" target="FusgV0C5lUVmJYeV1Io9-41">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-77" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-76" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="0..*" vertex="1">
+          <mxGeometry relative="1" x="-0.6762" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-78" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-76" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1" vertex="1">
+          <mxGeometry relative="1" x="0.5619" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-79" edge="1" parent="1" source="FusgV0C5lUVmJYeV1Io9-28" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=none;endFill=0;" target="FusgV0C5lUVmJYeV1Io9-44">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-80" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-79" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="0..1" vertex="1">
+          <mxGeometry relative="1" x="-0.9128" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-81" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-79" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="1" vertex="1">
+          <mxGeometry relative="1" x="0.8436" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-83" edge="1" parent="1" source="FusgV0C5lUVmJYeV1Io9-47" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;endArrow=none;endFill=0;" target="FusgV0C5lUVmJYeV1Io9-36">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-84" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-83" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="0..*" vertex="1">
+          <mxGeometry relative="1" x="-0.6852" y="1" as="geometry">
+            <mxPoint x="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="FusgV0C5lUVmJYeV1Io9-85" connectable="0" parent="FusgV0C5lUVmJYeV1Io9-83" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="0..1" vertex="1">
+          <mxGeometry relative="1" x="0.5" y="-2" as="geometry">
+            <mxPoint x="-1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
