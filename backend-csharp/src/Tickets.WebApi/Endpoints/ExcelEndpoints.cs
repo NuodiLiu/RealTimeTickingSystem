@@ -1,6 +1,7 @@
 using Tickets.Application.Reporting.Handlers;
 using Tickets.Application.Reporting.Queries;
 using Tickets.Domain.Cases;
+using Tickets.Domain.Shared.Time;
 using Tickets.Domain.Staff;
 using Tickets.WebApi.Common;
 
@@ -45,6 +46,7 @@ public static class ExcelEndpoints
         // Two aliases pointing at the same xlsx handler (legacy contract).
         var xlsxHandler = async (
             ExportCasesAsExcelHandler handler,
+            IClock clock,
             CaseStatus? status,
             DateTimeOffset? startDate,
             DateTimeOffset? endDate,
@@ -61,7 +63,7 @@ public static class ExcelEndpoints
             return Results.File(
                 result.Value!,
                 contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                fileDownloadName: $"cases-{DateTime.UtcNow:yyyyMMdd-HHmmss}.xlsx");
+                fileDownloadName: $"cases-{clock.UtcNow:yyyyMMdd-HHmmss}.xlsx");
         };
         group.MapGet("/cases", xlsxHandler).RequireAuthorization();
         group.MapGet("/cases/xlsx", xlsxHandler).RequireAuthorization();
