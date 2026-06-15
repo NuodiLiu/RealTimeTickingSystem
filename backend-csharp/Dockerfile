@@ -17,11 +17,13 @@ COPY src/Tickets.Infrastructure/*.csproj  src/Tickets.Infrastructure/
 COPY src/Tickets.WebApi/*.csproj          src/Tickets.WebApi/
 RUN dotnet restore src/Tickets.WebApi/Tickets.WebApi.csproj
 
-# Copy the rest of the source and publish a self-contained framework-dependent
-# build (the aspnet runtime image already has the .NET runtime).
+# Copy the rest of the source and publish a framework-dependent build (the
+# aspnet runtime image already has the .NET runtime). NOTE: do NOT pass
+# --no-restore here — publish needs build-time analyzer packages (e.g.
+# Microsoft.CodeAnalysis.Analyzers) that the project-scoped restore above does
+# not always place, which fails with NETSDK1064 in a clean container.
 COPY . .
-RUN dotnet publish src/Tickets.WebApi/Tickets.WebApi.csproj \
-    -c Release -o /app --no-restore
+RUN dotnet publish src/Tickets.WebApi/Tickets.WebApi.csproj -c Release -o /app
 
 # ---- runtime stage ----
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
