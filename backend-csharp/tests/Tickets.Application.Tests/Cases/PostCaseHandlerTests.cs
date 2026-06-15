@@ -35,7 +35,7 @@ public sealed class PostCaseHandlerTests
         result.Value.Category.Should().Be("Technical");
         result.Value.ZId.Should().Be("z1234567");
         result.Value.CreatedByDeviceId.Should().Be(deviceId);
-        result.Value.Status.Should().Be("Queued");
+        result.Value.Status.Should().Be(CaseStatus.Queued);
 
         await _repo.Received(1).AddAsync(Arg.Any<Case>(), Arg.Any<CancellationToken>());
         await _uow.Received(1).CommitAsync(Arg.Any<CancellationToken>());

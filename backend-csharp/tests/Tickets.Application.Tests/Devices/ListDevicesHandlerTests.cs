@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using Tickets.Application.Devices.Configuration;
 using Tickets.Application.Devices.Handlers;
 using Tickets.Application.Devices.Queries;
 using Tickets.Application.Tests.Shared;
@@ -13,7 +15,9 @@ public sealed class ListDevicesHandlerTests
 
     private ListDevicesHandler Handler(StaffId? staff = null) => new(
         _repo,
-        staff is null ? FakeCurrentUser.AnonymousUser() : FakeCurrentUser.StaffMember(staff));
+        staff is null ? FakeCurrentUser.AnonymousUser() : FakeCurrentUser.StaffMember(staff),
+        _clock,
+        Options.Create(new DeviceConnectivityOptions()));
 
     private KioskDevice ADevice(string name, DeviceMode mode = DeviceMode.Registration) =>
         KioskDevice.Pair(DeviceName.Parse(name), SecretHash.FromRaw("hash"), mode, _clock);
@@ -51,7 +55,7 @@ public sealed class ListDevicesHandlerTests
             .HandleAsync(new ListDevicesQuery(), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.Should().HaveCount(2);
+        result.Value!.Items.Should().HaveCount(2);
     }
 
     [Fact]

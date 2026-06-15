@@ -29,6 +29,15 @@ public static class AuthAzureAdEndpoints
     /// <summary>Login handshakes older than this are rejected (replay / abandoned tab).</summary>
     private static readonly TimeSpan LoginStateTtl = TimeSpan.FromMinutes(10);
 
+    /// <summary>
+    /// Default post-login landing path on the SPA. The existing frontend page at
+    /// <c>frontend/src/app/auth/callback/page.tsx</c> reads the App-JWT from the
+    /// <c>?token=</c> QUERY param (not a <c>#fragment</c>) and stores it in
+    /// <c>localStorage['appJwt']</c>. Backend + frontend MUST agree on this —
+    /// hence we redirect here with <c>?token=</c> by default.
+    /// </summary>
+    public const string DefaultReturnUrl = "/auth/callback";
+
     public static IEndpointRouteBuilder MapAuthAzureAdEndpoints(this IEndpointRouteBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
@@ -51,7 +60,15 @@ public static class AuthAzureAdEndpoints
             var codeChallenge = Pkce.Challenge(codeVerifier);
             var redirectUri = BuildRedirectUri(httpContext, opts.CallbackPath);
 
-            var payload = new LoginState(state, codeVerifier, returnUrl, clock.UtcNow);
+            // Default the SPA landing page to /auth/callback so the existing
+            // frontend callback handler runs and stores the App-JWT. A caller may
+            // still pass an explicit returnUrl (validated to the frontend origin
+            // in BuildFrontendRedirect).
+            var effectiveReturnUrl = string.IsNullOrWhiteSpace(returnUrl)
+                ? DefaultReturnUrl
+                : returnUrl;
+
+            var payload = new LoginState(state, codeVerifier, effectiveReturnUrl, clock.UtcNow);
             WriteStateCookie(httpContext, payload);
 
             var authorizeUrl = QueryHelpers.AddQueryString(opts.AuthorizeEndpoint, new Dictionary<string, string?>(StringComparer.Ordinal)
@@ -196,36 +213,46 @@ public static class AuthAzureAdEndpoints
         AppJwt jwt)
     {
         // Prefer an explicit, validated returnUrl under the frontend origin;
-        // otherwise fall back to the frontend base (or root if unset).
+        // otherwise land on the default /auth/callback page.
         var baseUrl = string.IsNullOrWhiteSpace(frontendBase) ? "/" : frontendBase;
+        var fallback = ResolveTarget(baseUrl, DefaultReturnUrl) ?? baseUrl;
 
-        string target;
-        if (!string.IsNullOrWhiteSpace(returnUrl)
-            // Reject protocol-relative ("//host") and backslash tricks before
-            // resolving, so a crafted returnUrl can't escape the frontend origin.
-            && !returnUrl.StartsWith("//", StringComparison.Ordinal)
-            && !returnUrl.Contains('\\', StringComparison.Ordinal)
-            && Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri)
-            && Uri.TryCreate(baseUri, returnUrl, out var combined)
-            && combined.Host == baseUri.Host
-            && combined.Scheme == baseUri.Scheme)
-        {
-            target = combined.ToString();
-        }
-        else
-        {
-            target = baseUrl;
-        }
+        var target = ResolveTarget(baseUrl, returnUrl) ?? fallback;
 
-        // Hand the freshly minted access token to the SPA via the fragment so it
-        // never lands in server logs / Referer headers.
-        var fragment =
-            $"access_token={Uri.EscapeDataString(jwt.Token)}" +
+        // CONTRACT (B7): the frontend /auth/callback page reads the token from the
+        // QUERY param `token` (URLSearchParams over window.location.search), NOT a
+        // `#fragment` and NOT `access_token`. Emit `?token=<jwt>` to match it.
+        // expires_at is added alongside for clients that want it; the callback
+        // ignores extra params.
+        var query =
+            $"token={Uri.EscapeDataString(jwt.Token)}" +
             $"&expires_at={Uri.EscapeDataString(jwt.ExpireAt.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture))}";
 
-        return target.Contains('#', StringComparison.Ordinal)
-            ? $"{target}&{fragment}"
-            : $"{target}#{fragment}";
+        return target.Contains('?', StringComparison.Ordinal)
+            ? $"{target}&{query}"
+            : $"{target}?{query}";
+    }
+
+    /// <summary>
+    /// Resolves <paramref name="returnUrl"/> against the frontend base, rejecting
+    /// anything that would escape the frontend origin. Returns null when invalid.
+    /// </summary>
+    private static string? ResolveTarget(string baseUrl, string? returnUrl)
+    {
+        if (string.IsNullOrWhiteSpace(returnUrl)
+            // Reject protocol-relative ("//host") and backslash tricks before
+            // resolving, so a crafted returnUrl can't escape the frontend origin.
+            || returnUrl.StartsWith("//", StringComparison.Ordinal)
+            || returnUrl.Contains('\\', StringComparison.Ordinal)
+            || !Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri)
+            || !Uri.TryCreate(baseUri, returnUrl, out var combined)
+            || combined.Host != baseUri.Host
+            || combined.Scheme != baseUri.Scheme)
+        {
+            return null;
+        }
+
+        return combined.ToString();
     }
 
     private static void WriteStateCookie(HttpContext httpContext, LoginState state)

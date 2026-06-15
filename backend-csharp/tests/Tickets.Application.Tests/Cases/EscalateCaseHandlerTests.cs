@@ -94,7 +94,7 @@ public sealed class EscalateCaseHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.EscalatedTo.Should().Be("Finance");
         result.Value.ResolvedOnSite.Should().Be(true);
-        result.Value.Status.Should().Be("InProgress"); // status unchanged
+        result.Value.Status.Should().Be(CaseStatus.InProgress); // status unchanged
         await _notify.Received(1).NotifyDashboardAsync(
             "case:updated", Arg.Any<object>(), Arg.Any<CancellationToken>());
     }

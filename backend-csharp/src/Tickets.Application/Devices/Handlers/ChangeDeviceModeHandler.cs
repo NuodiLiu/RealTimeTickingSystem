@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Tickets.Application.Abstractions;
 using Tickets.Application.Common;
+using Tickets.Application.Common.Json;
 using Tickets.Application.Devices.Commands;
 using Tickets.Application.Devices.Dtos;
 using Tickets.Domain.Devices;
@@ -25,7 +26,7 @@ public sealed class ChangeDeviceModeHandler(
     ICurrentUser currentUser,
     ILogger<ChangeDeviceModeHandler> logger)
 {
-    public async Task<Result<DeviceDto>> HandleAsync(
+    public async Task<Result<ChangeDeviceModeResponseDto>> HandleAsync(
         ChangeDeviceModeCommand command,
         CancellationToken cancellationToken)
     {
@@ -33,21 +34,24 @@ public sealed class ChangeDeviceModeHandler(
 
         if (currentUser.StaffId is null)
         {
-            return Result<DeviceDto>.Failure(
+            return Result<ChangeDeviceModeResponseDto>.Failure(
                 AppError.Unauthorized("not_authenticated", "Staff authentication required."));
         }
 
-        if (!Enum.TryParse<DeviceMode>(command.Mode, ignoreCase: true, out var mode))
+        // Accept either the legacy UPPER_SNAKE wire value (REGISTRATION /
+        // FEEDBACK — what the dashboard sends) or the PascalCase name.
+        if (!WireEnum.TryParseDeviceMode(command.Mode, out var mode)
+            && !Enum.TryParse(command.Mode, ignoreCase: true, out mode))
         {
-            return Result<DeviceDto>.Failure(
-                AppError.Validation("mode must be 'Registration' or 'Feedback'."));
+            return Result<ChangeDeviceModeResponseDto>.Failure(
+                AppError.Validation("mode must be 'REGISTRATION' or 'FEEDBACK'."));
         }
 
         var deviceId = new DeviceId(command.DeviceId);
         var device = await repository.FindByIdAsync(deviceId, cancellationToken).ConfigureAwait(false);
         if (device is null)
         {
-            return Result<DeviceDto>.Failure(
+            return Result<ChangeDeviceModeResponseDto>.Failure(
                 AppError.NotFound("device_not_found", $"Device {deviceId} not found."));
         }
 
@@ -57,7 +61,7 @@ public sealed class ChangeDeviceModeHandler(
         }
         catch (DomainError ex)
         {
-            return Result<DeviceDto>.Failure(DomainErrorMapper.ToAppError(ex));
+            return Result<ChangeDeviceModeResponseDto>.Failure(DomainErrorMapper.ToAppError(ex));
         }
 
         await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -65,16 +69,19 @@ public sealed class ChangeDeviceModeHandler(
         await SafeBroadcastAsync(device, cancellationToken).ConfigureAwait(false);
         await SafePushToDeviceAsync(device, mode, cancellationToken).ConfigureAwait(false);
 
-        return Result<DeviceDto>.Success(DeviceDto.From(device));
+        return Result<ChangeDeviceModeResponseDto>.Success(ChangeDeviceModeResponseDto.From(device));
     }
 
     private async Task SafeBroadcastAsync(KioskDevice device, CancellationToken ct)
     {
         try
         {
+            // Emit the enum directly: the SignalR hub serializer applies the
+            // wire-enum converter, so the dashboard receives FEEDBACK /
+            // REGISTRATION (NOT the PascalCase ToString()).
             await notifications.NotifyDashboardAsync(
                 "device:mode_changed",
-                new { deviceId = device.Id.Value, mode = device.Mode.ToString() },
+                new { deviceId = device.Id.Value, mode = device.Mode },
                 ct).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -88,10 +95,15 @@ public sealed class ChangeDeviceModeHandler(
     {
         try
         {
+            // MODE_CHANGED drift fix: the iPad's ModeChangedPayload decodes
+            // `mode` as the DeviceMode enum (FEEDBACK / REGISTRATION). Pass the
+            // enum so the SignalR serializer emits FEEDBACK, not "Feedback".
+            // The gateway remaps the "changeMode" method name to the canonical
+            // MODE_CHANGED wire `type` (see AzureSignalRNotificationGateway).
             await notifications.PushToDeviceAsync(
                 device.Id,
                 "changeMode",
-                new { mode = mode.ToString() },
+                new { mode },
                 ct).ConfigureAwait(false);
         }
         catch (Exception ex)

@@ -55,6 +55,18 @@ public sealed class SignalRNegotiateEndpointTests(WebApiFactory factory)
     }
 
     [Fact]
+    public async Task Negotiate_DeviceAppJwtBearer_PassesAuth_ThenSignalRUnavailable503()
+    {
+        // The iPad presents its DEVICE App-JWT as Bearer (not the Device header).
+        // It must authenticate at negotiate under the DeviceJwt bearer scheme.
+        var client = factory.CreateDeviceJwtClient(DeviceId.New());
+
+        var response = await client.PostAsync(NegotiateUri, content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Fact]
     public async Task Negotiate_BadDeviceCredentials_Returns401()
     {
         var client = factory.CreateDeviceAuthenticatedClient(DeviceId.New(), "wrong-secret");

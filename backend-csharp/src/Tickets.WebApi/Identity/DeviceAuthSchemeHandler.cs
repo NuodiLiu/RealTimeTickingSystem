@@ -64,10 +64,14 @@ internal sealed class DeviceAuthSchemeHandler(
             return AuthenticateResult.Fail("Invalid device credentials.");
         }
 
+        // SECURITY: do NOT emit ClaimTypes.NameIdentifier here. The staff
+        // identity adapter (HttpContextCurrentUser.StaffId) reads NameIdentifier,
+        // so emitting the device id under that claim mis-classified a device as a
+        // dashboard at /api/signalr/negotiate (PII leak). The device id is
+        // carried ONLY by the device_id claim, which ICurrentDevice reads.
         var claims = new[]
         {
             new Claim(DeviceAuthSchemeDefaults.DeviceIdClaim, deviceId.Value.ToString()),
-            new Claim(ClaimTypes.NameIdentifier, deviceId.Value.ToString()),
             new Claim("mode", device.Mode.ToString()),
         };
         var identity = new ClaimsIdentity(claims, DeviceAuthSchemeDefaults.Scheme);

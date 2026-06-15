@@ -51,6 +51,55 @@ public sealed class DeviceEndpointTests(WebApiFactory factory)
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    // ─── Token exchange (device-auth -> device App-JWT) ─────────────────
+
+    [Fact]
+    public async Task Token_Anonymous_Returns401()
+    {
+        var client = factory.CreateAnonymousClient();
+        var response = await client.PostAsync(
+            new Uri("/device/token", UriKind.Relative), content: null);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Token_StaffJwtNotDeviceScheme_Returns401()
+    {
+        // A staff App-JWT must NOT mint a device token (device-header scheme only).
+        var client = factory.CreateAuthenticatedClient();
+        var response = await client.PostAsync(
+            new Uri("/device/token", UriKind.Relative), content: null);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Token_ValidDevice_ReturnsAppJwtAndExpiresAt()
+    {
+        var (deviceId, secret) = await factory.SeedPairedDeviceAsync(name: "Kiosk-TOK");
+        var client = factory.CreateDeviceAuthenticatedClient(deviceId, secret);
+
+        var response = await client.PostAsync(
+            new Uri("/device/token", UriKind.Relative), content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        // iOS DeviceJWTResponse: { appJwt, expiresAt }.
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        json.GetProperty("appJwt").GetString().Should().NotBeNullOrEmpty();
+        json.TryGetProperty("expiresAt", out _).Should().BeTrue();
+    }
+
+    // ─── SECURITY: device App-JWT is rejected on staff endpoints ────────
+
+    [Fact]
+    public async Task List_DeviceAppJwtBearer_RejectedOnStaffEndpoint()
+    {
+        // A device App-JWT (audience tickets-device, no role) must NOT pass the
+        // staff JwtBearer validation on a staff endpoint — privilege escalation.
+        var client = factory.CreateDeviceJwtClient(DeviceId.New());
+        var response = await client.GetAsync(new Uri("/device", UriKind.Relative));
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
     // ─── Pairing status (no-auth) ───────────────────────────────────────
 
     [Fact]
@@ -96,8 +145,17 @@ public sealed class DeviceEndpointTests(WebApiFactory factory)
         var client = factory.CreateAuthenticatedClient();
         var response = await client.GetAsync(new Uri("/device", UriKind.Relative));
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var arr = await response.Content.ReadFromJsonAsync<JsonElement>();
-        arr.GetArrayLength().Should().BeGreaterThan(0);
+        // B5: GET /device returns the dashboard shape { items: [...] } with
+        // deviceId / isOnline (not a bare array, not id / isConnected).
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var items = body.GetProperty("items");
+        items.GetArrayLength().Should().BeGreaterThan(0);
+        var first = items[0];
+        first.GetProperty("deviceId").GetString().Should().NotBeNullOrEmpty();
+        first.TryGetProperty("isOnline", out _).Should().BeTrue();
+        first.TryGetProperty("status", out _).Should().BeTrue();
+        first.TryGetProperty("id", out _).Should().BeFalse();
+        first.TryGetProperty("isConnected", out _).Should().BeFalse();
     }
 
     // ─── Rename + Unpair (staff) ───────────────────────────────────────
@@ -113,8 +171,11 @@ public sealed class DeviceEndpointTests(WebApiFactory factory)
             $"/device/{deviceId.Value}/name", body, JsonOpts);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+        // Frontend UpdateDeviceNameRes: { success, device: { id, name, mode,
+        // lastSeenAt } } — name is nested under "device".
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();
-        json.GetProperty("name").GetString().Should().Be("Kiosk-Renamed");
+        json.GetProperty("success").GetBoolean().Should().BeTrue();
+        json.GetProperty("device").GetProperty("name").GetString().Should().Be("Kiosk-Renamed");
     }
 
     [Fact]

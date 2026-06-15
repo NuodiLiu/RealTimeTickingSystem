@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Tickets.Application.Abstractions;
 using Tickets.Application.Common;
 using Tickets.Application.Pairing.Abstractions;
@@ -34,6 +35,7 @@ public sealed class CompletePairingHandler(
     IClock clock,
     INotificationGateway notifications,
     IValidator<CompletePairingCommand> validator,
+    IOptions<PairingQrOptions> qrOptions,
     ILogger<CompletePairingHandler> logger)
 {
     private static readonly TimeSpan WsTokenTtl = TimeSpan.FromHours(12);
@@ -119,10 +121,12 @@ public sealed class CompletePairingHandler(
 
         return Result<CompletePairingDto>.Success(new CompletePairingDto(
             DeviceId: device.Id.Value,
+            DeviceSecret: secret.Plaintext,
             DeviceName: device.Name.Value,
-            Mode: device.Mode.ToString(),
+            Mode: device.Mode,
             ApiKey: $"{device.Id.Value}:{secret.Plaintext}",
             WsToken: wsToken,
+            WsEndpoint: (qrOptions.Value.ApiEndpoint ?? string.Empty).Trim(),
             WsTokenExpireAt: wsExpireAt));
     }
 
@@ -136,7 +140,7 @@ public sealed class CompletePairingHandler(
                 {
                     deviceId = device.Id.Value,
                     deviceName = device.Name.Value,
-                    mode = device.Mode.ToString(),
+                    mode = device.Mode,
                 },
                 ct).ConfigureAwait(false);
         }

@@ -35,7 +35,7 @@ public sealed class GetPublicQueueHandlerTests
         result.Value.Should().HaveCount(2);
         result.Value![0].Position.Should().Be(1);
         result.Value[1].Position.Should().Be(2);
-        result.Value[0].Status.Should().Be("Queued");
+        result.Value[0].Status.Should().Be(CaseStatus.Queued);
     }
 
     [Fact]

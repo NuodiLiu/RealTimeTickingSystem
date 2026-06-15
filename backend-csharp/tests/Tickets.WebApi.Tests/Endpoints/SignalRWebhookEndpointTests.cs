@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -8,11 +7,15 @@ namespace Tickets.WebApi.Tests.Endpoints;
 [Collection("webapi")]
 public sealed class SignalRWebhookEndpointTests(WebApiFactory factory)
 {
-    private static string Hmac(string body, string secret)
+    private const string ConnectionId = "conn-test-0001";
+
+    // Azure SignalR signs Hex(HMAC-SHA256(accessKey, connectionId)) — the signed
+    // content is the CONNECTION ID, not the body.
+    private static string Hmac(string connectionId, string accessKey)
     {
         var hash = HMACSHA256.HashData(
-            Encoding.UTF8.GetBytes(secret),
-            Encoding.UTF8.GetBytes(body));
+            Encoding.UTF8.GetBytes(accessKey),
+            Encoding.UTF8.GetBytes(connectionId));
         return Convert.ToHexString(hash);
     }
 
@@ -20,8 +23,9 @@ public sealed class SignalRWebhookEndpointTests(WebApiFactory factory)
     {
         var client = factory.CreateAnonymousClient();
         var content = new StringContent(body, Encoding.UTF8, "application/json");
+        content.Headers.TryAddWithoutValidation("X-ASRS-Connection-Id", ConnectionId);
         content.Headers.TryAddWithoutValidation(
-            "X-Asrs-Signature", "sha256=" + Hmac(body, WebApiFactory.WebhookSecret));
+            "X-ASRS-Signature", "sha256=" + Hmac(ConnectionId, WebApiFactory.WebhookAccessKey));
         return await client.PostAsync(new Uri(path, UriKind.Relative), content);
     }
 
@@ -49,11 +53,46 @@ public sealed class SignalRWebhookEndpointTests(WebApiFactory factory)
     {
         var client = factory.CreateAnonymousClient();
         var content = new StringContent("{}", Encoding.UTF8, "application/json");
-        content.Headers.TryAddWithoutValidation("X-Asrs-Signature", "sha256=deadbeef");
+        content.Headers.TryAddWithoutValidation("X-ASRS-Connection-Id", ConnectionId);
+        // Right shape, wrong digest.
+        content.Headers.TryAddWithoutValidation(
+            "X-ASRS-Signature",
+            "sha256=00000000000000000000000000000000000000000000000000000000DEADBEEF");
         var response = await client.PostAsync(
             new Uri($"/api/signalr/webhook/connected?deviceId={Guid.NewGuid()}", UriKind.Relative),
             content);
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Connected_SignatureWithoutPrefix_AlsoAccepted()
+    {
+        // Azure's doc spec is Hex(HMAC(...)) with no prefix; the SDK adds
+        // "sha256=". Accept both forms.
+        var client = factory.CreateAnonymousClient();
+        var content = new StringContent("{}", Encoding.UTF8, "application/json");
+        content.Headers.TryAddWithoutValidation("X-ASRS-Connection-Id", ConnectionId);
+        content.Headers.TryAddWithoutValidation(
+            "X-ASRS-Signature", Hmac(ConnectionId, WebApiFactory.WebhookAccessKey));
+        var response = await client.PostAsync(
+            new Uri($"/api/signalr/webhook/connected?deviceId={Guid.NewGuid()}", UriKind.Relative),
+            content);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Connected_MultipleCommaSeparatedSignatures_AcceptedIfAnyMatches()
+    {
+        var client = factory.CreateAnonymousClient();
+        var content = new StringContent("{}", Encoding.UTF8, "application/json");
+        content.Headers.TryAddWithoutValidation("X-ASRS-Connection-Id", ConnectionId);
+        var good = "sha256=" + Hmac(ConnectionId, WebApiFactory.WebhookAccessKey);
+        content.Headers.TryAddWithoutValidation(
+            "X-ASRS-Signature", "sha256=deadbeefdeadbeefdeadbeefdeadbeef," + good);
+        var response = await client.PostAsync(
+            new Uri($"/api/signalr/webhook/connected?deviceId={Guid.NewGuid()}", UriKind.Relative),
+            content);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]

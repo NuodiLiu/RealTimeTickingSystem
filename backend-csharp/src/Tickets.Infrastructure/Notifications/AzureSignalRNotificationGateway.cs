@@ -5,6 +5,7 @@ using Microsoft.Azure.SignalR.Management;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Tickets.Application.Abstractions;
+using Tickets.Application.Common.Json;
 using Tickets.Domain.Devices;
 
 namespace Tickets.Infrastructure.Notifications;
@@ -47,14 +48,27 @@ public sealed class AzureSignalRNotificationGateway : INotificationGateway, IAsy
     /// emitting their existing names. Any name not in this table is passed
     /// through unchanged — that covers <c>UNPAIRED</c> (already canonical) and
     /// future already-normalized types.
+    /// <para>Exposed so a contract test can pin the mapping without sending.</para>
     /// </summary>
-    private static readonly IReadOnlyDictionary<string, string> DeviceTypeMap =
+    public static readonly IReadOnlyDictionary<string, string> DeviceTypeMap =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["showFeedback"] = "SHOW_FEEDBACK",
             ["dismissDevice"] = "DISMISS",
             ["changeMode"] = "MODE_CHANGED",
         };
+
+    /// <summary>
+    /// Normalizes an Application-layer device event name to the canonical iPad
+    /// wire <c>type</c> string. Names not in <see cref="DeviceTypeMap"/> pass
+    /// through unchanged (already-canonical, e.g. <c>UNPAIRED</c>). This is the
+    /// exact transform <see cref="PushToDeviceAsync"/> applies before sending.
+    /// </summary>
+    public static string ToWireDeviceType(string eventType)
+    {
+        ArgumentNullException.ThrowIfNull(eventType);
+        return DeviceTypeMap.GetValueOrDefault(eventType, eventType);
+    }
 
     private readonly ServiceManager _serviceManager;
     private readonly ILogger<AzureSignalRNotificationGateway> _logger;
@@ -86,12 +100,17 @@ public sealed class AzureSignalRNotificationGateway : INotificationGateway, IAsy
                 // server connection; messages are sent over transient HTTP.
                 o.ServiceTransportType = ServiceTransportType.Transient;
                 // camelCase the hub protocol JSON so the { type, payload }
-                // envelope arrives with lower-cased keys the clients expect.
-                o.UseJsonObjectSerializer(new JsonObjectSerializer(
-                    new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    }));
+                // envelope arrives with lower-cased keys the clients expect,
+                // and apply the wire-enum converters so any enum inside a
+                // payload (e.g. MODE_CHANGED's `mode`, a CaseDto's `status`)
+                // serializes as the legacy UPPER_SNAKE string — consistent with
+                // the HTTP surface (B1).
+                var hubJson = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                };
+                WireJson.AddWireEnumConverters(hubJson);
+                o.UseJsonObjectSerializer(new JsonObjectSerializer(hubJson));
             })
             .WithLoggerFactory(loggerFactory)
             .BuildServiceManager();
@@ -115,8 +134,16 @@ public sealed class AzureSignalRNotificationGateway : INotificationGateway, IAsy
     /// Persists group membership for a (not-yet-connected) user so the user is
     /// fanned-out to when it connects. Used by the negotiate endpoint to place
     /// dashboards in the <c>dashboard</c> group and devices in their
-    /// <c>device:{id}</c> group. Failures are swallowed + logged — a missing
-    /// group assignment must not fail the negotiate request.
+    /// <c>device:{id}</c> group.
+    /// <para>
+    /// Serverless hardening: this "add-before-connect" can fail (transient
+    /// service error, throttling). We MUST NOT throw to the negotiate client
+    /// (the client still gets a token and connects), but the failure is NOT
+    /// silently swallowed — it's logged LOUDLY at Error because a missed group
+    /// add means this user never receives broadcasts until the next negotiate.
+    /// The dashboard group failure is called out specifically since it drops
+    /// every dashboard fan-out for that session.
+    /// </para>
     /// </summary>
     public async Task AddUserToGroupAsync(
         string userId, string groupName, CancellationToken cancellationToken = default)
@@ -132,9 +159,15 @@ public sealed class AzureSignalRNotificationGateway : INotificationGateway, IAsy
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(
-                ex, "Azure SignalR add-to-group failed for user {UserId} group {Group}.",
-                userId, groupName);
+            var isDashboard = string.Equals(groupName, DashboardGroup, StringComparison.Ordinal);
+            _logger.LogError(
+                ex,
+                "Azure SignalR add-to-group FAILED for user {UserId} group {Group}. " +
+                "This user will MISS {Scope} broadcasts for this connection until it " +
+                "re-negotiates. Negotiate is not failed.",
+                userId,
+                groupName,
+                isDashboard ? "ALL dashboard" : "its device");
         }
     }
 
@@ -163,7 +196,7 @@ public sealed class AzureSignalRNotificationGateway : INotificationGateway, IAsy
         ArgumentNullException.ThrowIfNull(eventType);
         // Normalize the Application-layer event name to the canonical iPad wire
         // type. Unknown names pass through unchanged (e.g. UNPAIRED).
-        var wireType = DeviceTypeMap.GetValueOrDefault(eventType, eventType);
+        var wireType = ToWireDeviceType(eventType);
         try
         {
             var hub = await GetHubContextAsync(cancellationToken).ConfigureAwait(false);
