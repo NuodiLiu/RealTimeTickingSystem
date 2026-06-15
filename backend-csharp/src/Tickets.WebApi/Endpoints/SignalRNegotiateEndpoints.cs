@@ -24,8 +24,10 @@ public static class SignalRNegotiateEndpoints
     private const string NegotiatePolicy = "SignalRNegotiate";
 
     /// <summary>
-    /// Authorization policy accepting either the staff JWT bearer scheme or the
-    /// device auth scheme — negotiate serves both client kinds.
+    /// Authorization policy accepting the staff JWT bearer scheme, the device
+    /// App-JWT bearer scheme, OR the legacy device-header scheme — negotiate
+    /// serves both client kinds. The iPad presents its DEVICE App-JWT as Bearer,
+    /// which authenticates under <see cref="DeviceAuthSchemeDefaults.JwtScheme"/>.
     /// </summary>
     public static void AddSignalRNegotiatePolicy(this AuthorizationOptions options)
     {
@@ -33,6 +35,7 @@ public static class SignalRNegotiateEndpoints
         options.AddPolicy(NegotiatePolicy, policy => policy
             .AddAuthenticationSchemes(
                 JwtBearerDefaults.AuthenticationScheme,
+                DeviceAuthSchemeDefaults.JwtScheme,
                 DeviceAuthSchemeDefaults.Scheme)
             .RequireAuthenticatedUser());
     }
@@ -59,23 +62,18 @@ public static class SignalRNegotiateEndpoints
                         detail: "Azure SignalR is not configured.");
                 }
 
-                string userId;
-                string userType;
-                string group;
-
-                if (currentUser.StaffId is { } staffId)
-                {
-                    userId = staffId.Value.ToString();
-                    userType = "dashboard";
-                    group = "dashboard";
-                }
-                else if (currentDevice.DeviceId is { } deviceId)
-                {
-                    userId = deviceId.Value.ToString();
-                    userType = "device";
-                    group = $"device:{deviceId.Value}";
-                }
-                else
+                // SECURITY: classify by identity kind, DEVICE first (see
+                // NegotiateRouting). A device App-JWT carries a `sub` (the device
+                // id) too, but ICurrentUser returns null for a device principal,
+                // and ICurrentDevice reads only the device_id claim — so a device
+                // can never be routed into the staff `dashboard` group (which
+                // would leak dashboard PII).
+                if (!NegotiateRouting.TryClassify(
+                        currentDevice.DeviceId,
+                        currentUser.StaffId,
+                        out var userId,
+                        out var userType,
+                        out var group))
                 {
                     // Authenticated but neither a staff nor a device principal —
                     // should not happen given the policy, but fail closed.

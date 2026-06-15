@@ -21,7 +21,7 @@ public sealed class RecordHeartbeatHandler(
     IClock clock,
     ICurrentDevice currentDevice)
 {
-    public async Task<Result<DeviceDto>> HandleAsync(
+    public async Task<Result<HeartbeatResponseDto>> HandleAsync(
         RecordHeartbeatCommand command,
         CancellationToken cancellationToken)
     {
@@ -29,14 +29,14 @@ public sealed class RecordHeartbeatHandler(
 
         if (currentDevice.DeviceId is not { } deviceId)
         {
-            return Result<DeviceDto>.Failure(
+            return Result<HeartbeatResponseDto>.Failure(
                 AppError.Unauthorized("not_authenticated", "Device authentication required."));
         }
 
         var device = await repository.FindByIdAsync(deviceId, cancellationToken).ConfigureAwait(false);
         if (device is null)
         {
-            return Result<DeviceDto>.Failure(
+            return Result<HeartbeatResponseDto>.Failure(
                 AppError.NotFound("device_not_found", $"Device {deviceId} not found."));
         }
 
@@ -46,11 +46,11 @@ public sealed class RecordHeartbeatHandler(
         }
         catch (DomainError ex)
         {
-            return Result<DeviceDto>.Failure(DomainErrorMapper.ToAppError(ex));
+            return Result<HeartbeatResponseDto>.Failure(DomainErrorMapper.ToAppError(ex));
         }
 
         await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
 
-        return Result<DeviceDto>.Success(DeviceDto.From(device));
+        return Result<HeartbeatResponseDto>.Success(HeartbeatResponseDto.From(device, clock));
     }
 }

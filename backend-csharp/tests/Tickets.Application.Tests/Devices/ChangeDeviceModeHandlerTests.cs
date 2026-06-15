@@ -78,7 +78,7 @@ public sealed class ChangeDeviceModeHandlerTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.Mode.Should().Be("Feedback");
+        result.Value!.Mode.Should().Be(DeviceMode.Feedback);
         await _notify.Received(1).NotifyDashboardAsync(
             "device:mode_changed", Arg.Any<object>(), Arg.Any<CancellationToken>());
         await _notify.Received(1).PushToDeviceAsync(

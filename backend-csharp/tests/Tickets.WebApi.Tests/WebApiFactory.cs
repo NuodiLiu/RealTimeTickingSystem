@@ -27,8 +27,18 @@ public sealed class WebApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
 {
     public const string Issuer = "https://localhost/test-tickets";
     public const string Audience = "tickets-api";
+    public const string DeviceAudience = "tickets-device";
     public const string SigningKey = "test-signing-key-must-be-at-least-32-bytes-long-xx";
-    public const string WebhookSecret = "test-webhook-secret-xx";
+
+    /// <summary>
+    /// Stand-in Azure SignalR AccessKey used as the HMAC key for webhook
+    /// signature verification (#10 — the signature is over the connection id,
+    /// keyed by the access key).
+    /// </summary>
+    public const string WebhookAccessKey = "test-webhook-access-key-xx";
+
+    /// <summary>Public API endpoint embedded in the pairing QR payload (B4).</summary>
+    public const string PairingApiEndpoint = "https://api.example.test";
 
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
         .WithImage("postgres:16-alpine")
@@ -49,8 +59,13 @@ public sealed class WebApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
             "ConnectionStrings__TicketsDb", _container.GetConnectionString());
         Environment.SetEnvironmentVariable("AppJwt__Issuer", Issuer);
         Environment.SetEnvironmentVariable("AppJwt__Audience", Audience);
+        Environment.SetEnvironmentVariable("AppJwt__DeviceAudience", DeviceAudience);
         Environment.SetEnvironmentVariable("AppJwt__SigningKey", SigningKey);
-        Environment.SetEnvironmentVariable("SignalRWebhook__SigningSecret", WebhookSecret);
+        // Supply the webhook HMAC key explicitly (no real Azure SignalR
+        // connection string in tests). Array element index 0.
+        Environment.SetEnvironmentVariable("SignalRWebhook__AccessKeys__0", WebhookAccessKey);
+        // Public API endpoint embedded in the pairing QR payload (B4).
+        Environment.SetEnvironmentVariable("Pairing__ApiEndpoint", PairingApiEndpoint);
 
         // Run migrations against the ephemeral container before any HTTP test
         // hits the API.
@@ -86,22 +101,65 @@ public sealed class WebApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     public static string IssueToken(StaffId staffId, StaffRole role)
     {
-        var creds = new SigningCredentials(
-            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SigningKey)),
-            SecurityAlgorithms.HmacSha256);
         var now = DateTime.UtcNow;
-        var jwt = new JwtSecurityToken(
-            issuer: Issuer,
+        return Sign(
             audience: Audience,
-            claims: new[]
+            now,
+            new[]
             {
                 new Claim("sub", staffId.Value.ToString()),
                 new Claim("role", role.ToString()),
-            },
+                new Claim("token_use", "staff"),
+            });
+    }
+
+    /// <summary>
+    /// Mints a DEVICE App-JWT (audience <see cref="DeviceAudience"/>,
+    /// <c>token_use=device</c>, no <c>role</c>). This is the token the iPad
+    /// presents as Bearer to <c>/api/signalr/negotiate</c>. Used to assert it is
+    /// rejected on staff endpoints but accepted on negotiate.
+    /// </summary>
+    public static string IssueDeviceAppJwt(DeviceId deviceId)
+    {
+        var now = DateTime.UtcNow;
+        var deviceIdStr = deviceId.Value.ToString();
+        return Sign(
+            audience: DeviceAudience,
+            now,
+            new[]
+            {
+                new Claim("sub", deviceIdStr),
+                new Claim("device_id", deviceIdStr),
+                new Claim("mode", "Feedback"),
+                new Claim("token_use", "device"),
+            });
+    }
+
+    private static string Sign(string audience, DateTime now, Claim[] claims)
+    {
+        var creds = new SigningCredentials(
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SigningKey)),
+            SecurityAlgorithms.HmacSha256);
+        var jwt = new JwtSecurityToken(
+            issuer: Issuer,
+            audience: audience,
+            claims: claims,
             notBefore: now,
             expires: now.AddHours(1),
             signingCredentials: creds);
         return new JwtSecurityTokenHandler().WriteToken(jwt);
+    }
+
+    /// <summary>
+    /// A client whose Bearer token is a DEVICE App-JWT for the given device.
+    /// </summary>
+    public HttpClient CreateDeviceJwtClient(DeviceId deviceId)
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer", IssueDeviceAppJwt(deviceId));
+        return client;
     }
 
     /// <summary>

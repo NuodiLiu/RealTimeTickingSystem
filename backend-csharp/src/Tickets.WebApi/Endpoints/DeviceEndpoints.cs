@@ -16,6 +16,19 @@ public static class DeviceEndpoints
         var group = app.MapGroup("/device").WithTags("Device");
 
         // ───── Device-authenticated ─────────────────────────────────────
+
+        // POST /device/token — the iPad exchanges its `Device id:secret` API key
+        // for the DEVICE App-JWT it then presents as Bearer to
+        // /api/signalr/negotiate. Returns { appJwt, expiresAt } (iOS
+        // DeviceJWTResponse). The minted token has the device audience +
+        // token_use=device, so it can negotiate SignalR but is rejected by the
+        // staff JwtBearer validation on staff endpoints.
+        group.MapPost("/token", async (
+            IssueDeviceTokenHandler handler,
+            CancellationToken ct) =>
+                (await handler.HandleAsync(new IssueDeviceTokenCommand(), ct)).ToHttpResult())
+            .RequireAuthorization(DeviceAuthPolicy);
+
         group.MapPost("/heartbeat", async (
             RecordHeartbeatHandler handler,
             CancellationToken ct) =>

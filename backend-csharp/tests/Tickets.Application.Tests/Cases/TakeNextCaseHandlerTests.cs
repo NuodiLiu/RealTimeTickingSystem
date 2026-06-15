@@ -61,7 +61,7 @@ public sealed class TakeNextCaseHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.StaffId.Should().Be(staff.Value);
-        result.Value.Status.Should().Be("InProgress");
+        result.Value.Status.Should().Be(CaseStatus.InProgress);
         await _notify.Received(1).NotifyDashboardAsync(
             "case:updated", Arg.Any<object>(), Arg.Any<CancellationToken>());
     }

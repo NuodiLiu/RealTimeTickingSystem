@@ -20,7 +20,7 @@ public sealed class PairEndpointTests(WebApiFactory factory)
     }
 
     [Fact]
-    public async Task GenerateQr_Staff_Returns200WithToken()
+    public async Task GenerateQr_Staff_Returns200WithQrUrl()
     {
         var client = factory.CreateAuthenticatedClient();
 
@@ -29,10 +29,22 @@ public sealed class PairEndpointTests(WebApiFactory factory)
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();
-        // CompletePairingDto matches PairingTicketDto here: { pairingToken, expireAt }
-        json.GetProperty("pairingToken").GetString().Should().NotBeNullOrEmpty();
-        json.GetProperty("expireAt").GetDateTimeOffset().Should()
+        // B4 contract: { qrUrl, pairingToken, sessionId, expiresAt }.
+        var pairingToken = json.GetProperty("pairingToken").GetString();
+        pairingToken.Should().NotBeNullOrEmpty();
+        json.GetProperty("sessionId").GetString().Should().NotBeNullOrEmpty();
+        json.GetProperty("expiresAt").GetDateTimeOffset().Should()
             .BeAfter(DateTimeOffset.UtcNow);
+
+        // qrUrl must be the scannable string the iPad parses + the frontend
+        // renders verbatim: {base}/pair?data={urlencoded {pairingToken, apiEndpoint}}.
+        var qrUrl = json.GetProperty("qrUrl").GetString()!;
+        qrUrl.Should().Contain("/pair?data=");
+        var dataParam = System.Web.HttpUtility.ParseQueryString(new Uri(qrUrl).Query)["data"]!;
+        using var dataDoc = JsonDocument.Parse(dataParam);
+        dataDoc.RootElement.GetProperty("pairingToken").GetString().Should().Be(pairingToken);
+        dataDoc.RootElement.GetProperty("apiEndpoint").GetString()
+            .Should().Be(WebApiFactory.PairingApiEndpoint);
     }
 
     [Fact]
@@ -56,8 +68,14 @@ public sealed class PairEndpointTests(WebApiFactory factory)
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         var resultJson = await response.Content.ReadFromJsonAsync<JsonElement>();
-        resultJson.GetProperty("deviceId").GetGuid().Should().NotBeEmpty();
-        resultJson.GetProperty("apiKey").GetString().Should().Contain(":");
+        var deviceId = resultJson.GetProperty("deviceId").GetGuid();
+        deviceId.Should().NotBeEmpty();
+        // B3: iPad PairCompleteResponse needs deviceSecret + mode (UPPER) + apiKey.
+        var deviceSecret = resultJson.GetProperty("deviceSecret").GetString()!;
+        deviceSecret.Should().NotBeNullOrEmpty();
+        resultJson.GetProperty("apiKey").GetString().Should().Be($"{deviceId}:{deviceSecret}");
+        resultJson.GetProperty("mode").GetString().Should().Be("FEEDBACK");
+        resultJson.GetProperty("deviceName").GetString().Should().NotBeNullOrEmpty();
         resultJson.GetProperty("wsToken").GetString().Should().NotBeNullOrEmpty();
     }
 

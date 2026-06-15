@@ -142,11 +142,13 @@ public sealed class AuthAzureAdEndpointTests(WebApiFactory factory)
         fake.LastCode.Should().Be("any-code");
         fake.LastCodeVerifier.Should().NotBeNullOrEmpty();
 
-        // Redirects back to the configured frontend with the access token.
+        // Redirects back to the configured frontend /auth/callback with the App-JWT.
+        // B7 contract: the frontend callback reads ?token= (query), not #access_token.
         response.StatusCode.Should().Be(HttpStatusCode.Redirect);
         var location = response.Headers.Location!.ToString();
-        location.Should().StartWith(FrontendUrl);
-        location.Should().Contain("access_token=");
+        location.Should().StartWith($"{FrontendUrl}/auth/callback");
+        location.Should().Contain("?token=");
+        location.Should().NotContain("#access_token");
 
         // Sets the App-JWT refresh cookie exactly like DevAuthEndpoints.
         var refreshCookie = ExtractCookie(response, AuthEndpoints.RefreshCookieName);

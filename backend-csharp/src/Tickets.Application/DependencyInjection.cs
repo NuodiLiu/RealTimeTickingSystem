@@ -59,6 +59,7 @@ public static class DependencyInjection
         services.AddScoped<CheckPairingStatusHandler>();
         services.AddScoped<UpdateDeviceNameHandler>();
         services.AddScoped<UnpairDeviceHandler>();
+        services.AddScoped<IssueDeviceTokenHandler>();
         // Feedback
         services.AddScoped<SubmitFeedbackHandler>();
         services.AddScoped<SendFeedbackHandler>();

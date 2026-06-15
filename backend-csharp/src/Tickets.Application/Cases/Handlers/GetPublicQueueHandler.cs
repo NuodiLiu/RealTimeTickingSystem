@@ -36,7 +36,7 @@ public sealed class GetPublicQueueHandler(ICaseRepository repository)
                 StudentName: c.StudentName.Value,
                 Position: i + 1,
                 CreatedAt: c.CreatedAt,
-                Status: c.Status.ToString()));
+                Status: c.Status));
         }
 
         return Result<IReadOnlyList<PublicQueueEntryDto>>.Success(dtos);

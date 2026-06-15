@@ -1,7 +1,10 @@
 using Tickets.Application.Abstractions;
 using Tickets.Application.Cases.Commands;
+using Tickets.Application.Cases.Dtos;
 using Tickets.Application.Cases.Handlers;
 using Tickets.Application.Cases.Queries;
+using Tickets.Application.Common;
+using Tickets.Application.Common.Json;
 using Tickets.Domain.Cases;
 using Tickets.WebApi.Common;
 using Tickets.WebApi.Identity;
@@ -57,24 +60,35 @@ public static class CasesEndpoints
                     ct)).ToHttpResult())
             .RequireAuthorization();
 
+        // take-next / take wrap the case in { case, message } so the dashboard
+        // (useQueue.ts) can read result.case + result.message and refresh.
         group.MapPost("/take-next", async (
             TakeNextCaseHandler handler,
             CancellationToken ct) =>
-                (await handler.HandleAsync(new TakeNextCaseCommand(), ct)).ToHttpResult())
+                (await handler.HandleAsync(new TakeNextCaseCommand(), ct))
+                    .Map(c => new TakeCaseResponseDto(
+                        c,
+                        c is null ? "No cases in the queue." : "Case taken successfully."))
+                    .ToHttpResult())
             .RequireAuthorization();
 
         group.MapPost("/{id:guid}/take", async (
             Guid id,
             TakeCaseHandler handler,
             CancellationToken ct) =>
-                (await handler.HandleAsync(new TakeCaseCommand(id), ct)).ToHttpResult())
+                (await handler.HandleAsync(new TakeCaseCommand(id), ct))
+                    .Map(c => new TakeCaseResponseDto(c, "Case taken successfully."))
+                    .ToHttpResult())
             .RequireAuthorization();
 
+        // resolve / escalate wrap the case in { case } (frontend ResolveCaseRes).
         group.MapPost("/{id:guid}/resolve", async (
             Guid id,
             ResolveCaseHandler handler,
             CancellationToken ct) =>
-                (await handler.HandleAsync(new ResolveCaseCommand(id), ct)).ToHttpResult())
+                (await handler.HandleAsync(new ResolveCaseCommand(id), ct))
+                    .Map(c => new CaseEnvelopeDto(c!))
+                    .ToHttpResult())
             .RequireAuthorization();
 
         group.MapPost("/{id:guid}/escalate", async (
@@ -82,8 +96,9 @@ public static class CasesEndpoints
             EscalateCaseHandler handler,
             EscalateCaseCommand body,
             CancellationToken ct) =>
-                (await handler.HandleAsync(
-                    body with { CaseId = id }, ct)).ToHttpResult())
+                (await handler.HandleAsync(body with { CaseId = id }, ct))
+                    .Map(c => new CaseEnvelopeDto(c!))
+                    .ToHttpResult())
             .RequireAuthorization();
 
         return app;
@@ -96,8 +111,21 @@ public static class CasesEndpoints
             return CaseStatus.Queued;
         }
 
-        // Legacy lowercase / snake_case → enum.
-        var normalized = raw.Trim().Replace("_", string.Empty, StringComparison.Ordinal);
+        var trimmed = raw.Trim();
+
+        // The dashboard sends the legacy UPPER_SNAKE wire value lowercased
+        // (CasesAPI.list → status.toLowerCase()), e.g.
+        // "resolved_pending_feedback". Match those FIRST — a naive
+        // underscore-stripped Enum.TryParse cannot map RESOLVED_PENDING_FEEDBACK
+        // to PendingFeedback (the "resolved" prefix breaks the name match) and
+        // would silently fall back to QUEUED.
+        if (WireEnum.TryParseCaseStatus(trimmed.ToUpperInvariant(), out var wire))
+        {
+            return wire;
+        }
+
+        // Fallback: PascalCase enum name (e.g. "InProgress").
+        var normalized = trimmed.Replace("_", string.Empty, StringComparison.Ordinal);
         if (Enum.TryParse<CaseStatus>(normalized, ignoreCase: true, out var parsed))
         {
             return parsed;

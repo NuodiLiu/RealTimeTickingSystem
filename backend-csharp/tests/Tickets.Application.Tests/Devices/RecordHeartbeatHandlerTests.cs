@@ -52,7 +52,12 @@ public sealed class RecordHeartbeatHandlerTests
             .HandleAsync(new RecordHeartbeatCommand(), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.IsConnected.Should().BeTrue();
+        // The HTTP response is the iPad heartbeat DTO: an idle device with no
+        // active lock reports status "IDLE" and success=true. The connection
+        // flip is a domain concern covered by KioskDevice tests.
+        result.Value!.Success.Should().BeTrue();
+        result.Value.Status.Should().Be("IDLE");
+        device.IsConnected.Should().BeTrue();
         await _uow.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
 

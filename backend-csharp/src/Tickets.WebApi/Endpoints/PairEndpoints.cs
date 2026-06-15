@@ -13,10 +13,14 @@ public static class PairEndpoints
         var group = app.MapGroup("/pair").WithTags("Pair");
 
         // Staff: POST /pair/generate-qr
+        // The frontend QRGeneratorModal POSTs { mode } (optionally deviceLabel);
+        // the body is optional so a bare POST still works.
         group.MapPost("/generate-qr", async (
+            GenerateQrRequest? body,
             GenerateQrHandler handler,
             CancellationToken ct) =>
-                (await handler.HandleAsync(new GenerateQrCommand(), ct)).ToHttpResult())
+                (await handler.HandleAsync(
+                    new GenerateQrCommand(body?.Mode, body?.DeviceLabel), ct)).ToHttpResult())
             .RequireAuthorization();
 
         // Anonymous: POST /pair/complete
@@ -30,4 +34,7 @@ public static class PairEndpoints
 
         return app;
     }
+
+    /// <summary>Optional body for <c>POST /pair/generate-qr</c> (frontend sends { mode }).</summary>
+    public sealed record GenerateQrRequest(string? Mode, string? DeviceLabel);
 }

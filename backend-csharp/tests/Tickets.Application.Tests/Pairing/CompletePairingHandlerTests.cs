@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Tickets.Application.Abstractions;
 using Tickets.Application.Pairing.Abstractions;
 using Tickets.Application.Pairing.Commands;
@@ -23,6 +24,7 @@ public sealed class CompletePairingHandlerTests
     private CompletePairingHandler Handler() => new(
         _store, _devices, _secrets, _tokens, _uow, _clock, _notify,
         new CompletePairingCommandValidator(),
+        Options.Create(new PairingQrOptions { ApiEndpoint = "https://api.example.test" }),
         NullLogger<CompletePairingHandler>.Instance);
 
     private void StubSecret()
@@ -86,8 +88,11 @@ public sealed class CompletePairingHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value!.DeviceName.Should().Be("Kiosk-New");
-        result.Value.Mode.Should().Be("Registration");
+        result.Value.Mode.Should().Be(DeviceMode.Registration);
+        // B3: plaintext deviceSecret is returned (iPad PairCompleteResponse needs it).
+        result.Value.DeviceSecret.Should().Be("plain-secret");
         result.Value.ApiKey.Should().EndWith(":plain-secret");
+        result.Value.ApiKey.Should().Be($"{result.Value.DeviceId}:plain-secret");
         result.Value.WsToken.Should().Be("ws-jwt");
         await _devices.Received(1).AddAsync(Arg.Any<KioskDevice>(), Arg.Any<CancellationToken>());
         await _uow.Received(1).CommitAsync(Arg.Any<CancellationToken>());

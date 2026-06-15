@@ -99,6 +99,9 @@ public static class DependencyInjection
         // TicketsDbContext.
         services.AddSingleton<IPairingTokenGenerator, CryptoPairingTokenGenerator>();
         services.AddScoped<IPairingTokenStore, PostgresPairingTokenStore>();
+        // QR payload config (apiEndpoint embedded in the scanned URL — B4).
+        services.AddOptions<PairingQrOptions>()
+            .Bind(configuration.GetSection(PairingQrOptions.SectionName));
         services.AddSingleton<IDeviceSecretGenerator, CryptoDeviceSecretGenerator>();
         // Phase 5: real signed HS256 device WebSocket tokens (was
         // PlaceholderDeviceTokenIssuer). Binds AppJwtOptions below, so register

@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Tickets.Application.Auth.Abstractions;
+using Tickets.Domain.Devices;
 using Tickets.Domain.Shared.Time;
 using Tickets.Domain.Staff;
 using Tickets.Infrastructure.Identity;
@@ -29,16 +30,21 @@ public sealed class AppJwtIssuerTests
         public DateTimeOffset UtcNow { get; } = at;
     }
 
+    private const string DeviceAudience = "tickets-device";
+
     private static AppJwtIssuer CreateIssuer(
         string signingKey = SigningKey,
-        TimeSpan? tokenTtl = null)
+        TimeSpan? tokenTtl = null,
+        TimeSpan? deviceTokenTtl = null)
     {
         var opts = Options.Create(new AppJwtOptions
         {
             Issuer = Issuer,
             Audience = Audience,
+            DeviceAudience = DeviceAudience,
             SigningKey = signingKey,
             TokenTtl = tokenTtl ?? TimeSpan.FromHours(2),
+            DeviceTokenTtl = deviceTokenTtl ?? TimeSpan.FromHours(12),
         });
         return new AppJwtIssuer(opts, new FixedClock(Now));
     }
@@ -54,8 +60,52 @@ public sealed class AppJwtIssuerTests
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
         jwt.Claims.Should().Contain(c => c.Type == "sub" && c.Value == staffId.Value.ToString());
         jwt.Claims.Should().Contain(c => c.Type == "role" && c.Value == StaffRole.Admin.ToString());
+        jwt.Claims.Should().Contain(c => c.Type == AppJwtClaims.TokenUse && c.Value == AppJwtClaims.StaffTokenUse);
         jwt.Issuer.Should().Be(Issuer);
         jwt.Audiences.Should().Contain(Audience);
+    }
+
+    [Fact]
+    public void IssueDeviceToken_UsesDeviceAudience_TokenUseDevice_AndNoRole()
+    {
+        var issuer = CreateIssuer();
+        var deviceId = DeviceId.New();
+
+        var result = issuer.IssueDeviceToken(deviceId, DeviceMode.Feedback);
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
+        // Distinct DEVICE audience — staff JwtBearer (which pins the staff
+        // audience) will reject this token.
+        jwt.Audiences.Should().Contain(DeviceAudience);
+        jwt.Audiences.Should().NotContain(Audience);
+        jwt.Claims.Should().Contain(c => c.Type == AppJwtClaims.TokenUse && c.Value == AppJwtClaims.DeviceTokenUse);
+        jwt.Claims.Should().Contain(c => c.Type == AppJwtClaims.DeviceId && c.Value == deviceId.Value.ToString());
+        jwt.Claims.Should().Contain(c => c.Type == AppJwtClaims.Mode && c.Value == DeviceMode.Feedback.ToString());
+        jwt.Claims.Should().Contain(c => c.Type == "sub" && c.Value == deviceId.Value.ToString());
+        // No role claim — even if the audience matched, RequireRole would reject.
+        jwt.Claims.Should().NotContain(c => c.Type == "role");
+        jwt.Issuer.Should().Be(Issuer);
+    }
+
+    [Fact]
+    public void IssueDeviceToken_SetsExpireAtToNowPlusDeviceTokenTtl()
+    {
+        var ttl = TimeSpan.FromHours(6);
+        var issuer = CreateIssuer(deviceTokenTtl: ttl);
+
+        var result = issuer.IssueDeviceToken(DeviceId.New(), DeviceMode.Registration);
+
+        result.ExpireAt.Should().Be(Now + ttl);
+    }
+
+    [Fact]
+    public void IssueDeviceToken_EmptySigningKey_Throws()
+    {
+        var issuer = CreateIssuer(signingKey: string.Empty);
+
+        var act = () => issuer.IssueDeviceToken(DeviceId.New(), DeviceMode.Feedback);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*SigningKey*");
     }
 
     [Fact]

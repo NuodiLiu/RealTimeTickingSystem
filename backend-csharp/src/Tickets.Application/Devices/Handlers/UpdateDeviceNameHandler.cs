@@ -18,7 +18,7 @@ public sealed class UpdateDeviceNameHandler(
     ICurrentUser currentUser,
     ILogger<UpdateDeviceNameHandler> logger)
 {
-    public async Task<Result<DeviceDto>> HandleAsync(
+    public async Task<Result<UpdateDeviceNameResponseDto>> HandleAsync(
         UpdateDeviceNameCommand command,
         CancellationToken cancellationToken)
     {
@@ -26,20 +26,20 @@ public sealed class UpdateDeviceNameHandler(
 
         if (currentUser.StaffId is null)
         {
-            return Result<DeviceDto>.Failure(
+            return Result<UpdateDeviceNameResponseDto>.Failure(
                 AppError.Unauthorized("not_authenticated", "Staff authentication required."));
         }
 
         if (string.IsNullOrWhiteSpace(command.Name))
         {
-            return Result<DeviceDto>.Failure(AppError.Validation("name is required."));
+            return Result<UpdateDeviceNameResponseDto>.Failure(AppError.Validation("name is required."));
         }
 
         var deviceId = new DeviceId(command.DeviceId);
         var device = await repository.FindByIdAsync(deviceId, cancellationToken).ConfigureAwait(false);
         if (device is null)
         {
-            return Result<DeviceDto>.Failure(
+            return Result<UpdateDeviceNameResponseDto>.Failure(
                 AppError.NotFound("device_not_found", $"Device {deviceId} not found."));
         }
 
@@ -51,11 +51,11 @@ public sealed class UpdateDeviceNameHandler(
         }
         catch (DomainError ex)
         {
-            return Result<DeviceDto>.Failure(DomainErrorMapper.ToAppError(ex));
+            return Result<UpdateDeviceNameResponseDto>.Failure(DomainErrorMapper.ToAppError(ex));
         }
         catch (ArgumentException ex)
         {
-            return Result<DeviceDto>.Failure(AppError.Validation(ex.Message));
+            return Result<UpdateDeviceNameResponseDto>.Failure(AppError.Validation(ex.Message));
         }
 
         await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -72,6 +72,6 @@ public sealed class UpdateDeviceNameHandler(
             logger.LogWarning(ex, "device:renamed push failed for {DeviceId}", device.Id);
         }
 
-        return Result<DeviceDto>.Success(DeviceDto.From(device));
+        return Result<UpdateDeviceNameResponseDto>.Success(UpdateDeviceNameResponseDto.From(device));
     }
 }
