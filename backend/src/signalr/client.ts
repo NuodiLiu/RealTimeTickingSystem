@@ -55,14 +55,6 @@ export class SignalRClient {
     return this.sendToDevice(deviceId, { type: "DISMISS" });
   }
 
-  public async pingDevice(deviceId: string, payload?: { now: string }): Promise<boolean> {
-    const message: ServerToDevice = { type: "PING" };
-    if (payload) {
-      message.payload = payload;
-    }
-    return this.sendToDevice(deviceId, message);
-  }
-
   public async lockAssigned(deviceId: string, payload: any): Promise<boolean> {
     return this.sendToDevice(deviceId, { type: "LOCK_ASSIGNED", payload });
   }
@@ -108,13 +100,23 @@ export class SignalRClient {
     });
   }
 
-  // Connection management (simplified for serverless)
+  // Connection management - check database for connection status
   public async isDeviceConnected(deviceId: string): Promise<boolean> {
     try {
-      // In serverless mode, we can't easily check connection status
-      // This would need to be implemented using a separate tracking mechanism
-      console.log(`Checking if device ${deviceId} is connected`);
-      return false; // Default to false for serverless mode
+      const { prisma } = await import('../lib/prisma');
+      const device = await prisma.kioskDevice.findUnique({
+        where: { id: deviceId },
+        select: { isConnected: true, deletedAt: true }
+      });
+      
+      // Device is connected if it exists, not deleted, and isConnected is true
+      const connected = !!(device && !device.deletedAt && device.isConnected);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Device ${deviceId.slice(0, 8)} connection status: ${connected ? 'CONNECTED' : 'DISCONNECTED'}`);
+      }
+      
+      return connected;
     } catch (error) {
       console.error(`Failed to check device status for ${deviceId}:`, error);
       return false;
@@ -136,16 +138,6 @@ export class SignalRClient {
 
   public async unpairDevice(deviceId: string): Promise<boolean> {
     return this.unpaired(deviceId);
-  }
-
-  public async pingAllDevices(): Promise<void> {
-    try {
-      // In serverless mode with userId-based messaging, we need device IDs to ping individually
-      // TODO: Implement device list retrieval from database to get active device IDs
-      console.log('Ping all devices requested - requires individual device IDs in serverless mode');
-    } catch (error) {
-      console.error('Failed to ping all devices:', error);
-    }
   }
 
   // Group management (simplified for serverless userId mode)

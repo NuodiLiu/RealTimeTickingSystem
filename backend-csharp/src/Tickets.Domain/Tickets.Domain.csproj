@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <!--
+      Domain has ZERO external dependencies.
+      AGENTS.md §3 / §7 rule #1:
+        "Tickets.Domain.csproj 的 <ItemGroup> 不能有任何 PackageReference / ProjectReference (除了 BCL)"
+      Do NOT add anything here without rewriting AGENTS.md first.
+    -->
+  </PropertyGroup>
+
+</Project>

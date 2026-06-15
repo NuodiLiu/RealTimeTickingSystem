@@ -61,9 +61,9 @@ export class SignalRService {
 
   private async negotiateConnection(userId?: string, userType: 'dashboard' | 'device' = 'dashboard'): Promise<{ url: string; accessToken: string }> {
     // Get connection URL and token from Azure Functions negotiate endpoint
-    const negotiateUrl = process.env.NEXT_PUBLIC_API_URL 
-      ? `${process.env.NEXT_PUBLIC_API_URL}/api/negotiate`
-      : '/api/negotiate';
+    const negotiateUrl = process.env.NEXT_PUBLIC_API_BASE_URL 
+      ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/signalr/negotiate`
+      : 'http://localhost:8080/api/signalr/negotiate';
     
     console.log('🌐 [SignalR Negotiate] Base URL:', negotiateUrl);
     
@@ -423,7 +423,7 @@ let dashboardSignalR: SignalRService | null = null;
 export function getDashboardSignalR(): SignalRService {
   if (!dashboardSignalR) {
     // Use Azure Functions API URL for SignalR negotiation
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7071';
+    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
     const appJwt = localStorage.getItem('appJwt');
     
     console.log('🔧 [SignalR Init] API URL:', apiUrl);

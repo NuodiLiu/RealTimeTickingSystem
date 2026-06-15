@@ -36,10 +36,10 @@ struct RootView: View {
             }
             
             // 只有在配对状态下添加重置手势覆盖层
-            if vm.isPaired {
-                Color.clear
-                     .devResetGesture() // 添加统一的开发者重置手势 - DISABLED
-            }
+//            if vm.isPaired {
+//                Color.clear
+//                     .devResetGesture() // 添加统一的开发者重置手势 - DISABLED
+//            }
         }// 禁用拖动手势
         .allowsHitTesting(true)
     }

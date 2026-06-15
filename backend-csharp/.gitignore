@@ -1,0 +1,37 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+*.cache
+*.swp
+.vs/
+.vscode/
+.idea/
+
+# Build outputs
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+publish/
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+*.lcov
+
+# Logs
+*.log
+logs/
+
+# Local user files
+*.local.json
+launchSettings.local.json
+appsettings.Development.local.json
+
+# OS
+.DS_Store
+Thumbs.db

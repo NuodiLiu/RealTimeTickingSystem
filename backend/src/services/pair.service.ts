@@ -35,7 +35,7 @@ export class PairService {
       });
     }
 
-    const apiBase = process.env.API_BASE_URL || 'http://localhost:3000';
+    const apiBase = process.env.BASE_URL || 'http://localhost:3000';
     const qrData = { pairingToken, apiEndpoint: apiBase };
     const qrUrl = `${apiBase}/pair?data=${encodeURIComponent(JSON.stringify(qrData))}`;
 
@@ -59,8 +59,14 @@ export class PairService {
       where: { pairingToken },
     });
 
-    // In development, allow test-token-123 to be reused
-    const isTestToken = process.env.NODE_ENV === 'development' && pairingToken === 'test-token-123';
+    // Allow the dev shortcut token in development, and in non-prod environments
+    // that opted into TEST_AUTH_ENABLED. The same dual-guard as the test-only
+    // endpoints in auth.router.ts; production is unaffected because it cannot
+    // satisfy either branch.
+    const isTestToken = pairingToken === 'test-token-123' && (
+      process.env.NODE_ENV === 'development' ||
+      (process.env.NODE_ENV !== 'production' && process.env.TEST_AUTH_ENABLED === 'true')
+    );
     
     // Auto-create test token in development if it doesn't exist
     if (!session && isTestToken) {

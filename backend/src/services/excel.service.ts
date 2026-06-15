@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma";
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { BadRequestError, NotFoundError } from "../error";
 
 export interface CaseExportData {
@@ -189,9 +189,23 @@ export class ExcelService {
     });
   }
 
+  // append a sheet whose columns are derived from the keys of the first row object
+  private static appendSheetFromObjects(
+    workbook: ExcelJS.Workbook,
+    name: string,
+    rows: Record<string, any>[]
+  ): void {
+    const sheet = workbook.addWorksheet(name);
+    if (rows.length === 0) return;
+
+    const firstRow = rows[0]!;
+    sheet.columns = Object.keys(firstRow).map(key => ({ header: key, key }));
+    sheet.addRows(rows);
+  }
+
   // generate Excel workbook
-  static async generateExcelWorkbook(data: CaseExportData[]): Promise<XLSX.WorkBook> {
-    const workbook = XLSX.utils.book_new();
+  static async generateExcelWorkbook(data: CaseExportData[]): Promise<ExcelJS.Workbook> {
+    const workbook = new ExcelJS.Workbook();
 
     // main data sheet contains all details
     const mainSheetData = data.map(row => ({
@@ -219,40 +233,15 @@ export class ExcelService {
       'Has Feedback': row.hasFeedback ? 'Yes' : 'No',
       'Is Complete': row.isComplete ? 'Yes' : 'No'
     }));
-    
-    const mainSheet = XLSX.utils.json_to_sheet(mainSheetData);
-    XLSX.utils.book_append_sheet(workbook, mainSheet, 'All Cases');
 
-    // summary sheet
-    const summaryData = this.generateSummaryStats(data);
-    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+    this.appendSheetFromObjects(workbook, 'All Cases', mainSheetData);
+    this.appendSheetFromObjects(workbook, 'Summary', this.generateSummaryStats(data));
+    this.appendSheetFromObjects(workbook, 'By Category', this.generateCategoryStats(data));
+    this.appendSheetFromObjects(workbook, 'By Staff', this.generateStaffStats(data));
+    this.appendSheetFromObjects(workbook, 'Time Analysis', this.generateTimeAnalysisStats(data));
+    this.appendSheetFromObjects(workbook, 'Feedback Quality', this.generateFeedbackQualityStats(data));
+    this.appendSheetFromObjects(workbook, 'Date Trends', this.generateDateTrendStats(data));
 
-    // category stats sheet
-    const categoryStats = this.generateCategoryStats(data);
-    const categorySheet = XLSX.utils.json_to_sheet(categoryStats);
-    XLSX.utils.book_append_sheet(workbook, categorySheet, 'By Category');
-
-    // staff stats sheet
-    const staffStats = this.generateStaffStats(data);
-    const staffSheet = XLSX.utils.json_to_sheet(staffStats);
-    XLSX.utils.book_append_sheet(workbook, staffSheet, 'By Staff');
-
-    // time analysis sheet
-    const timeAnalysisStats = this.generateTimeAnalysisStats(data);
-    const timeAnalysisSheet = XLSX.utils.json_to_sheet(timeAnalysisStats);
-    XLSX.utils.book_append_sheet(workbook, timeAnalysisSheet, 'Time Analysis');
-
-    // feedback quality sheet
-    const feedbackQualityStats = this.generateFeedbackQualityStats(data);
-    const feedbackQualitySheet = XLSX.utils.json_to_sheet(feedbackQualityStats);
-    XLSX.utils.book_append_sheet(workbook, feedbackQualitySheet, 'Feedback Quality');
-
-    // date trends sheet
-    const dateStats = this.generateDateTrendStats(data);
-    const dateSheet = XLSX.utils.json_to_sheet(dateStats);
-    XLSX.utils.book_append_sheet(workbook, dateSheet, 'Date Trends');
-    
     return workbook;
   }
 
@@ -533,12 +522,9 @@ export class ExcelService {
   }
 
 
-  static workbookToBuffer(workbook: XLSX.WorkBook): Buffer {
-    return XLSX.write(workbook, { 
-      type: 'buffer', 
-      bookType: 'xlsx',
-      compression: true 
-    });
+  static async workbookToBuffer(workbook: ExcelJS.Workbook): Promise<Buffer> {
+    const arrayBuffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(arrayBuffer as ArrayBuffer);
   }
 
   static generateFileName(prefix: string = 'cases_export'): string {

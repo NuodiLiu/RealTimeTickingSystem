@@ -1,6 +1,7 @@
 // src/server.ts - Simplified server for App Service Container
 import dotenv from "dotenv";
 import { createExpressApp } from "./expressApp";
+import { HeartbeatService } from "./services/heartbeat.service";
 
 dotenv.config();
 
@@ -15,26 +16,20 @@ const port = parseInt(process.env.PORT || '3000', 10);
 // Listen on 0.0.0.0 for container environments (required by Azure App Service)
 const server = app.listen(port, '0.0.0.0', () => {
   console.log(`✅ Server running on 0.0.0.0:${port}`);
+  console.log(`💓 Heartbeat mode: iPad active reporting via HTTP API`);
+  console.log(`📡 Real-time push: SignalR for task assignments`);
 });
 
 // Graceful shutdown
-async function gracefulShutdown(signal: string) {
-  console.log(`${signal} received. Shutting down gracefully...`);
-  
-  server.close(async () => {
-    console.log('Server closed.');
-    
-    // Disconnect Prisma
-    console.log('Disconnecting Prisma...');
-    const { prisma } = await import('./lib/prisma');
-    await prisma.$disconnect();
-    
-    console.log('All connections closed. Exiting...');
+function gracefulShutdown() {
+  console.log('Shutting down...');
+  HeartbeatService.stop();
+  server.close(() => {
     process.exit(0);
   });
 }
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
 
 export default app;

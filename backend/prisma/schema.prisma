@@ -96,6 +96,7 @@ model KioskDevice {
   name             String
   secretHash       String
   mode             DeviceMode        @default(REGISTRATION)
+  isConnected      Boolean           @default(false)
   lastSeenAt       DateTime          @default(now())
   deletedAt        DateTime?
   currentLockId    String?           @unique
@@ -106,6 +107,7 @@ model KioskDevice {
 
   @@index([mode])
   @@index([lastSeenAt])
+  @@index([isConnected])
 }
 
 model KioskLock {

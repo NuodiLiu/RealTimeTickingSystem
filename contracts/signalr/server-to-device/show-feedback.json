@@ -1,0 +1,12 @@
+{
+  "type": "SHOW_FEEDBACK",
+  "payload": {
+    "sessionId": "sess-7f3a2c",
+    "caseId": "case-1029",
+    "staff": {
+      "id": "staff-204",
+      "name": "Alex Chen"
+    },
+    "expireAt": "2030-01-01T09:30:00.000Z"
+  }
+}

@@ -47,7 +47,7 @@ export class ExcelController {
       }
       
       const workbook = await ExcelService.generateExcelWorkbook(data);
-      const buffer = ExcelService.workbookToBuffer(workbook);
+      const buffer = await ExcelService.workbookToBuffer(workbook);
       const fileName = ExcelService.generateFileName('cases_detailed_export');
       
       // response headers

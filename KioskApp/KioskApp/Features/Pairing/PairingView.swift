@@ -81,7 +81,6 @@ struct PairingView: View {
             vm.checkCameraPermissionStatus()
         }
         .showToast(message: $vm.errorMessage, style: .error, duration: 4.0)
-
         .fullScreenCover(isPresented: $vm.isScanning) {
             ZStack {
                 Color.black.ignoresSafeArea()
@@ -110,11 +109,16 @@ struct PairingView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(unswYellow)
                         .foregroundColor(unswDarkBlue)
+                        .accessibilityIdentifier("pairing.simulateScanButton")
                     }
                 }
                 #else
                 QRScannerView { value in
                     Task { await vm.handleScanned(token: value) }
+                }
+                .onDisappear {
+                    // Give the camera time to stop before the view is fully removed
+                    print("Scanner view disappearing")
                 }
                 #endif
                 
@@ -283,6 +287,7 @@ private struct ModeCard: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("pairing.mode.\(mode.rawValue)")
     }
 }
 
@@ -316,7 +321,8 @@ private struct UNSWPairButton: View {
                     .tint(unswDarkBlue)
                     .foregroundColor(.white)
                     .controlSize(.large)
-                    
+                    .accessibilityIdentifier("pairing.settingsButton")
+
                     Text("Camera access is required to scan QR codes")
                         .font(.system(size: 16))
                         .foregroundColor(.secondary)
@@ -347,6 +353,7 @@ private struct UNSWPairButton: View {
                 .foregroundColor(unswDarkBlue)
                 .controlSize(.large)
                 .disabled(isPairing)
+                .accessibilityIdentifier("pairing.scanButton")
             }
         }
     }

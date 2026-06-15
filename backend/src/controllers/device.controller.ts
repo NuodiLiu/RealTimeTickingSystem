@@ -103,7 +103,7 @@ export class DeviceController {
 
   static async changeMode(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { mode } = req.body as { mode?: 'REGISTRATION' | 'FEEDBACK' };
       if (!id) throw new BadRequestError('id required');
       if (!mode) throw new BadRequestError('mode required');
@@ -117,7 +117,7 @@ export class DeviceController {
 
   static async unpairDevice(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       if (!id) throw new BadRequestError('id required');
       
       await DeviceService.unpair(id);
@@ -129,7 +129,7 @@ export class DeviceController {
 
   static async checkPairingStatus(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       if (!id) throw new BadRequestError('Device ID required');
       
       const isPaired = await DeviceService.checkPairingStatus(id);
@@ -141,7 +141,7 @@ export class DeviceController {
 
   static async updateDeviceName(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { name } = req.body as { name?: string };
       
       if (!id) throw new BadRequestError('Device ID required');

@@ -5,10 +5,16 @@ import { DeviceMode, DeviceStatus, DeviceWithStatus, ListFilters } from '../lib/
 import jwt from "jsonwebtoken";
 import { SignalRGateway } from '../signalr';
 import type { Prisma } from "@prisma/client";
+import { ONLINE_GRACE_MS } from './utils/feedback.constants';
 
 
 export class DeviceService {
-  // handle heartbeat, updates lastSeenAt and gets curr status
+  /**
+   * Handle device heartbeat via HTTP API
+   * - Updates lastSeenAt timestamp  
+   * - Updates isConnected status to true
+   * - Returns current device status and lock info
+   */
   static async handleHeartbeat(deviceId: string) {
     const now = new Date();
     const device = await prisma.kioskDevice.findUnique({
@@ -25,9 +31,13 @@ export class DeviceService {
 
     if (!device || device.deletedAt) throw new NotFoundError('Device not found');
 
+    // Update both lastSeenAt and isConnected
     await prisma.kioskDevice.update({
       where: { id: deviceId },
-      data: { lastSeenAt: now },
+      data: { 
+        lastSeenAt: now,
+        isConnected: true  // Mark as connected when heartbeat received
+      },
     });
 
     let status: 'IDLE' | 'BUSY' = 'IDLE';
@@ -102,28 +112,52 @@ export class DeviceService {
     };
   }
 
-  static isDeviceOnline(lastSeenAt: Date, thresholdMinutes = 2): boolean {
-    const thresholdTime = Date.now() - thresholdMinutes * 60 * 1000;
+  static isDeviceOnline(lastSeenAt: Date, thresholdMinutes?: number): boolean {
+    // Use ONLINE_GRACE_MS constant (120s) if no threshold specified
+    const thresholdMs = thresholdMinutes ? thresholdMinutes * 60 * 1000 : ONLINE_GRACE_MS;
+    const thresholdTime = Date.now() - thresholdMs;
     return lastSeenAt.getTime() > thresholdTime;
   }
 
   // services must use SignalR, no connection = offline
-  static async isDeviceOnlineDynamic(deviceId: string, lastSeenAt: Date, thresholdMinutes = 1): Promise<boolean> {
-    // check connection to SignalR
+  static async isDeviceOnlineDynamic(deviceId: string, lastSeenAt: Date, thresholdMinutes?: number): Promise<boolean> {
+    // Hybrid status checking: both isConnected flag AND recent activity required
     const signalRConnected = await this.isDeviceConnectedViaSignalR(deviceId);
     
-    if (signalRConnected) {
-      console.log(`Device ${deviceId.slice(0, 8)} is ONLINE - SignalR connected`);
-      return true;
+    if (!signalRConnected) {
+      const minutesAgo = Math.floor((Date.now() - lastSeenAt.getTime()) / (1000 * 60));
+      console.log(`Device ${deviceId.slice(0, 8)} is OFFLINE - No SignalR connection (last seen ${minutesAgo}min ago)`);
+      return false;
     }
     
-    // no SignalR connection
-    const minutesAgo = Math.floor((Date.now() - lastSeenAt.getTime()) / (1000 * 60));
-    console.log(`Device ${deviceId.slice(0, 8)} is OFFLINE - No SignalR connection (last seen ${minutesAgo}min ago)`);
-    return false;
+    // Determine timeout threshold based on device state
+    // If not specified, check if device is busy (has active lock) to decide threshold
+    let effectiveThreshold = thresholdMinutes;
+    
+    if (!effectiveThreshold) {
+      const device = await prisma.kioskDevice.findUnique({
+        where: { id: deviceId },
+        select: { currentLockId: true }
+      });
+      
+      // BUSY devices get 5-minute grace period (during feedback collection)
+      // IDLE devices get 2-minute timeout
+      effectiveThreshold = device?.currentLockId ? 5 : 2;
+    }
+    
+    // Even if isConnected=true, verify lastSeenAt is recent (protect against webhook failures)
+    const minutesSinceLastSeen = Math.floor((Date.now() - lastSeenAt.getTime()) / (1000 * 60));
+    
+    if (minutesSinceLastSeen > effectiveThreshold) {
+      console.log(`Device ${deviceId.slice(0, 8)} is OFFLINE - Stale connection (last seen ${minutesSinceLastSeen}min ago, threshold ${effectiveThreshold}min)`);
+      return false;
+    }
+    
+    console.log(`Device ${deviceId.slice(0, 8)} is ONLINE - SignalR connected and active (last seen ${minutesSinceLastSeen}min ago, threshold ${effectiveThreshold}min)`);
+    return true;
   }
 
-  // check if device has any active SignalR connections
+  // check if device has any active SignalR connections (via database isConnected field)
   static async isDeviceConnectedViaSignalR(deviceId: string): Promise<boolean> {
     try {
       const isConnected = await SignalRGateway.isDeviceOnline(deviceId);
@@ -136,13 +170,13 @@ export class DeviceService {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.log(`SignalR check failed for device ${deviceId.slice(0, 8)}: ${errorMsg}`);
-      return false; // SignalR服务未初始化 = 设备离线
+      return false;
     }
   }
 
   // list all devices with their current status
   static async listDevices(filters: ListFilters = {}): Promise<DeviceWithStatus[]> {
-    const { mode, status, thresholdMinutes = 2 } = filters;
+    const { mode, status, thresholdMinutes } = filters;
   
     // DB-side filter for mode
     const rows = await prisma.kioskDevice.findMany({
@@ -160,7 +194,7 @@ export class DeviceService {
   
     // map to DTO + derive online/busy (simplified for serverless)
     const mapped: DeviceWithStatus[] = rows.map((row:any): DeviceWithStatus => {
-      // For serverless, use simpler online detection based on lastSeenAt
+      // Use ONLINE_GRACE_MS (120s) for consistent online detection unless custom threshold provided
       const isOnline = this.isDeviceOnline(row.lastSeenAt, thresholdMinutes);
       const isBusy = row.currentLock?.status === 'ACTIVE';
       const derivedStatus: DeviceStatus = isOnline ? (isBusy ? 'BUSY' : 'IDLE') : 'OFFLINE';
@@ -300,7 +334,10 @@ export class DeviceService {
 
     const updated = await prisma.kioskDevice.update({
       where: { id: deviceId },
-      data: { mode: newMode },
+      data: { 
+        mode: newMode,
+        lastSeenAt: new Date() // Update lastSeenAt when mode changes
+      },
       select: { id: true, name: true, mode: true, lastSeenAt: true },
     });
 
@@ -359,7 +396,7 @@ export class DeviceService {
       console.error(`❌ [Device Unpair] Failed to notify iPad device ${deviceId}:`, error);
     }
 
-    // 2. Notify all dashboards about the device unpair
+    // Notify all dashboards about the device unpair
     try {
       console.log(`🖥️ [Device Unpair] Broadcasting device:unpaired to all dashboards for device: ${deviceId}`);
       await SignalRGateway.notifyDashboard({

@@ -194,18 +194,21 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 glass-overlay flex items-center justify-center z-50 p-4">
-      <div className="glass-panel w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col rounded-lg shadow-2xl border-2 border-white/40 ring-1 ring-black/10">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col rounded-md bg-white border border-zinc-200 shadow-xl">
         {/* Header */}
-        <div className="px-6 py-4 flex-shrink-0 border-b border-white/10">
+        <div className="px-6 py-4 flex-shrink-0 border-b border-zinc-200">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Export Cases to Excel</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                Export Cases to Excel
+              </h2>
             </div>
             <button
               onClick={onClose}
               disabled={isExporting}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-md hover:bg-white/10"
+              className="text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors p-2 rounded-md disabled:opacity-50"
+              aria-label="Close"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -215,9 +218,9 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
         </div>
 
         {/* Scrollable Content */}
-        <div 
+        <div
           ref={scrollContainerRef}
-          className="flex-1 p-6 overflow-y-auto min-h-0"
+          className="flex-1 p-6 overflow-y-auto min-h-0 bg-white"
         >
           {/* Filters Section */}
           <ExcelFilterSection
@@ -240,15 +243,15 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-white/30 border-t border-white/10 flex-shrink-0 backdrop-blur-sm">
+        <div className="px-6 py-4 bg-white border-t border-zinc-200 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-700">
+            <div className="text-sm text-zinc-600">
               {preview && preview.totalCases > 0 ? (
                 <>
-                  Ready to export {preview.totalCases} cases
+                  Ready to export <b className="text-zinc-900">{preview.totalCases}</b> cases
                   {preview.totalCases > 500 && (
                     <span className="text-amber-600 ml-2">
-                      Large dataset - export may take a few minutes
+                      Large dataset — export may take a few minutes
                     </span>
                   )}
                 </>
@@ -256,23 +259,23 @@ export default function ExcelExportModal({ isOpen, onClose, userRole }: ExcelExp
                 'Select filters to see exportable data'
               )}
             </div>
-            
-            <div className="flex space-x-3">
+
+            <div className="flex gap-3">
               <button
                 onClick={onClose}
                 disabled={isExporting}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white/50 border border-white/30 rounded-md hover:bg-white/70 disabled:opacity-50 transition-colors backdrop-blur-sm"
+                className="px-3 py-2 text-sm rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleExportToExcel}
                 disabled={isExporting || !preview || preview.totalCases === 0 || userRole !== 'ADMIN'}
-                className="px-4 py-2 text-sm font-medium bg-[#ffd600] text-black border border-transparent rounded-md hover:bg-[#003366] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors shadow-sm"
+                className="px-3 py-2 text-sm font-medium rounded-md bg-[#ffd600] text-black hover:bg-[#003366] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors shadow-sm"
               >
                 {isExporting ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></div>
                     <span>Exporting...</span>
                   </>
                 ) : (

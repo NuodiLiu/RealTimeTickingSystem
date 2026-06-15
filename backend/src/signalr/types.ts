@@ -10,13 +10,11 @@ export type FeedbackShowPayload = {
 export type ServerToDevice =
   | { type: "SHOW_FEEDBACK"; payload: FeedbackShowPayload }
   | { type: "DISMISS" }
-  | { type: "PING"; payload?: { now: string } }
   | { type: "LOCK_ASSIGNED"; payload: any } 
   | { type: 'MODE_CHANGED'; payload: { mode: DeviceMode } }
   | { type: 'UNPAIRED' };
 
 export type DeviceToServer =
-  | { type: "PONG"; payload?: { now: string } }
   | { type: "DELIVERED"; payload: { sessionId: string } }  
   | { type: "LEASE"; payload: { deviceId: string } }       
   | { type: "STATUS"; payload?: never }

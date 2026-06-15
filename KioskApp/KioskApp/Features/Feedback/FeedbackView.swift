@@ -119,19 +119,20 @@ struct FeedbackView: View {
                             .buttonStyle(.bordered)
                             .tint(unswDarkBlue)
                             .controlSize(.large)
+                            .accessibilityIdentifier("feedback.closeButton")
                         }
 
                         Button {
                             Task {
                                 await vm.submit()
-                                if vm.submitted { 
+                                if vm.submitted {
                                     textFocused = false
-                                    onDismiss?() 
+                                    onDismiss?()
                                 }
                             }
                         } label: {
                             HStack(spacing: 12) {
-                                if vm.isSubmitting { 
+                                if vm.isSubmitting {
                                     ProgressView()
                                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                         .scaleEffect(0.8)
@@ -151,6 +152,7 @@ struct FeedbackView: View {
                         .foregroundColor(unswDarkBlue)
                         .controlSize(.large)
                         .disabled(!vm.canSubmit)
+                        .accessibilityIdentifier("feedback.submitButton")
                     }
                     .padding(.horizontal, 32)
                     .padding(.vertical, 20)
@@ -198,6 +200,7 @@ private struct UNSWFeedbackHeader: View {
         VStack(spacing: 32) {
             VStack(spacing: 12) {
                 Text("How was your experience?")
+                    .accessibilityIdentifier("feedback.formTitle")
                     .font(.system(size: 36, weight: .heavy, design: .rounded))
                     .foregroundColor(Color(red: 0.0, green: 0.2, blue: 0.4))
             
@@ -364,6 +367,7 @@ private struct UNSWFeedbackSuccessModal: View {
                 
                 VStack(spacing: 20) {
                     Text("Thank You!")
+                        .accessibilityIdentifier("feedback.thankYou")
                         .font(.system(size: 32, weight: .heavy, design: .rounded))
                         .foregroundColor(unswDarkBlue)
                         .multilineTextAlignment(.center)

@@ -1,0 +1,11 @@
+# EF Core migrations are auto-generated. Treat them as machine output —
+# we don't hand-author or refactor them.
+[*.cs]
+# Allow the legacy 'namespace { ... }' form EF emits.
+dotnet_diagnostic.IDE0161.severity = none
+# EF emits 'new[] { ... }' arrays inline; suppressing CA1861 here only.
+dotnet_diagnostic.CA1861.severity = none
+# Defensive: turn off other common analyzers that fire on generated tables.
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1062.severity = none
+generated_code = true

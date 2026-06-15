@@ -20,6 +20,7 @@ struct FeedbackCoverView: View {
                 
                 // Waiting message
                 Text("Waiting for cases to be sent")
+                    .accessibilityIdentifier("feedback.coverTitle")
                     .font(.system(size: 24, weight: .medium))
                     .foregroundColor(Color(red: 0.0, green: 0.2, blue: 0.4))
                     .multilineTextAlignment(.center)
