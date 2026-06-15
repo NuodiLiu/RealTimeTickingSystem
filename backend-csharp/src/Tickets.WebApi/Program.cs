@@ -96,6 +96,15 @@ builder.Services
     .AddOptions<WebhookSignatureOptions>()
     .Bind(builder.Configuration.GetSection(WebhookSignatureOptions.SectionName));
 
+// ───── Microsoft Entra (Azure AD) staff login handshake ───────────────
+// Authorization-code flow only; the session token stays the App-JWT bearer
+// scheme above, so existing tests and the device scheme are unaffected.
+builder.Services
+    .AddOptions<AzureAdOptions>()
+    .Bind(builder.Configuration.GetSection(AzureAdOptions.SectionName));
+builder.Services
+    .AddHttpClient<IEntraCodeExchanger, EntraCodeExchanger>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
@@ -141,6 +150,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
     .AllowAnonymous();
 
 app.MapAuthEndpoints();
+app.MapAuthAzureAdEndpoints();
 app.MapCasesEndpoints();
 app.MapDeviceEndpoints();
 app.MapFeedbackEndpoints();

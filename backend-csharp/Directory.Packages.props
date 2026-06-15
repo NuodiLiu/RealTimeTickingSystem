@@ -20,12 +20,16 @@
     <PackageVersion Include="Serilog.AspNetCore" Version="8.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
-    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.2.0" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
     <PackageVersion Include="Polly" Version="8.4.2" />
     <PackageVersion Include="ClosedXML" Version="0.104.2" />
     <!-- Phase 5: Azure SignalR serverless gateway. Referenced ONLY by
          Tickets.Infrastructure (AGENTS.md §7 #7 forbids it in Domain/Application). -->
     <PackageVersion Include="Microsoft.Azure.SignalR.Management" Version="1.32.0" />
+    <!-- Phase 5: Microsoft Entra (Azure AD) staff login — id_token validation via
+         OpenID Connect metadata/JWKS. Referenced ONLY by Tickets.WebApi
+         (AGENTS.md §7 #7 forbids Microsoft.Identity.* in Domain/Application). -->
+    <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.14.0" />
   </ItemGroup>
 
   <!-- Test packages -->
