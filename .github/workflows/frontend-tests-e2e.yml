@@ -126,11 +126,16 @@ jobs:
 
           # CI runs against the deployed Azure Container Apps env (`test` in
           # serenity.conf). @Dashboard / @Admin authenticate via the backend
-          # /auth/test-login bypass, so they run here. @SSO is excluded by
-          # default: it drives the real Microsoft login page, which cannot
-          # be automated from a CI runner — run it locally if needed.
-          # Override test_tags / environment via workflow_dispatch.
-          TEST_TAGS="${TEST_TAGS:-@Regression and not @SSO}"
+          # /auth/test-login bypass, so they run here. Excluded by default:
+          #   * @SSO     — drives the real Microsoft login page, which cannot
+          #                be automated from a CI runner.
+          #   * @CrossEnd — drives an iPad simulator via a local Appium server
+          #                (port 4723); neither exists on the CI runner, so the
+          #                scenarios error out. Run locally via
+          #                scripts/run-crossend.sh.
+          # Run either locally if needed. Override test_tags / environment via
+          # workflow_dispatch.
+          TEST_TAGS="${TEST_TAGS:-@Regression and not @SSO and not @CrossEnd}"
           ENVIRONMENT="${ENVIRONMENT:-test}"
 
           MAVEN_CMD=(mvn -B $BUILD_TYPE \
