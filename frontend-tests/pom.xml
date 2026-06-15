@@ -91,6 +91,41 @@
             <version>3.23.1</version>
             <scope>test</scope>
         </dependency>
+        <!--
+            Cross-end iOS driver. Used only by scenarios tagged @CrossEnd, which
+            require a local Appium server (port 4723) and a booted iPad simulator
+            with the KioskApp .app installed. Not exercised on CI — see
+            scripts/run-crossend.sh for the local manual workflow.
+
+            Appium 9.3.0 transitively pulls Selenium 4.44, which clashes with
+            Serenity 4.2.8's bundled Selenium 4.26 (different ConnectionException
+            location). Force the Selenium runtime to 4.26 so Serenity and Appium
+            agree.
+        -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-remote-driver</artifactId>
+            <version>4.26.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-api</artifactId>
+            <version>4.26.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-support</artifactId>
+            <version>4.26.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.appium</groupId>
+            <artifactId>java-client</artifactId>
+            <version>9.3.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
     <build>
         <plugins>

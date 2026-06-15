@@ -30,6 +30,7 @@ public struct StarRatingView: View {
                 .scaleEffect(i <= rating ? 1.1 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: rating)
                 .accessibilityLabel("\(i) star\(i > 1 ? "s" : "")")
+                .accessibilityIdentifier("feedback.star.\(i)")
                 .frame(maxWidth: .infinity)
             }
         }

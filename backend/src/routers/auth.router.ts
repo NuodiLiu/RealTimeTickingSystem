@@ -10,6 +10,8 @@ import { refreshStore, REFRESH_COOKIE_OPTIONS, REFRESH_COOKIE_NAME } from '../li
 import { staffService, createStandardIdentityKey } from '../services/staff.service';
 import { handleAuthError, validateAzureAdClaims, AUTH_ERROR_CODES, sendAuthError } from '../lib/auth-errors';
 import { SignalRGateway } from '../signalr';
+import { signDeviceToken } from '../lib/utils/auth';
+import type { DeviceMode } from '../lib/utils/type';
 
 // Secure Azure AD SSO auth router
 // Endpoints:
@@ -492,12 +494,125 @@ router.post('/test-seed-case', async (req, res) => {
   }
 });
 
+/**
+ * Test-only kiosk pairing helper. Bypasses the QR/pairingSession dance to
+ * give an E2E driver the same `{deviceId, apiKey, wsToken, mode}` bundle the
+ * real /pair/complete returns. Use only for tests:
+ *   - studentName/deviceName is forced to start with "E2E_Kiosk_" so the
+ *     companion cleanup endpoint can wipe just suite-created rows.
+ *   - Guarded the same way as test-seed-case.
+ *   - Emits device:paired on SignalR so the staff dashboard reflects the
+ *     fake device live.
+ */
+router.post('/test-pair-device', async (req, res) => {
+  if (testEndpointsDisabled()) {
+    return res.status(404).json({ error: 'not_found' });
+  }
+  try {
+    const requestedMode = String((req.body && req.body.mode) || 'FEEDBACK').toUpperCase();
+    const mode: DeviceMode = requestedMode === 'REGISTRATION' ? 'REGISTRATION' : 'FEEDBACK';
+    const suffix = crypto.randomBytes(4).toString('hex');
+    const deviceName = `E2E_Kiosk_${mode}_${suffix}`;
+
+    const deviceSecret = crypto.randomBytes(32).toString('hex');
+    const secretHash = crypto.createHash('sha256').update(deviceSecret).digest('hex');
+
+    const device = await prisma.kioskDevice.create({
+      data: {
+        name: deviceName,
+        secretHash,
+        mode,
+        lastSeenAt: new Date(),
+        isConnected: true,
+      },
+    });
+    const wsToken = signDeviceToken(device.id, mode);
+
+    SignalRGateway.notifyDashboard({
+      type: 'device:paired',
+      payload: { deviceId: device.id, deviceName: device.name, mode: device.mode },
+    });
+
+    return res.status(201).json({
+      deviceId: device.id,
+      deviceSecret,
+      apiKey: `${device.id}:${deviceSecret}`,
+      wsToken,
+      deviceName: device.name,
+      mode: device.mode,
+    });
+  } catch (error: any) {
+    console.error('test-pair-device error:', error);
+    return res.status(500).json({ error: 'pair_failed', detail: error.message });
+  }
+});
+
+router.delete('/test-pair-devices', async (req, res) => {
+  if (testEndpointsDisabled()) {
+    return res.status(404).json({ error: 'not_found' });
+  }
+  try {
+    const prefix = String(req.query.prefix || 'E2E_Kiosk_');
+    const matchingDevices = await prisma.kioskDevice.findMany({
+      where: { name: { startsWith: prefix } },
+      select: { id: true },
+    });
+    const deviceIds = matchingDevices.map(d => d.id);
+    if (deviceIds.length > 0) {
+      // KioskDevice has a one-to-one currentLock relation; null it before
+      // deleting the lock rows so the orphan check passes.
+      await prisma.kioskDevice.updateMany({
+        where: { id: { in: deviceIds } },
+        data: { currentLockId: null },
+      });
+      // Submitted Feedback rows aren't directly tied to the device, but the
+      // lock + session both are; clear those before device deletion.
+      await prisma.feedbackSession.deleteMany({
+        where: { deviceId: { in: deviceIds } },
+      });
+      await prisma.kioskLock.deleteMany({
+        where: { deviceId: { in: deviceIds } },
+      });
+    }
+    const deleted = await prisma.kioskDevice.deleteMany({
+      where: { name: { startsWith: prefix } },
+    });
+    return res.json({ deleted: deleted.count, prefix });
+  } catch (error: any) {
+    console.error('test-pair-devices delete error:', error);
+    return res.status(500).json({ error: 'cleanup_failed', detail: error.message });
+  }
+});
+
 router.delete('/test-seed-cases', async (req, res) => {
   if (testEndpointsDisabled()) {
     return res.status(404).json({ error: 'not_found' });
   }
   try {
     const prefix = String(req.query.prefix || 'E2E_');
+    const matchingCases = await prisma.studentCase.findMany({
+      where: { studentName: { startsWith: prefix } },
+      select: { id: true },
+    });
+    const caseIds = matchingCases.map(c => c.id);
+    if (caseIds.length > 0) {
+      // Locks, feedback sessions, and submitted Feedback rows all reference
+      // the case via FK; clear them before deleting the cases themselves.
+      await prisma.kioskDevice.updateMany({
+        where: { currentLockId: { in: (await prisma.kioskLock.findMany({
+          where: { caseId: { in: caseIds } }, select: { id: true } })).map(l => l.id) } },
+        data: { currentLockId: null },
+      });
+      await prisma.feedback.deleteMany({
+        where: { caseId: { in: caseIds } },
+      });
+      await prisma.feedbackSession.deleteMany({
+        where: { caseId: { in: caseIds } },
+      });
+      await prisma.kioskLock.deleteMany({
+        where: { caseId: { in: caseIds } },
+      });
+    }
     const deleted = await prisma.studentCase.deleteMany({
       where: { studentName: { startsWith: prefix } },
     });

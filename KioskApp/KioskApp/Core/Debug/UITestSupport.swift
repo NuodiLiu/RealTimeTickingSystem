@@ -26,6 +26,11 @@ enum UITestSupport {
     /// - `-uiTestShowFeedback`              seeds a SHOW_FEEDBACK event so the app
     ///                                      launches into the feedback form
     ///                                      (use together with `-uiTestPaired FEEDBACK`)
+    /// - `UITEST_REAL_CREDS` env var        JSON ({deviceId, apiKey, mode}) of
+    ///                                      backend-issued credentials; overrides
+    ///                                      any fake `-uiTestPaired` creds so the
+    ///                                      kiosk really authenticates with the
+    ///                                      backend (used by the cross-end suite).
     static func applyIfNeeded(env: AppEnvironment) {
         guard isUITesting else { return }
 
@@ -33,9 +38,18 @@ enum UITestSupport {
         try? env.authProvider.clearDevice()
         env.modeStore.clear()
 
-        // `-uiTestPaired <mode>` injects credentials => RootViewModel sees a
-        // non-nil deviceApiKey and treats the device as already paired.
-        if let idx = args.firstIndex(of: "-uiTestPaired"), idx + 1 < args.count {
+        // Real backend creds via env take precedence: the cross-end driver
+        // calls /auth/test-pair-device, then passes the returned JSON here.
+        if let json = ProcessInfo.processInfo.environment["UITEST_REAL_CREDS"],
+           let data = json.data(using: .utf8),
+           let creds = try? JSONDecoder().decode(DeviceCredentials.self, from: data) {
+            try? env.authProvider.storeDevice(credentials: creds)
+            env.modeStore.save(creds.mode)
+            print("🧪 UITestSupport: seeded REAL backend credentials, deviceId=\(creds.deviceId), mode=\(creds.mode.rawValue)")
+        } else if let idx = args.firstIndex(of: "-uiTestPaired"), idx + 1 < args.count {
+            // `-uiTestPaired <mode>` injects fake credentials => RootViewModel
+            // sees a non-nil deviceApiKey and treats the device as paired, but
+            // any network call will fail auth. Used for pure UI-flow checks.
             let mode = DeviceMode(rawValue: args[idx + 1]) ?? .REGISTRATION
             let creds = DeviceCredentials(
                 deviceId: "uitest-device",
@@ -44,7 +58,7 @@ enum UITestSupport {
             )
             try? env.authProvider.storeDevice(credentials: creds)
             env.modeStore.save(mode)
-            print("🧪 UITestSupport: seeded paired credentials, mode=\(mode.rawValue)")
+            print("🧪 UITestSupport: seeded fake paired credentials, mode=\(mode.rawValue)")
         } else {
             print("🧪 UITestSupport: launched unpaired (clean slate)")
         }

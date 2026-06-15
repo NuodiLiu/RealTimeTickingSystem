@@ -157,9 +157,21 @@ final class PairingViewModel: ObservableObject {
                 let mode: DeviceMode
             }
             let ep = Endpoint<EPResp>(path: "/pair/complete", method: .POST, needsDeviceAuth: false)
-            let deviceName = UIDevice.current.name
+            // XCUITest can inject a deterministic device name via launch env so
+            // the cross-end driver can locate + clean up the paired row without
+            // colliding with real iPads. DEBUG-only.
+            var deviceName: String
+            #if DEBUG
+            if let override = ProcessInfo.processInfo.environment["UITEST_DEVICE_NAME"], !override.isEmpty {
+                deviceName = override
+            } else {
+                deviceName = UIDevice.current.name
+            }
+            #else
+            deviceName = UIDevice.current.name
+            #endif
             let body = PairCompleteRequest(
-                pairingToken: token, 
+                pairingToken: token,
                 deviceName: deviceName,
                 mode: selectedMode.rawValue
             )

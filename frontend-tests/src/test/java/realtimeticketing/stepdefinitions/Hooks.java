@@ -25,4 +25,27 @@ public class Hooks {
     public void clearSeededAfter() {
         BackendAPI.clearTestCases();
     }
+
+    /**
+     * @CrossEnd scenarios spin up an iOS simulator session via Appium that
+     * must be released even on failure — otherwise WebDriverAgent stays
+     * attached and the next run can't acquire the device.
+     */
+    @Before("@CrossEnd")
+    public void clearCrossEndBefore() {
+        BackendAPI.clearTestDevices();
+    }
+
+    @After("@CrossEnd")
+    public void clearCrossEndAfter() {
+        try {
+            CrossEndStepDefinitions.KioskContext ctx = CrossEndStepDefinitions.CONTEXT.get();
+            if (ctx.driver != null) {
+                ctx.driver.close();
+            }
+        } finally {
+            CrossEndStepDefinitions.CONTEXT.remove();
+            BackendAPI.clearTestDevices();
+        }
+    }
 }

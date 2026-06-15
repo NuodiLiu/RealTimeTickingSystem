@@ -146,14 +146,19 @@ export default function DeviceCard({
   
   return (
     <div
+      data-testid={`device-card-${device.deviceId}`}
+      data-device-name={device.name || device.deviceLabel || ""}
+      data-device-mode={device.mode}
+      data-device-online={device.isOnline ? "true" : "false"}
       className={`
         flex justify-between p-4 border rounded-md shadow-sm transition-all duration-200 ease-in-out
         ${isSelected ? 'border-[#ffd600] bg-white' : 'border-gray-200 bg-white'}
         ${isSelected ? 'ring-2 ring-[#ffd600]/30' : ''}
       `}
     >
-      <div 
+      <div
         onClick={() => isClickable && onSelect(device.deviceId)}
+        data-testid={`device-card-select-${device.deviceId}`}
         className={`min-w-0 flex-1 ${isClickable ? 'cursor-pointer' : showSelectButton && !canBeSelected ? 'cursor-not-allowed' : ''} ${!device.isOnline ? 'opacity-60' : ''}`}
       >
         <div className="flex items-center justify-between">

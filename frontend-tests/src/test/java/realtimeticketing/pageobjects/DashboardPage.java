@@ -76,6 +76,46 @@ public class DashboardPage {
                 .located(By.xpath("//section[.//h2[normalize-space()='My Active Cases']]//div[contains(@class,'rounded-md')][.//div[contains(normalize-space(.), '" + studentName + "')]]//button[normalize-space()='" + department + "']"));
     }
 
+    /**
+     * Selectors for the iPad Devices section's individual device cards. The
+     * deployed frontend renders the device name in an h3 inside a bordered
+     * rounded-md div; once the data-testid additions ship, prefer those.
+     */
+    public static Target deviceCardByName(String deviceName) {
+        return Target.the("device card for " + deviceName)
+                .located(By.xpath("//section[.//h2[normalize-space()='iPad Devices']]//div[contains(@class,'rounded-md') and contains(@class,'border')][.//h3[contains(normalize-space(.), '" + deviceName + "')]]"));
+    }
+
+    /** The clickable inner div that fires onSelect. */
+    public static Target deviceCardSelectArea(String deviceName) {
+        return Target.the("device card select area for " + deviceName)
+                .located(By.xpath("//section[.//h2[normalize-space()='iPad Devices']]//div[contains(@class,'rounded-md') and contains(@class,'border')][.//h3[contains(normalize-space(.), '" + deviceName + "')]]/div[contains(@class,'min-w-0') and contains(@class,'flex-1')]"));
+    }
+
+    public static Target deviceCardActionsButton(String deviceName) {
+        return Target.the("device card '⋮' actions button for " + deviceName)
+                .located(By.xpath("//section[.//h2[normalize-space()='iPad Devices']]//div[contains(@class,'rounded-md') and contains(@class,'border')][.//h3[contains(normalize-space(.), '" + deviceName + "')]]//button[@title='Device actions']"));
+    }
+
+    public static final Target DEVICE_ACTION_UNPAIR = Target.the("Unpair Device menu item")
+            .located(By.xpath("//button[normalize-space()='Unpair Device']"));
+
+    public static Target deviceActionSwitchTo(String mode) {
+        return Target.the("Switch to " + mode + " menu item")
+                .located(By.xpath("//button[normalize-space()='Switch to " + mode + "']"));
+    }
+
+    /**
+     * "Override Device" confirmation button inside the react-hot-toast that
+     * appears when Staff tries to send Feedback to a device already serving
+     * another case. The toast also has a "Cancel" sibling.
+     */
+    public static final Target OVERRIDE_CONFIRM_BUTTON = Target.the("Override Device confirm button")
+            .located(By.xpath("//button[normalize-space()='Override Device']"));
+
+    public static final Target OVERRIDE_CANCEL_BUTTON = Target.the("Override Device cancel button")
+            .located(By.xpath("//button[normalize-space()='Cancel'][../button[normalize-space()='Override Device']]"));
+
     public static Target activeFeedbackButtonFor(String studentName) {
         return Target.the("Active row FEEDBACK button for " + studentName)
                 .located(By.xpath("//section[.//h2[normalize-space()='My Active Cases']]//div[contains(@class,'rounded-md')][.//div[contains(normalize-space(.), '" + studentName + "')]]//button[normalize-space()='FEEDBACK' or normalize-space()='PENDING' or normalize-space()='PROCESSING...']"));

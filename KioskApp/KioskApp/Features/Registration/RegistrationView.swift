@@ -64,8 +64,9 @@ struct RegistrationView: View {
                                         hasError: vm.shouldShowZIDError,
                                         activeDropdown: $active
                                     )
-                                    .disabled(vm.noZIDChecked) 
-                                    .opacity(vm.noZIDChecked ? 0.5 : 1.0) 
+                                    .accessibilityIdentifier("registration.zidField")
+                                    .disabled(vm.noZIDChecked)
+                                    .opacity(vm.noZIDChecked ? 0.5 : 1.0)
                                     .onSubmit { 
                                         zidFocused = false
                                         nameFocused = true
@@ -108,6 +109,7 @@ struct RegistrationView: View {
                                     isFirstResponder: $nameFocused,
                                     activeDropdown: $active
                                 )
+                                .accessibilityIdentifier("registration.nameField")
                                 .onSubmit { nameFocused = false }
                             }
                         )
@@ -173,6 +175,7 @@ struct RegistrationView: View {
                                 .foregroundColor(vm.privacyPolicyAccepted ? unswDarkBlue : .gray)
                         }
                         .buttonStyle(PlainButtonStyle())
+                        .accessibilityIdentifier("registration.privacyCheckbox")
                         
                         // Text with separate link
                         HStack(spacing: 4) {
@@ -254,6 +257,7 @@ struct RegistrationView: View {
                         .foregroundColor(unswDarkBlue)
                         .controlSize(.large)
                         .disabled(!vm.canSubmit || vm.categories.isEmpty)
+                        .accessibilityIdentifier("registration.submitButton")
                     }
                     .padding(.horizontal, 32)
                     .padding(.vertical, 20)
@@ -617,6 +621,7 @@ private struct UNSWSuccessModal: View {
                 
                 VStack(spacing: 20) {
                     Text("Registration Successful!")
+                        .accessibilityIdentifier("registration.successTitle")
                         .font(.system(size: 32, weight: .heavy, design: .rounded))
                         .foregroundColor(unswDarkBlue)
                         .multilineTextAlignment(.center)

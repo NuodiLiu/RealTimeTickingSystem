@@ -86,6 +86,219 @@ public final class BackendAPI {
         return n == null ? 0 : Integer.parseInt(n);
     }
 
+    /**
+     * Bundle returned by /auth/test-pair-device. Mirrors the JSON shape and
+     * is consumed by the kiosk's UITEST_REAL_CREDS hook (after re-encoding).
+     */
+    public static final class TestDeviceCreds {
+        public final String deviceId;
+        public final String apiKey;
+        public final String wsToken;
+        public final String deviceName;
+        public final String mode;
+
+        public TestDeviceCreds(String deviceId, String apiKey, String wsToken, String deviceName, String mode) {
+            this.deviceId = deviceId;
+            this.apiKey = apiKey;
+            this.wsToken = wsToken;
+            this.deviceName = deviceName;
+            this.mode = mode;
+        }
+
+        /**
+         * JSON the iOS side decodes into DeviceCredentials. Only the three
+         * fields the kiosk's UITestSupport reads are emitted — wsToken and
+         * deviceName are kept on the Java side for backend calls / cleanup.
+         */
+        public String toKioskCredsJson() {
+            return String.format("{\"deviceId\":%s,\"apiKey\":%s,\"mode\":%s}",
+                    quote(deviceId), quote(apiKey), quote(mode));
+        }
+    }
+
+    /** Pair a brand-new kiosk device via /auth/test-pair-device. */
+    public static TestDeviceCreds pairTestDevice(String mode) {
+        String body = String.format("{\"mode\":%s}", quote(mode));
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(backendUrl() + "/auth/test-pair-device"))
+                .timeout(Duration.ofSeconds(15))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        HttpResponse<String> res = send(req);
+        if (res.statusCode() != 201) {
+            throw new IllegalStateException("pairTestDevice failed: HTTP " + res.statusCode() + " " + res.body());
+        }
+        String body2 = res.body();
+        return new TestDeviceCreds(
+                extractStringField(body2, "deviceId"),
+                extractStringField(body2, "apiKey"),
+                extractStringField(body2, "wsToken"),
+                extractStringField(body2, "deviceName"),
+                extractStringField(body2, "mode"));
+    }
+
+    /** Delete every kiosk device whose name starts with the suite's prefix. */
+    public static int clearTestDevices() {
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(backendUrl() + "/auth/test-pair-devices?prefix=E2E_Kiosk_"))
+                .timeout(Duration.ofSeconds(15))
+                .DELETE()
+                .build();
+        HttpResponse<String> res = send(req);
+        if (res.statusCode() == 404) {
+            return -1;
+        }
+        if (res.statusCode() != 200) {
+            throw new IllegalStateException("clearTestDevices failed: HTTP " + res.statusCode() + " " + res.body());
+        }
+        String n = extractStringField(res.body(), "deleted");
+        return n == null ? 0 : Integer.parseInt(n);
+    }
+
+    /**
+     * Follow the /auth/test-login redirect and pull the App JWT out of the
+     * /auth/callback?token=… URL. Used by cross-end scenarios that need to
+     * call staff-authenticated endpoints directly without driving the browser.
+     */
+    public static String staffJwt(String role) {
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(backendUrl() + "/auth/test-login?role=" + role))
+                .timeout(Duration.ofSeconds(15))
+                .GET()
+                .build();
+        try {
+            // Default HttpClient follows redirects only on NEVER. Build a one-off
+            // client that follows so we can read the final URL.
+            HttpClient followClient = HttpClient.newBuilder()
+                    .followRedirects(HttpClient.Redirect.ALWAYS)
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+            HttpResponse<String> res = followClient.send(req, HttpResponse.BodyHandlers.ofString());
+            String url = res.uri().toString();
+            int idx = url.indexOf("token=");
+            if (idx < 0) {
+                throw new IllegalStateException("staffJwt: no token in redirect URL: " + url);
+            }
+            String token = url.substring(idx + "token=".length());
+            int amp = token.indexOf('&');
+            if (amp >= 0) token = token.substring(0, amp);
+            return java.net.URLDecoder.decode(token, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new IllegalStateException("staffJwt failed", e);
+        }
+    }
+
+    /** Hit POST /cases/take-next as the given staff. Returns the taken case id. */
+    public static String takeNextCase(String jwt) {
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(backendUrl() + "/cases/take-next"))
+                .timeout(Duration.ofSeconds(15))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + jwt)
+                .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                .build();
+        HttpResponse<String> res = send(req);
+        if (res.statusCode() != 200) {
+            throw new IllegalStateException("takeNextCase failed: HTTP " + res.statusCode() + " " + res.body());
+        }
+        return extractStringField(res.body(), "id");
+    }
+
+    /**
+     * Walk the staff-visible status buckets and return the bucket name (upper
+     * case) for the case whose studentName matches {@code studentName}, or
+     * null if not found anywhere.
+     */
+    public static String findCaseStatusByStudentName(String jwt, String studentName) {
+        String[] buckets = { "queued", "in_progress", "resolved_pending_feedback", "resolved" };
+        String needle = "\"studentName\":\"" + studentName + "\"";
+        for (String bucket : buckets) {
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(backendUrl() + "/cases?status=" + bucket))
+                    .timeout(Duration.ofSeconds(5))
+                    .header("Authorization", "Bearer " + jwt)
+                    .GET()
+                    .build();
+            try {
+                HttpResponse<String> res = CLIENT.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200 && res.body().contains(needle)) {
+                    return bucket.toUpperCase();
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    /**
+     * Fetch a case's current status via /cases?status=… buckets. Returns null
+     * if the case isn't found in any of the staff-visible buckets. Used by
+     * cross-end scenarios to verify backend state transitions independently
+     * of the dashboard UI's refresh timing.
+     */
+    public static String caseStatus(String jwt, String caseId) {
+        String[] buckets = { "queued", "in_progress", "resolved_pending_feedback", "resolved" };
+        for (String bucket : buckets) {
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(backendUrl() + "/cases?status=" + bucket))
+                    .timeout(Duration.ofSeconds(5))
+                    .header("Authorization", "Bearer " + jwt)
+                    .GET()
+                    .build();
+            try {
+                HttpResponse<String> res = CLIENT.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200 && res.body().contains("\"id\":\"" + caseId + "\"")) {
+                    return bucket.toUpperCase();
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    /**
+     * Poll /device/by-mode/FEEDBACK until the given device reports BUSY,
+     * up to {@code timeoutSeconds}. The dashboard's "Override?" confirmation
+     * only fires when its in-memory device state has status==BUSY, which lags
+     * the backend by SignalR latency + smart-update debounce. Returns true if
+     * we saw BUSY before the timeout.
+     */
+    public static boolean waitForDeviceBusy(String jwt, String deviceId, int timeoutSeconds) {
+        long deadline = System.currentTimeMillis() + (timeoutSeconds * 1000L);
+        while (System.currentTimeMillis() < deadline) {
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(backendUrl() + "/device/by-mode/FEEDBACK"))
+                    .timeout(Duration.ofSeconds(5))
+                    .header("Authorization", "Bearer " + jwt)
+                    .GET()
+                    .build();
+            try {
+                HttpResponse<String> res = CLIENT.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200 && res.body().contains("\"deviceId\":\"" + deviceId + "\"")
+                        && res.body().contains("\"status\":\"BUSY\"")) {
+                    return true;
+                }
+            } catch (Exception ignored) {}
+            try { Thread.sleep(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        }
+        return false;
+    }
+
+    /** Hit POST /feedback/send to push a SHOW_FEEDBACK SignalR event to the device. */
+    public static void sendFeedback(String jwt, String caseId, String deviceId) {
+        String body = String.format("{\"caseId\":%s,\"deviceId\":%s}", quote(caseId), quote(deviceId));
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(backendUrl() + "/feedback/send"))
+                .timeout(Duration.ofSeconds(15))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + jwt)
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        HttpResponse<String> res = send(req);
+        if (res.statusCode() != 200) {
+            throw new IllegalStateException("sendFeedback failed: HTTP " + res.statusCode() + " " + res.body());
+        }
+    }
+
     /** Hit /health — returns true if 200. Used as a guard before scenarios that need the backend. */
     public static boolean isHealthy() {
         HttpRequest req = HttpRequest.newBuilder()
