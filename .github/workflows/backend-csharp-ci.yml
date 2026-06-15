@@ -1,19 +1,10 @@
 name: backend-csharp CI
 
-# Only runs when the C# project actually changes — avoids burning CI minutes
-# on Swift / Node / docs-only commits.
+# DISABLED: automatic push / pull_request triggers removed by request — this
+# workflow no longer runs on commits or PRs. It can still be started manually
+# via the Actions tab (workflow_dispatch). To re-enable CI, restore the
+# `push:` / `pull_request:` blocks (see git history for the prior config).
 on:
-  push:
-    branches: [main]
-    paths:
-      - "backend-csharp/**"
-      - ".github/workflows/backend-csharp-ci.yml"
-      - "AGENTS.md"
-  pull_request:
-    paths:
-      - "backend-csharp/**"
-      - ".github/workflows/backend-csharp-ci.yml"
-      - "AGENTS.md"
   workflow_dispatch:
 
 env:

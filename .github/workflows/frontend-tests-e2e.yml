@@ -16,16 +16,11 @@
 
 name: Execute Frontend E2E Tests
 
+# DISABLED: automatic push / pull_request triggers removed by request — this
+# workflow no longer runs on commits or PRs. It can still be started manually
+# via the Actions tab (workflow_dispatch). To re-enable CI, restore the
+# `push:` / `pull_request:` blocks (see git history for the prior config).
 on:
-  push:
-    branches: [main]
-    paths:
-      - "frontend-tests/**"
-      - ".github/workflows/frontend-tests-e2e.yml"
-  pull_request:
-    paths:
-      - "frontend-tests/**"
-      - ".github/workflows/frontend-tests-e2e.yml"
   workflow_dispatch:
     inputs:
       build_type:
