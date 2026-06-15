@@ -7,8 +7,8 @@ namespace Tickets.Infrastructure.Tests.Persistence;
 /// <summary>
 /// One ephemeral Postgres container per test class (see usage with
 /// <c>IClassFixture&lt;PostgresFixture&gt;</c>). The schema is created with
-/// <see cref="DatabaseFacade.EnsureCreatedAsync"/>; once we add a Migrations
-/// directory we'll switch to <see cref="RelationalDatabaseFacadeExtensions.MigrateAsync"/>.
+/// <see cref="RelationalDatabaseFacadeExtensions.MigrateAsync"/>, so the schema
+/// verified in tests is byte-for-byte the migration set the deployment applies.
 /// </summary>
 public sealed class PostgresFixture : IAsyncLifetime
 {
@@ -61,7 +61,8 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         await using var ctx = CreateContext();
         await ctx.Database.ExecuteSqlRawAsync(
-            "TRUNCATE TABLE feedback_sessions, cases, kiosk_devices, staff RESTART IDENTITY CASCADE;")
+            "TRUNCATE TABLE feedback_sessions, cases, kiosk_devices, staff, " +
+            "pairing_tokens, refresh_handles RESTART IDENTITY CASCADE;")
             .ConfigureAwait(false);
     }
 }

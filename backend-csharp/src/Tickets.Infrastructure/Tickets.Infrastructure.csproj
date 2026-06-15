@@ -20,6 +20,8 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
     <PackageReference Include="Polly" />
     <PackageReference Include="ClosedXML" />
+    <!-- Phase 5: Azure SignalR serverless gateway (Infrastructure-only). -->
+    <PackageReference Include="Microsoft.Azure.SignalR.Management" />
   </ItemGroup>
 
   <ItemGroup>

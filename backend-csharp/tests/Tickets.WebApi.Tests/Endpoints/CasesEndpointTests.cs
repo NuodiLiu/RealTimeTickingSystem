@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Tickets.Application.Cases.Commands;
+using Tickets.Domain.Devices;
 
 namespace Tickets.WebApi.Tests.Endpoints;
 
@@ -37,9 +38,27 @@ public sealed class CasesEndpointTests(WebApiFactory factory)
     }
 
     [Fact]
-    public async Task PostCase_ValidBody_Creates201()
+    public async Task PostCase_Anonymous_Returns401()
     {
+        // Phase 5: POST /cases is now device-authenticated. Anonymous callers
+        // are rejected before any validation runs.
         var client = factory.CreateAnonymousClient();
+        var body = new PostCaseCommand("Liam", "Technical", "z1234567", null);
+
+        var response = await client.PostAsJsonAsync("/cases", body, JsonOpts);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task PostCase_ValidBody_DeviceAuthenticated_Creates201()
+    {
+        // Device must be in Registration mode to create cases.
+        var (deviceId, secret) = await factory.SeedPairedDeviceAsync(
+            mode: DeviceMode.Registration, name: "Kiosk-Reg");
+        var client = factory.CreateDeviceAuthenticatedClient(deviceId, secret);
+        // The trailing device-id is ignored; the handler binds it from the
+        // authenticated principal, so a device cannot spoof another's id.
         var body = new PostCaseCommand("Liam", "Technical", "z1234567", null);
 
         var response = await client.PostAsJsonAsync("/cases", body, JsonOpts);
@@ -48,9 +67,11 @@ public sealed class CasesEndpointTests(WebApiFactory factory)
     }
 
     [Fact]
-    public async Task PostCase_MissingName_Returns400_WithOAuthErrorShape()
+    public async Task PostCase_MissingName_DeviceAuthenticated_Returns400_WithOAuthErrorShape()
     {
-        var client = factory.CreateAnonymousClient();
+        var (deviceId, secret) = await factory.SeedPairedDeviceAsync(
+            mode: DeviceMode.Registration, name: "Kiosk-Reg2");
+        var client = factory.CreateDeviceAuthenticatedClient(deviceId, secret);
         var body = new PostCaseCommand("", "Tech", null, null);
 
         var response = await client.PostAsJsonAsync("/cases", body, JsonOpts);

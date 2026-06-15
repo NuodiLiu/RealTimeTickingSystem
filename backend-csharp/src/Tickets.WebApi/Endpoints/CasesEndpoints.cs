@@ -1,8 +1,10 @@
+using Tickets.Application.Abstractions;
 using Tickets.Application.Cases.Commands;
 using Tickets.Application.Cases.Handlers;
 using Tickets.Application.Cases.Queries;
 using Tickets.Domain.Cases;
 using Tickets.WebApi.Common;
+using Tickets.WebApi.Identity;
 
 namespace Tickets.WebApi.Endpoints;
 
@@ -23,15 +25,19 @@ public static class CasesEndpoints
                     new GetPublicQueueQuery(maxResults ?? 50), ct)).ToHttpResult())
             .AllowAnonymous();
 
-        // POST /cases — device authenticated (Phase 4 follow-up wires Device auth).
-        // For now allow anonymous so tests can exercise the path; the handler
-        // still requires a deviceId in the command body when present.
+        // POST /cases — device authenticated. A6 hardening: was AllowAnonymous;
+        // now requires the Device auth scheme. The originating device id is
+        // bound from the authenticated principal (ICurrentDevice), NOT the
+        // request body, so a device cannot spoof another device's id.
         group.MapPost("/", async (
             PostCaseHandler handler,
+            ICurrentDevice currentDevice,
             PostCaseCommand command,
             CancellationToken ct) =>
-                (await handler.HandleAsync(command, ct)).ToHttpResult(StatusCodes.Status201Created))
-            .AllowAnonymous();
+                (await handler.HandleAsync(
+                    command with { CreatedByDeviceId = currentDevice.DeviceId?.Value },
+                    ct)).ToHttpResult(StatusCodes.Status201Created))
+            .RequireAuthorization(DeviceAuthSchemeDefaults.Policy);
 
         // Staff-only. Accept either Pascal enum names (Queued, InProgress, …)
         // or legacy lowercase snake_case ("queued", "in_progress",

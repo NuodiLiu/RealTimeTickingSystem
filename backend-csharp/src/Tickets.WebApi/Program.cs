@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -34,6 +35,32 @@ var jwtOptions = builder.Configuration
     .GetSection(AppJwtOptions.SectionName)
     .Get<AppJwtOptions>() ?? new AppJwtOptions();
 
+// A6 hardening: refuse to start with a weak/absent signing key outside
+// Development. HS256 requires a key of at least 256 bits (32 bytes). Previously
+// an empty key silently fell back to a dummy 'x'*64 string, which let the API
+// boot with a publicly-known signing key — a critical auth bypass in prod.
+var signingKeyBytes = string.IsNullOrEmpty(jwtOptions.SigningKey)
+    ? 0
+    : Encoding.UTF8.GetByteCount(jwtOptions.SigningKey);
+if (signingKeyBytes < 32)
+{
+    if (!builder.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException(
+            "AppJwt:SigningKey must be configured with at least 32 bytes (256 bits) " +
+            "outside the Development environment.");
+    }
+
+    // Development-only fallback so local runs / non-Docker tests still boot.
+    // Not silent: emit a loud warning so a developer never mistakes the
+    // ephemeral dev key for a configured one.
+    Console.Error.WriteLine(
+        "[WARN] AppJwt:SigningKey is missing or shorter than 32 bytes. " +
+        "Falling back to an insecure Development-only key. " +
+        "Configure AppJwt:SigningKey (>= 32 bytes) before any non-Development run.");
+    jwtOptions.SigningKey = new string('x', 64);
+}
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -47,16 +74,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(string.IsNullOrEmpty(jwtOptions.SigningKey)
-                    ? new string('x', 64)
-                    : jwtOptions.SigningKey)),
+                Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
             NameClaimType = "sub",
             RoleClaimType = "role",
         };
     })
     .AddScheme<DeviceAuthSchemeOptions, DeviceAuthSchemeHandler>(
         DeviceAuthSchemeDefaults.Scheme, _ => { });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddSignalRNegotiatePolicy();
+    // A6: device-only policy for POST /cases — only the Device auth scheme,
+    // authenticated principal required (anonymous → 401, staff JWT → 403).
+    options.AddPolicy(DeviceAuthSchemeDefaults.Policy, policy => policy
+        .AddAuthenticationSchemes(DeviceAuthSchemeDefaults.Scheme)
+        .RequireAuthenticatedUser());
+});
 
 // Webhook signature options (Azure SignalR upstream verification).
 builder.Services
@@ -65,6 +98,11 @@ builder.Services
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
+
+// Minimal-API JSON: camelCase property names to match the SignalR client
+// contract and the rest of the API surface.
+builder.Services.ConfigureHttpJsonOptions(o =>
+    o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
 
 // CORS — bound from "Cors:AllowedOrigins" config array. Frontend dev server
 // uses cookies for refresh, so we need AllowCredentials + explicit origins
@@ -108,6 +146,7 @@ app.MapDeviceEndpoints();
 app.MapFeedbackEndpoints();
 app.MapPairEndpoints();
 app.MapSignalRWebhookEndpoints();
+app.MapSignalRNegotiateEndpoints();
 app.MapExcelEndpoints();
 
 if (app.Environment.IsDevelopment())

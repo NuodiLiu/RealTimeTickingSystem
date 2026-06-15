@@ -112,15 +112,17 @@ jobs:
           echo "OK: no raw clock access found in src/."
 
       # AGENTS.md §7 Non-negotiable #7: no Azure / Identity SDKs in
-      # Domain or Application during Phase 1-4.
-      - name: No cloud SDKs in Domain / Application (Phase 1-4)
+      # Domain or Application — EVER. Phase 5 permits Microsoft.Azure.* (e.g.
+      # Microsoft.Azure.SignalR.Management) in Infrastructure / WebApi only;
+      # this grep still protects Domain / Application and must NOT be weakened.
+      - name: No cloud SDKs in Domain / Application
         run: |
           set +e
           matches=$(grep -RInE "PackageReference Include=\"(Microsoft\.Azure|Microsoft\.Identity|Azure\.)" \
             src/Tickets.Domain/Tickets.Domain.csproj \
             src/Tickets.Application/Tickets.Application.csproj)
           if [ -n "$matches" ]; then
-            echo "::error::Domain and Application must not reference cloud SDKs until Phase 5 (AGENTS.md §7 #7)."
+            echo "::error::Domain and Application must not reference cloud SDKs (AGENTS.md §7 #7)."
             echo "$matches"
             exit 1
           fi

@@ -55,26 +55,63 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IClock, SystemClock>();
 
-        // Notification gateway — fake until Phase 5 wires Azure SignalR.
+        // Notification gateway.
+        // FakeNotificationGateway is always registered as a concrete singleton
+        // (the dev /dev/notifications endpoint and infrastructure tests new it
+        // up via DI). The INotificationGateway *binding* points at the Azure
+        // SignalR gateway only when a connection string is configured; with no
+        // connection string (e.g. the WebApiFactory integration tests, local
+        // dev without Azure) it falls back to the fake — keeping tests green.
+        var signalRConnectionString =
+            configuration.GetSection(AzureSignalROptions.SectionName)["ConnectionString"]
+            ?? configuration["AZURE_SIGNALR_CONNECTION_STRING"];
+
+        services.AddOptions<AzureSignalROptions>()
+            .Bind(configuration.GetSection(AzureSignalROptions.SectionName))
+            .PostConfigure(o =>
+            {
+                // Accept the AZURE_SIGNALR_CONNECTION_STRING env var as a
+                // fallback when the structured Azure:SignalR:ConnectionString
+                // section is empty.
+                if (string.IsNullOrWhiteSpace(o.ConnectionString))
+                {
+                    o.ConnectionString =
+                        configuration["AZURE_SIGNALR_CONNECTION_STRING"] ?? string.Empty;
+                }
+            });
+
         services.AddSingleton<FakeNotificationGateway>();
-        services.AddSingleton<INotificationGateway>(sp => sp.GetRequiredService<FakeNotificationGateway>());
 
-        // Pairing — minimal cryptographic / in-memory implementations.
-        // Phase 5 should replace InMemoryPairingTokenStore with a
-        // Postgres-backed store and PlaceholderDeviceTokenIssuer with a
-        // proper signed-JWT issuer.
+        if (!string.IsNullOrWhiteSpace(signalRConnectionString))
+        {
+            services.AddSingleton<AzureSignalRNotificationGateway>();
+            services.AddSingleton<INotificationGateway>(
+                sp => sp.GetRequiredService<AzureSignalRNotificationGateway>());
+        }
+        else
+        {
+            services.AddSingleton<INotificationGateway>(
+                sp => sp.GetRequiredService<FakeNotificationGateway>());
+        }
+
+        // Pairing — cryptographic generators + Postgres-backed token ledger.
+        // PostgresPairingTokenStore MUST be Scoped: it shares the scoped
+        // TicketsDbContext.
         services.AddSingleton<IPairingTokenGenerator, CryptoPairingTokenGenerator>();
-        services.AddSingleton<IPairingTokenStore, InMemoryPairingTokenStore>();
+        services.AddScoped<IPairingTokenStore, PostgresPairingTokenStore>();
         services.AddSingleton<IDeviceSecretGenerator, CryptoDeviceSecretGenerator>();
-        services.AddSingleton<IDeviceTokenIssuer, PlaceholderDeviceTokenIssuer>();
+        // Phase 5: real signed HS256 device WebSocket tokens (was
+        // PlaceholderDeviceTokenIssuer). Binds AppJwtOptions below, so register
+        // after the options bind is not required — IOptions is resolved lazily.
+        services.AddSingleton<IDeviceTokenIssuer, JwtDeviceTokenIssuer>();
 
-        // Auth — App-JWT issuance + refresh-handle ledger.
-        // Phase 5 should replace InMemoryRefreshHandleStore with a
-        // Postgres-backed store keyed on (handle, staffId, expireAt).
+        // Auth — App-JWT issuance + Postgres-backed refresh-handle ledger.
+        // PostgresRefreshHandleStore MUST be Scoped: it shares the scoped
+        // TicketsDbContext.
         services.AddOptions<AppJwtOptions>()
             .Bind(configuration.GetSection(AppJwtOptions.SectionName));
         services.AddSingleton<IAppJwtIssuer, AppJwtIssuer>();
-        services.AddSingleton<IRefreshHandleStore, InMemoryRefreshHandleStore>();
+        services.AddScoped<IRefreshHandleStore, PostgresRefreshHandleStore>();
 
         // Reporting — ClosedXML xlsx generator.
         services.AddSingleton<IExcelWorkbookGenerator, ClosedXmlWorkbookGenerator>();
