@@ -68,19 +68,22 @@ public sealed class AuthAzureAdEndpointTests(WebApiFactory factory)
 
     // ── /auth/redirect ───────────────────────────────────────────────────
 
+    // AGENTS.md §8.2: /auth/redirect failures must 302 to /login?error=<code>
+    // (the frontend depends on this), never return raw JSON.
     [Fact]
-    public async Task Redirect_MissingState_Returns400()
+    public async Task Redirect_MissingState_RedirectsToLoginError()
     {
         var client = CreateClient();
 
         var response = await client.GetAsync(
             new Uri("/auth/redirect?code=abc", UriKind.Relative));
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().Contain("/login?error=invalid_request");
     }
 
     [Fact]
-    public async Task Redirect_NoStateCookie_Returns400()
+    public async Task Redirect_NoStateCookie_RedirectsToLoginError()
     {
         var client = CreateClient();
 
@@ -88,11 +91,12 @@ public sealed class AuthAzureAdEndpointTests(WebApiFactory factory)
         var response = await client.GetAsync(
             new Uri("/auth/redirect?code=abc&state=zzz", UriKind.Relative));
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().Contain("/login?error=invalid_state");
     }
 
     [Fact]
-    public async Task Redirect_StateMismatch_Returns400()
+    public async Task Redirect_StateMismatch_RedirectsToLoginError()
     {
         var client = CreateClient();
 
@@ -106,7 +110,8 @@ public sealed class AuthAzureAdEndpointTests(WebApiFactory factory)
 
         var response = await client.SendAsync(request);
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+        response.Headers.Location!.ToString().Should().Contain("/login?error=state_mismatch");
     }
 
     [Fact]
