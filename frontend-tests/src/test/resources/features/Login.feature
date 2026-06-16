@@ -15,7 +15,7 @@ Feature: Sign in to the Real-Time Ticketing System
 
     Examples:
       | errorCode        | expectedMessage                                       |
-      | oauth_error      | Microsoft authentication failed. Please try again.    |
+      | oauth_error      | Microsoft authentication failed. Please contact your administrator.    |
       | missing_code     | Authorization failed. Please try again.               |
       | auth_failed      | Authentication process failed. Please try again.      |
       | token_expired    | Your session has expired. Please log in again.        |
