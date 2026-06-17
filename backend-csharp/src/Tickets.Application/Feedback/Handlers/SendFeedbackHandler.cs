@@ -9,6 +9,7 @@ using Tickets.Domain.FeedbackSessions;
 using Tickets.Domain.Shared.Abstractions;
 using Tickets.Domain.Shared.Errors;
 using Tickets.Domain.Shared.Time;
+using Tickets.Domain.Staff;
 
 namespace Tickets.Application.Feedback.Handlers;
 
@@ -30,6 +31,7 @@ public sealed class SendFeedbackHandler(
     ICaseRepository caseRepository,
     IKioskDeviceRepository deviceRepository,
     IFeedbackSessionRepository sessionRepository,
+    IStaffRepository staffRepository,
     IUnitOfWork unitOfWork,
     IClock clock,
     INotificationGateway notifications,
@@ -110,6 +112,25 @@ public sealed class SendFeedbackHandler(
     private async Task SafeNotifyAsync(
         KioskDevice device, FeedbackSession session, CancellationToken ct)
     {
+        // The iPad's SHOW_FEEDBACK contract requires a `staff { id, name }` block
+        // (contracts/signalr/server-to-device/show-feedback.json). Omitting it made
+        // the device's strict decode fail silently, so the feedback screen never
+        // appeared in realtime. `id` is always sent (it fixes the decode); `name`
+        // is best-effort — a name lookup failure must never block the push.
+        string? staffName = null;
+        try
+        {
+            var staff = await staffRepository
+                .FindByIdAsync(session.StaffId, ct).ConfigureAwait(false);
+            staffName = staff?.Name;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "staff name lookup failed for {StaffId} (showFeedback sent without name)",
+                session.StaffId);
+        }
+
         try
         {
             await notifications.PushToDeviceAsync(
@@ -119,6 +140,11 @@ public sealed class SendFeedbackHandler(
                 {
                     sessionId = session.Id.Value,
                     caseId = session.CaseId.Value,
+                    staff = new
+                    {
+                        id = session.StaffId.Value,
+                        name = staffName,
+                    },
                     expireAt = session.ExpireAt,
                 },
                 ct).ConfigureAwait(false);

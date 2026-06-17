@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tickets.Application.Abstractions;
 using Tickets.Application.Feedback.Commands;
@@ -16,12 +17,13 @@ public sealed class SendFeedbackHandlerTests
     private readonly ICaseRepository _cases = Substitute.For<ICaseRepository>();
     private readonly IKioskDeviceRepository _devices = Substitute.For<IKioskDeviceRepository>();
     private readonly IFeedbackSessionRepository _sessions = Substitute.For<IFeedbackSessionRepository>();
+    private readonly IStaffRepository _staff = Substitute.For<IStaffRepository>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
     private readonly INotificationGateway _notify = Substitute.For<INotificationGateway>();
     private readonly FakeClock _clock = new();
 
     private SendFeedbackHandler Handler(StaffId? staff = null) => new(
-        _cases, _devices, _sessions, _uow, _clock, _notify,
+        _cases, _devices, _sessions, _staff, _uow, _clock, _notify,
         staff is null ? FakeCurrentUser.AnonymousUser() : FakeCurrentUser.StaffMember(staff),
         NullLogger<SendFeedbackHandler>.Instance);
 
@@ -126,6 +128,37 @@ public sealed class SendFeedbackHandlerTests
             device.Id, "showFeedback", Arg.Any<object>(), Arg.Any<CancellationToken>());
         await _notify.Received(1).NotifyDashboardAsync(
             "device:updated", Arg.Any<object>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_ShowFeedbackPayload_IncludesStaffBlockWithId()
+    {
+        // The iPad's SHOW_FEEDBACK contract requires payload.staff.{id,name}. A
+        // missing staff block made the device's strict decode fail silently, so
+        // the feedback screen never appeared in realtime. Pin the staff block here.
+        var (theCase, device) = Bundle();
+        var staffId = StaffId.New();
+        _cases.FindByIdAsync(theCase.Id, Arg.Any<CancellationToken>()).Returns(theCase);
+        _devices.FindByIdAsync(device.Id, Arg.Any<CancellationToken>()).Returns(device);
+
+        await Handler(staffId).HandleAsync(
+            new SendFeedbackCommand(theCase.Id.Value, device.Id.Value), CancellationToken.None);
+
+        await _notify.Received(1).PushToDeviceAsync(
+            device.Id,
+            "showFeedback",
+            Arg.Is<object>(p => PayloadStaffId(p) == staffId.Value.ToString()),
+            Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>Serializes the anonymous push payload and reads <c>staff.id</c>.</summary>
+    private static string? PayloadStaffId(object payload)
+    {
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(payload));
+        return doc.RootElement.TryGetProperty("staff", out var staff)
+            && staff.TryGetProperty("id", out var id)
+            ? id.GetString()
+            : null;
     }
 
     [Fact]
